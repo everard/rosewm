@@ -1,0 +1,6 @@
+src/pointer-constraints-unstable-v1-protocol.h
+src/pointer-constraints-unstable-v1-protocol.c
+src/tablet-unstable-v2-protocol.h
+src/tablet-unstable-v2-protocol.c
+src/xdg-shell-protocol.h
+src/xdg-shell-protocol.c
