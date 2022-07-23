@@ -16,29 +16,52 @@ The following diagram shows how the system works.
 ```
 
 Window Manager starts zero or more system processes which communicate with it
-through Wayland protocol, and, additionally through a separate IPC protocol with
-its dedicated Unix socket (_$ROSE_IPC_ENDPOINT_ environment variable contains a
-path to this socket).
+via Wayland protocol and/or via a separate IPC protocol with its own Unix socket
+(_$ROSE_IPC_ENDPOINT_ environment variable contains a path to this socket).
 
 _Note: In this document all environment variables are prefixed with the "$"
 symbol._
 
-There are the following system processes:
- * BACKGROUND - displays background images on outputs;
- * DISPATCHER - displays command prompt, handles IPC commands (more on this
-   later);
- * NOTIFICATION DAEMON - displays notifications;
- * PANEL - displays panel widgets on outputs;
- * SCREEN LOCKER - displays lock screens on outputs.
+Here's a table of system processes with their descriptions.
 
-These system processes must operate through the normal xdg_shell protocol, with
-the following additional requirements:
- * when Window Manager sends close event to any xdg_surface, system process
-   _must_ destroy such surface;
- * BACKGROUND, PANEL and SCREEN LOCKER system processes are expected to create
-   an xdg_toplevel for each output global. Window Manager will automatically
-   send close events to relevant surfaces which belong to these system
-   processes.
+| NAME                | DESCRIPTION                                    |
+|---------------------|------------------------------------------------|
+| BACKGROUND          | Displays background images on outputs.         |
+| DISPATCHER          | Displays command prompt, handles IPC commands. |
+| NOTIFICATION DAEMON | Displays notifications.                        |
+| PANEL               | Displays panel widgets on outputs.             |
+| SCREEN LOCKER       | Displays lock screens on outputs.              |
+
+These processes _must_ create visible windows via the xdg_shell Wayland protocol
+(in other words, no non-standard Wayland protocols are required).
+
+System processes _must_ obey compositor's commands: when close event is received
+by any surface which belongs to such process, the surface _must_ be destroyed as
+soon as possible.
+
+When a system process creates an xdg_toplevel, the compositor configures the
+size of the surface. For some system processes this is exact requirement, while
+for others it is a maximal limit. The following table specifies which behaviour
+is expected from which system process.
+
+| PROCESS             | LIMIT TYPE |
+|---------------------|------------|
+| BACKGROUND          | Exact      |
+| DISPATCHER          | Exact      |
+| NOTIFICATION DAEMON | Maximal    |
+| PANEL               | Exact      |
+| SCREEN LOCKER       | Exact      |
+
+Some system processes are expected to create an xdg_toplevel for each output.
+The following table specifies such processes.
+
+| PROCESS             | CREATES XDG_TOPLEVEL FOR EACH OUTPUT? |
+|---------------------|---------------------------------------|
+| BACKGROUND          | Yes                                   |
+| DISPATCHER          | No                                    |
+| NOTIFICATION DAEMON | No                                    |
+| PANEL               | Yes                                   |
+| SCREEN LOCKER       | Yes                                   |
 
 # CONFIGURATION
 There is a number of configuration files. These files are looked-up in the
@@ -54,6 +77,7 @@ Here's a table of configuration options.
 | OPTION              | CONFIGURATION FILE NAME    | MANDATORY? |
 |---------------------|----------------------------|------------|
 | Fonts               | fonts                      | Yes        |
+| Theme               | theme                      | No         |
 | Keyboard shortcuts  | keyboard_control_scheme    | No         |
 | Keyboard layouts    | keyboard_layouts           | No         |
 | BACKGROUND          | system_background          | No         |
@@ -71,33 +95,37 @@ Fonts are configured with a simple text file which contains new-line-separated
 list of paths to font files. At least one path _must_ be specified, and the
 second path _should_ be a path to FontAwesome.
 
-Note: Each path _must_ end with a new line character.
-
 Example:
 ```
-/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf
-/usr/share/fonts/fontawesome/fontawesome-webfont.ttf
-
+/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf\n
+/usr/share/fonts/fontawesome/fontawesome-webfont.ttf\n
 ```
+
+Note: Here "\n" denotes the new line character. Each path _must_ end with a new
+line character.
+
+## THEME
+TODO
 
 ## KEYBOARD SHORTCUTS
 TODO
 
 ## KEYBOARD LAYOUTS
-Keyboard layouts are configured with a simple text file, which contains
-comma-separated list of keyboard layouts. No new line characters should be
-present in this configuration file.
+Keyboard layouts are configured with a simple text file which contains
+comma-separated list of layouts names. No new line characters should be present
+in this configuration file.
 
-## COMMAND LINE ARGUMENTS FOR SYSTEM PROCESSES AND TERMINAL
-Command line arguments which are used to start different processes (system
-processes and terminal) are specified through null-character-terminated list.
+## COMMAND LINE ARGUMENTS FOR PROCESSES
+Command line arguments which are used for starting different processes (system
+processes and terminal) are specified via null-character-terminated list of
+strings.
 
-Example #1:
+Example #1 [file:`system_terminal`]:
 ```
 /usr/bin/xfce4-terminal\0
 ```
 
-Example #2:
+Example #2 [file:`system_dispatcher`]:
 ```
 /usr/bin/python3\0/usr/local/bin/dispatcher.py\0
 ```
@@ -124,7 +152,8 @@ To remove the program from the `/usr/local/bin/` directory, run:
 sudo make uninstall
 ```
 
-Build system uses pkg-config to obtain compiler and linker flags for dependencies.
+Build system uses `pkg-config` to obtain compiler and linker flags for
+dependencies.
 
 Dependencies:
  * WLRoots version 14.1
