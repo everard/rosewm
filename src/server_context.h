@@ -14,7 +14,6 @@
 
 #include "ipc_server.h"
 #include "rendering.h"
-#include "unicode.h"
 
 #include "surface.h"
 #include "workspace.h"
@@ -48,6 +47,7 @@ struct rose_server_context {
     // Backend abstraction.
     struct wlr_backend* backend;
     struct wlr_renderer* renderer;
+    struct wlr_allocator* allocator;
 
     // Wayland protocols.
     struct wlr_relative_pointer_manager_v1* relative_pointer_manager;

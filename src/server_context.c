@@ -7,6 +7,7 @@
 
 #include <wlr/backend.h>
 #include <wlr/backend/libinput.h>
+#include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/util/log.h>
 
@@ -1042,10 +1043,14 @@ rose_server_context_initialize(struct rose_server_context* ctx) {
     add_signal_(ctx->backend, backend, new_output);
 
     // Initialize the renderer.
-    try_(ctx->renderer = wlr_backend_get_renderer(ctx->backend));
+    try_(ctx->renderer = wlr_renderer_autocreate(ctx->backend));
     if(!wlr_renderer_init_wl_display(ctx->renderer, ctx->display)) {
         return false;
     }
+
+    // Initialize the allocator.
+    try_(ctx->allocator =
+             wlr_allocator_autocreate(ctx->backend, ctx->renderer));
 
     // Initialize the compositor.
     try_(wlr_compositor_create(ctx->display, ctx->renderer));
@@ -1231,6 +1236,16 @@ rose_server_context_destroy(struct rose_server_context* ctx) {
     if(ctx->display != NULL) {
         wl_display_destroy_clients(ctx->display);
         wl_display_destroy(ctx->display);
+    }
+
+    // Destroy the renderer.
+    if(ctx->renderer != NULL) {
+        wlr_renderer_destroy(ctx->renderer);
+    }
+
+    // Destroy the allocator.
+    if(ctx->allocator != NULL) {
+        wlr_allocator_destroy(ctx->allocator);
     }
 
 #define kill_(type)                                \

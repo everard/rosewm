@@ -1144,10 +1144,9 @@ rose_workspace_notify_surface_map(struct rose_workspace* workspace,
                      rose_surface_configure_fullscreen,
             .w = surface->state.saved.w,
             .h = surface->state.saved.h,
-            .is_maximized =
-                surface->xdg_surface->toplevel->client_pending.maximized,
+            .is_maximized = surface->xdg_surface->toplevel->requested.maximized,
             .is_fullscreen =
-                surface->xdg_surface->toplevel->client_pending.fullscreen});
+                surface->xdg_surface->toplevel->requested.fullscreen});
 
     // Update workspace's layout.
     rose_workspace_layout_update(
@@ -1224,6 +1223,7 @@ rose_workspace_transaction_start(struct rose_workspace* workspace) {
 
 void
 rose_workspace_transaction_update(struct rose_workspace* workspace) {
+    // Update transaction's sentinel and commit the transaction, if needed.
     if((--(workspace->transaction.sentinel)) <= 0) {
         rose_workspace_transaction_commit(workspace);
     }

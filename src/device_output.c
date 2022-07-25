@@ -748,6 +748,11 @@ rose_handle_event_output_cursor_client_surface_destroy(
 void
 rose_output_initialize(struct rose_server_context* ctx,
                        struct wlr_output* dev) {
+    // Initialize output's rendering subsystem.
+    if(!wlr_output_init_render(dev, ctx->allocator, ctx->renderer)) {
+        return;
+    }
+
     // Set device's mode, if needed.
     if(!wl_list_empty(&(dev->modes))) {
         wlr_output_set_mode(dev, wlr_output_preferred_mode(dev));

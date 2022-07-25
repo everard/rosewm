@@ -41,7 +41,7 @@ static bool
 rose_surface_is_decoration_configured(struct rose_surface* surface) {
     return ((surface->type != rose_surface_type_toplevel) ||
             (surface->xdg_decoration == NULL) ||
-            (surface->xdg_decoration->current_mode ==
+            (surface->xdg_decoration->current.mode ==
              WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE));
 }
 
@@ -237,7 +237,7 @@ rose_handle_event_surface_request_maximize(struct wl_listener* listener,
             .flags = rose_surface_configure_maximized |
                      rose_surface_configure_no_transaction,
             .is_maximized =
-                surface->xdg_surface->toplevel->client_pending.maximized});
+                surface->xdg_surface->toplevel->requested.maximized});
 }
 
 static void
