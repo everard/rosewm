@@ -50,7 +50,7 @@ is expected from which system process.
 | DISPATCHER          | Exact      |
 | NOTIFICATION DAEMON | Maximal    |
 | PANEL               | Exact      |
-| SCREEN LOCKER       | Exact      |
+| SCREEN LOCKER       | Maximal    |
 
 Some system processes are expected to create an xdg_toplevel for each output.
 The following table specifies such processes.
@@ -105,7 +105,39 @@ Note: Here "\n" denotes the new line character. Each path _must_ end with a new
 line character.
 
 ## THEME
-TODO
+Theme can be configured with a binary file. The format of such file is specified
+in the following table.
+
+| FIELD                  | TYPE                              |
+|------------------------|-----------------------------------|
+| font size              | byte                              |
+| panel's position       | byte                              |
+| panel's size           | byte                              |
+| color scheme           | array of 4-byte RGBA color values |
+
+Panel's position can only take the values specified in the following table.
+
+| VALUE | POSITION |
+|-------|----------|
+| 0     | TOP      |
+| 1     | BOTTOM   |
+| 2     | LEFT     |
+| 3     | RIGHT    |
+
+Color scheme contains the following colors, in this order:
+* panel's background color,
+* panel's foreground color,
+* panel's highlight color,
+* menu's background color,
+* menu's foreground color,
+* menu's highlight color #1,
+* menu's highlight color #2,
+* surface's background color #1,
+* surface's background color #2,
+* surface's resizing background color #1,
+* surface's resizing background color #2,
+* surface's resizing foreground color,
+* workspace's background color.
 
 ## KEYBOARD SHORTCUTS
 TODO
@@ -120,12 +152,12 @@ Command line arguments which are used for starting different processes (system
 processes and terminal) are specified via null-character-terminated list of
 strings.
 
-Example #1 [file:`system_terminal`]:
+Example #1 [file: `system_terminal`]:
 ```
 /usr/bin/xfce4-terminal\0
 ```
 
-Example #2 [file:`system_dispatcher`]:
+Example #2 [file: `system_dispatcher`]:
 ```
 /usr/bin/python3\0/usr/local/bin/dispatcher.py\0
 ```
@@ -156,7 +188,7 @@ Build system uses `pkg-config` to obtain compiler and linker flags for
 dependencies.
 
 Dependencies:
- * WLRoots version 14.1
+ * WLRoots version 0.15
  * wayland-protocols
  * wayland-scanner
  * wayland-server
