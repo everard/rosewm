@@ -140,7 +140,58 @@ Color scheme contains the following colors, in this order:
 * workspace's background color.
 
 ## KEYBOARD SHORTCUTS
-TODO
+Keyboard shortcuts can be configured with a binary file. The format of such file
+is specified in the following table.
+
+| FIELD         | TYPE                                            |
+|---------------|-------------------------------------------------|
+| leader        | byte                                            |
+| $N_core$      | byte                                            |
+| $N_menu$      | byte                                            |
+| $N_IPC$       | byte                                            |
+| core actions  | array of $N_core$ objects of _core action_ type |
+| menu actions  | array of $N_menu$ objects of _menu action_ type |
+| IPC actions   | array of $N_IPC$ objects of _IPC action_ type   |
+
+Leader can only take the values specified in the following table.
+
+| VALUE | KEY               |
+|-------|-------------------|
+| 0     | `XKB_KEY_Super_L` |
+| 1     | `XKB_KEY_Super_R` |
+| 2     | `XKB_KEY_Alt_L`   |
+| 3     | `XKB_KEY_Alt_R`   |
+| 4     | `XKB_KEY_Menu`    |
+
+### CORE/MENU ACTION TYPE
+Both the _core action_ and _menu action_ types have the same format which is
+specified in the following table.
+
+| FIELD              | TYPE                      |
+|--------------------|---------------------------|
+| shortcut           | object of _shortcut_ type |
+| index              | byte                      |
+
+Core action's index field must take values from the `rose_core_action_type`
+enumeration.
+
+Menu action's index field must take values from the `rose_menu_action_type`
+enumeration.
+
+(These enumerations are defined in the [src/action.h](src/action.h) file).
+
+### IPC ACTION TYPE
+_IPC action_ type has the following format.
+
+| FIELD              | TYPE                      |
+|--------------------|---------------------------|
+| IPC command        | array of 64 bytes         |
+| shortcut           | object of _shortcut_ type |
+
+### SHORTCUT TYPE
+Shortcut type is an array of 5 keysyms. Each keysym is represented by a 32-bit
+unsigned integer value packed into array of bytes, starting from value's least
+significant byte, all the way up to the most significant byte.
 
 ## KEYBOARD LAYOUTS
 Keyboard layouts are configured with a simple text file which contains
