@@ -143,15 +143,15 @@ Color scheme contains the following colors, in this order:
 Keyboard shortcuts can be configured with a binary file. The format of such file
 is specified in the following table.
 
-| FIELD         | TYPE                                            |
-|---------------|-------------------------------------------------|
-| leader        | byte                                            |
-| $N_core$      | byte                                            |
-| $N_menu$      | byte                                            |
-| $N_IPC$       | byte                                            |
-| core actions  | array of $N_core$ objects of _core action_ type |
-| menu actions  | array of $N_menu$ objects of _menu action_ type |
-| IPC actions   | array of $N_IPC$ objects of _IPC action_ type   |
+| FIELD         | TYPE                                              |
+|---------------|---------------------------------------------------|
+| leader        | byte                                              |
+| $N_{core}$    | byte                                              |
+| $N_{menu}$    | byte                                              |
+| $N_{IPC}$     | byte                                              |
+| core actions  | array of $N_{core}$ objects of _core action_ type |
+| menu actions  | array of $N_{menu}$ objects of _menu action_ type |
+| IPC actions   | array of $N_{IPC}$ objects of _IPC action_ type   |
 
 Leader can only take the values specified in the following table.
 
@@ -192,6 +192,9 @@ _IPC action_ type has the following format.
 Shortcut type is an array of 5 keysyms. Each keysym is represented by a 32-bit
 unsigned integer value packed into array of bytes, starting from value's least
 significant byte, all the way up to the most significant byte.
+
+If the first keysym in a shortcut has value `0`, then this value is replaced by
+the leader's keysym.
 
 ## KEYBOARD LAYOUTS
 Keyboard layouts are configured with a simple text file which contains
