@@ -172,13 +172,16 @@ specified in the following table.
 | shortcut           | object of _shortcut_ type |
 | index              | byte                      |
 
-Core action's index field must take values from the `rose_core_action_type`
-enumeration.
+Requirements:
+ * core action's index field must take values from the `rose_core_action_type`
+enumeration;
+ * menu action's index field must take values from the `rose_menu_action_type`
+enumeration;
+ * there can be defined up to `(2 * rose_n_core_action_types)` core actions;
+ * there can be defined up to `(2 * rose_n_menu_action_types)` menu actions.
 
-Menu action's index field must take values from the `rose_menu_action_type`
-enumeration.
-
-(These enumerations are defined in the [src/action.h](src/action.h) file).
+(These enumerations and constants are defined in the
+[src/action.h](src/action.h) file).
 
 ### IPC ACTION TYPE
 _IPC action_ type has the following format.
@@ -195,6 +198,9 @@ significant byte, all the way up to the most significant byte.
 
 If the first keysym in a shortcut has value `0`, then this value is replaced by
 the leader's keysym.
+
+If a shortcut consists of less than 5 keysyms, then unused keysyms must be set
+to `0`.
 
 ## KEYBOARD LAYOUTS
 Keyboard layouts are configured with a simple text file which contains
@@ -219,7 +225,70 @@ Example #2 [file: `system_dispatcher`]:
 Note: Here "\0" denotes a null character.
 
 # ROSE IPC PROTOCOL
-TODO
+Window Manager uses simple packet-based IPC protocol. Packets have the following
+format.
+
+| FIELD                          | TYPE                                   |
+|--------------------------------|----------------------------------------|
+| $L_{payload}$ - payload's size | 16-bit unsigned integer, little endian |
+| payload                        | array of $L_{payload}$ bytes           |
+
+Note: Payload's size can not exceed 8 KiB.
+
+Once a client has established connection to compositor's IPC socket, it has to
+select the type of IPC protocol by sending the following packet (hex):
+
+```
+01 00 TYPE
+```
+
+The TYPE can only take the values specified in the following table.
+
+| VALUE | DESCRIPTION  |
+|-------|--------------|
+| 1     | CONFIGURATOR |
+| 2     | DISPATCHER   |
+| 3     | STATUS       |
+
+After a client selected protocol's type, Window Manager verifies client's access
+rights. STATUS protocol is accessible by all clients; other protocols - are not.
+
+CONFIGURATOR and DISPATCHER protocols are only accessible by the DISPATCHER,
+PANEL, SCREEN LOCKER system processes, and by any process which has been started
+via DISPATCHER protocol with IPC access rights.
+
+## CONFIGURATOR
+
+## DISPATCHER
+
+## STATUS
+Through this protocol the server notifies all connected clients of its status.
+Server's packets contain one or more status messages. Each status message has
+the following format.
+
+| FIELD | TYPE                                          |
+|-------|-----------------------------------------------|
+| type  | byte                                          |
+| info  | depends on the type of the message, see below |
+
+The following table describes the values which can appear in the type field of a
+status message, along with the corresponding contents of message's info field.
+
+| VALUE | DESCRIPTION                      | INFO'S TYPE      | INFO           |
+|-------|----------------------------------|------------------|----------------|
+| 0     | changed: server's state vector   | array of 4 bytes | see below      |
+| 1     | changed: keymap                  | _empty_          | ---            |
+| 2     | changed: keyboard control scheme | _empty_          | ---            |
+| 3     | changed: theme                   | _empty_          | ---            |
+| 4     | initialized: input device        | unsigned integer | device's index |
+| 5     | destroyed:   input device        | unsigned integer | device's index |
+| 6     | initialized: output device       | unsigned integer | device's index |
+| 7     | destroyed:   output device       | unsigned integer | device's index |
+
+Server's state vector contains the following data, in this order:
+ * screen lock flag,
+ * keyboard shortcuts inhibition flag,
+ * keyboard layout index.
 
 # COMPILATION
 To compile the program, run:
