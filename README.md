@@ -194,7 +194,7 @@ _IPC action_ type has the following format.
 ### SHORTCUT TYPE
 Shortcut type is an array of 5 keysyms. Each keysym is represented by a 32-bit
 unsigned integer value packed into array of bytes, starting from value's least
-significant byte, all the way up to the most significant byte.
+significant byte, all the way up to the most significant byte (little endian).
 
 If the first keysym in a shortcut has value `0`, then this value is replaced by
 the leader's keysym.
@@ -222,49 +222,98 @@ Example #2 [file: `system_dispatcher`]:
 /usr/bin/python3\0/usr/local/bin/dispatcher.py\0
 ```
 
-Note: Here "\0" denotes a null character.
+Note: Here "\0" denotes the null character.
 
 # ROSE IPC PROTOCOL
 Window Manager uses simple packet-based IPC protocol. Packets have the following
 format.
 
-| FIELD                          | TYPE                                   |
-|--------------------------------|----------------------------------------|
-| $L_{payload}$ - payload's size | 16-bit unsigned integer, little endian |
-| payload                        | array of $L_{payload}$ bytes           |
+| FIELD         | TYPE                                   |
+|---------------|----------------------------------------|
+| $L_{payload}$ | 16-bit unsigned integer, little endian |
+| payload       | array of $L_{payload}$ bytes           |
 
 Note: Payload's size can not exceed 8 KiB.
 
-Once a client has established connection to compositor's IPC socket, it has to
-select the type of IPC protocol by sending the following packet (hex):
+Once a client establishes connection with compositor's IPC socket, it _must_
+select a variant of IPC protocol by sending a packet with single-byte payload.
+This payload can only take the values specified in the following table.
 
+| VALUE | PROTOCOL VARIANT |
+|-------|------------------|
+| 1     | CONFIGURATOR     |
+| 2     | DISPATCHER       |
+| 3     | STATUS           |
+
+Example packet #1, selects CONFIGURATOR protocol variant [hex]:
 ```
-01 00 TYPE
+01 00 01
 ```
 
-The TYPE can only take the values specified in the following table.
+Example packet #2, selects DISPATCHER protocol variant [hex]:
+```
+01 00 02
+```
 
-| VALUE | DESCRIPTION  |
-|-------|--------------|
-| 1     | CONFIGURATOR |
-| 2     | DISPATCHER   |
-| 3     | STATUS       |
+Example packet #3, selects STATUS protocol variant [hex]:
+```
+01 00 03
+```
 
-After a client selected protocol's type, Window Manager verifies client's access
-rights. STATUS protocol is accessible by all clients; other protocols - are not.
-
-CONFIGURATOR and DISPATCHER protocols are only accessible by the DISPATCHER,
+After a client selects protocol variant, Window Manager verifies client's access
+rights:
+ * STATUS protocol is accessible by all clients;
+ * CONFIGURATOR and DISPATCHER protocols are only accessible by the DISPATCHER,
 PANEL, SCREEN LOCKER system processes, and by any process which has been started
 via DISPATCHER protocol with IPC access rights.
 
 ## CONFIGURATOR
+Through this half-duplex protocol variant clients can send requests to the
+server, and the server must respond back.
+
+Clients can query server's keymap, obtain number and state of input and output
+devices, configure these devices, switch keyboard layout, lock/unlock the
+screen, and reload server's configuration.
+
+This protocol variant is specified in the
+[src/ipc_connection_configurator.c](src/ipc_connection_configurator.c) file.
 
 ## DISPATCHER
+Through this full-duplex protocol variant the server sends IPC commands to all
+connected clients, while clients can request execution of privileged processes.
+
+Server's packets contain one or more IPC commands. Each IPC command is an array
+of 64 bytes. Clients interpret these IPC commands in their own way.
+
+Client's packets have the following payload.
+
+| FIELD                  | TYPE                                       |
+|------------------------|--------------------------------------------|
+| access rights          | byte                                       |
+| command line arguments | array of null-character-terminated strings |
+
+The access rights field is a bitwise or of zero or more values from the
+`rose_command_access_rights` enumeration. This enumeration is defined in the
+[src/command.h](src/command.h) file.
+
+Example client's packet #1, starts a terminal emulator with IPC access rights:
+```
+\x19\x00\x01/usr/bin/xfce4-terminal\0
+```
+
+Example client's packet #2, starts an application which has IPC access rights,
+and access to the privileged Wayland protocols:
+```
+\x2B\x00\x03/usr/bin/python3\0/usr/local/bin/my_app.py\0
+```
+
+Note: Here "\x" indicates a hexadecimal escape sequence, "\0" denote the null
+character.
 
 ## STATUS
-Through this protocol the server notifies all connected clients of its status.
-Server's packets contain one or more status messages. Each status message has
-the following format.
+Through this protocol variant the server notifies all connected clients of its
+status. Server's packets contain one or more status messages. Each status
+message has the following format.
 
 | FIELD | TYPE                                          |
 |-------|-----------------------------------------------|
