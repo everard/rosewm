@@ -4,20 +4,11 @@
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
 #include "server_context.h"
-#include "workspace_pointer.h"
 
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xdg_shell.h>
-
-#include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
-
-#include <wlr/util/region.h>
-#include <pixman.h>
-
-#include <linux/input-event-codes.h>
-#include <assert.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Geometric-computation-related utility functions and types.
@@ -32,9 +23,8 @@ rose_workspace_compute_main_area(struct rose_workspace* workspace) {
     struct rose_workspace_rectangle area = {
         .w = workspace->w, .h = workspace->h};
 
-    // If the panel is visible, then subtract panel's area.
     if(workspace->panel.is_visible) {
-        // Perform computations depending on panel's position.
+        // If the panel is visible, then subtract its area.
         switch(workspace->panel.position) {
             case rose_ui_panel_position_top:
                 area.y += workspace->panel.size;
@@ -361,8 +351,13 @@ rose_workspace_destroy(struct rose_workspace* workspace) {
     }
 
     // Remove timers.
-    wl_event_source_remove(workspace->transaction.timer);
-    wl_event_source_remove(workspace->pointer.timer);
+    if(workspace->transaction.timer != NULL) {
+        wl_event_source_remove(workspace->transaction.timer);
+    }
+
+    if(workspace->pointer.timer != NULL) {
+        wl_event_source_remove(workspace->pointer.timer);
+    }
 
     // Remove this workspace from the output it belongs to, if any.
     if(workspace->output != NULL) {
@@ -467,9 +462,20 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
             wlr_seat_keyboard_end_grab(workspace->ctx->seat);
             wlr_seat_pointer_end_grab(workspace->ctx->seat);
 
-            // And clear keyboard and pointer focus.
+            // Clear keyboard and pointer focus.
             wlr_seat_keyboard_clear_focus(workspace->ctx->seat);
             wlr_seat_pointer_clear_focus(workspace->ctx->seat);
+
+            // And clear focus of all tablets.
+            if(true) {
+                struct rose_tablet* tablet = NULL;
+                struct rose_tablet* _ = NULL;
+
+                wl_list_for_each_safe(
+                    tablet, _, &(workspace->ctx->inputs_tablets), link) {
+                    rose_tablet_clear_focus(tablet);
+                }
+            }
         }
     } else if(prompt != NULL) {
         // If there is a prompt, then make it accept input events.
@@ -489,9 +495,20 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
         wlr_seat_keyboard_end_grab(workspace->ctx->seat);
         wlr_seat_pointer_end_grab(workspace->ctx->seat);
 
-        // And clear keyboard and pointer focus.
+        // Clear keyboard and pointer focus.
         wlr_seat_keyboard_clear_focus(workspace->ctx->seat);
         wlr_seat_pointer_clear_focus(workspace->ctx->seat);
+
+        // And clear focus of all tablets.
+        if(true) {
+            struct rose_tablet* tablet = NULL;
+            struct rose_tablet* _ = NULL;
+
+            wl_list_for_each_safe(
+                tablet, _, &(workspace->ctx->inputs_tablets), link) {
+                rose_tablet_clear_focus(tablet);
+            }
+        }
     }
 
     // Update pointer's focus by warping the pointer to its current location.
@@ -913,7 +930,6 @@ rose_workspace_request_redraw(struct rose_workspace* workspace) {
 
 void
 rose_workspace_cancel_interactive_mode(struct rose_workspace* workspace) {
-    // Return the workspace to the normal mode.
     workspace->mode = rose_workspace_mode_normal;
 }
 
@@ -1060,7 +1076,6 @@ rose_workspace_notify_output_mode(struct rose_workspace* workspace,
 
     // Change the size of the workspace.
     struct rose_output_state output_state = rose_output_state_obtain(output);
-
     workspace->w = (int)(0.5 + (output_state.w / output_state.scale));
     workspace->h = (int)(0.5 + (output_state.h / output_state.scale));
 

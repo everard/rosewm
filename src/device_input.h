@@ -8,6 +8,7 @@
 
 #include "device_input_keyboard.h"
 #include "device_input_pointer.h"
+#include "device_input_tablet.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
@@ -23,10 +24,14 @@ struct wlr_input_device;
 enum rose_input_device_type {
     rose_input_device_type_unknown,
     rose_input_device_type_keyboard,
-    rose_input_device_type_pointer
+    rose_input_device_type_pointer,
+    rose_input_device_type_tablet
 };
 
 struct rose_input {
+    // Device's type.
+    enum rose_input_device_type type;
+
     // Pointer to the server context.
     struct rose_server_context* ctx;
 
@@ -37,6 +42,7 @@ struct rose_input {
     union {
         struct rose_keyboard keyboard;
         struct rose_pointer pointer;
+        struct rose_tablet tablet;
     };
 
     // Event listeners.
@@ -45,9 +51,8 @@ struct rose_input {
     // List link.
     struct wl_list link;
 
-    // Device's ID and type.
+    // Device's ID.
     unsigned id;
-    enum rose_input_device_type type;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

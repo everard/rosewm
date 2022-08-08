@@ -4,12 +4,10 @@
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
 #include "server_context.h"
-#include "workspace_pointer.h"
 
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xdg_shell.h>
-
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 
@@ -1037,11 +1035,13 @@ rose_workspace_notify_pointer_move(struct rose_workspace* workspace,
                                 workspace->pointer.x + event.dx,
                                 workspace->pointer.y + event.dy);
 
+    // Compute event's time in nanoseconds.
+    uint64_t time_nsec = event.time_msec * 1000;
+
     // Send relative pointer motion event.
     wlr_relative_pointer_manager_v1_send_relative_motion(
         workspace->ctx->relative_pointer_manager, workspace->ctx->seat,
-        (uint64_t)(event.time_msec) * 1000, event.dx, event.dy,
-        event.dx_unaccel, event.dy_unaccel);
+        time_nsec, event.dx, event.dy, event.dx_unaccel, event.dy_unaccel);
 }
 
 void

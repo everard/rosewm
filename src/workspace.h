@@ -6,6 +6,8 @@
 #ifndef H_EA01F7650FA4419F8B00BB4A2007EC35
 #define H_EA01F7650FA4419F8B00BB4A2007EC35
 
+#include "device_input_pointer.h"
+#include "device_input_tablet.h"
 #include "ui_panel.h"
 
 #include <stdint.h>
@@ -53,8 +55,10 @@ struct rose_workspace {
         // Last movement time.
         uint32_t movement_time_msec;
 
-        // Timer's state.
+        // Pointer's timer.
         struct wl_event_source* timer;
+
+        // Timer's flag.
         bool is_timer_armed;
     } pointer;
 
@@ -222,6 +226,15 @@ rose_workspace_notify_pointer_warp(
     struct rose_pointer_event_motion_absolute event);
 
 ////////////////////////////////////////////////////////////////////////////////
+// Event notification interface: tablet device.
+////////////////////////////////////////////////////////////////////////////////
+
+void
+rose_workspace_notify_tablet_tool_warp(
+    struct rose_workspace* workspace,
+    struct rose_tablet_tool_event_motion event);
+
+////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: output device.
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -261,5 +274,12 @@ rose_workspace_transaction_update(struct rose_workspace* workspace);
 
 void
 rose_workspace_transaction_commit(struct rose_workspace* workspace);
+
+////////////////////////////////////////////////////////////////////////////////
+// Private interface: pointer's timer expiry event handler.
+////////////////////////////////////////////////////////////////////////////////
+
+int
+rose_handle_event_workspace_pointer_timer_expiry(void* data);
 
 #endif // H_EA01F7650FA4419F8B00BB4A2007EC35

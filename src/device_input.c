@@ -93,6 +93,11 @@ rose_input_initialize(struct rose_server_context* ctx,
                            rose_input_device_type_pointer);
             break;
 
+        case WLR_INPUT_DEVICE_TABLET_TOOL:
+            input->type = (rose_tablet_initialize(&(input->tablet), input),
+                           rose_input_device_type_tablet);
+            break;
+
         default:
             break;
     }
@@ -124,15 +129,20 @@ rose_input_destroy(struct rose_input* input) {
     wl_list_remove(&(input->link));
 
     // Perform device-specific destruction.
-    switch(input->dev->type) {
-        case WLR_INPUT_DEVICE_KEYBOARD:
+    switch(input->type) {
+        case rose_input_device_type_keyboard:
             rose_keyboard_destroy(&(input->keyboard));
             break;
 
-        case WLR_INPUT_DEVICE_POINTER:
+        case rose_input_device_type_pointer:
             rose_pointer_destroy(&(input->pointer));
             break;
 
+        case rose_input_device_type_tablet:
+            rose_tablet_destroy(&(input->tablet));
+            break;
+
+        // Unknown device.
         default:
             break;
     }

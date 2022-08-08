@@ -788,6 +788,7 @@ rose_server_context_initialize(struct rose_server_context* ctx) {
 
     wl_list_init(&(ctx->inputs));
     wl_list_init(&(ctx->inputs_keyboards));
+    wl_list_init(&(ctx->inputs_tablets));
     wl_list_init(&(ctx->outputs));
 
 #define initialize_(f) ctx->listener_##f.notify = rose_handle_event_##f;
@@ -1604,7 +1605,6 @@ rose_server_context_check_ipc_access_rights(
     switch(connection_type) {
         case rose_ipc_connection_type_configurator:
             // fall-through
-
         case rose_ipc_connection_type_dispatcher:
             if((rose_command_list_query_access_rights(ctx->command_list, pid) &
                 rose_command_access_ipc) != 0) {

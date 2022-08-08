@@ -14,7 +14,6 @@
 
 #include "ipc_server.h"
 #include "rendering.h"
-
 #include "surface.h"
 #include "workspace.h"
 
@@ -128,6 +127,7 @@ struct rose_server_context {
     // Lists of input and output devices.
     struct wl_list inputs;
     struct wl_list inputs_keyboards;
+    struct wl_list inputs_tablets;
     struct wl_list outputs;
 
     // Flags.
