@@ -23,8 +23,14 @@ The Compositor has a panel which displays output's index, focused workspace's
 index, and focused surface's name on each output. Panel's functionality can be
 extended by the PANEL system process (see [below](#system-processes)).
 
-The Compositor also can show a menu which contains lists of outputs, workspaces,
-and surfaces. This menu can move and focus workspaces and surfaces.
+The Compositor can also show a menu which contains lists of outputs, workspaces,
+and surfaces. Users can use this menu to move and focus workspaces and surfaces.
+
+## SECURITY MODEL
+Screen capture-related Wayland protocols are a threat to user's security. Only
+privileged processes which have been started via the [DISPATCHER](#dispatcher)
+variant of the [ROSE IPC PROTOCOL](#rose-ipc-protocol) are allowed to access
+these Wayland protocols.
 
 ## SYSTEM PROCESSES
 Compositor's functionality can be extended via a number of system processes. The
@@ -68,10 +74,10 @@ System processes _must_ obey compositor's commands: when close event is received
 by any surface which belongs to such process, the surface _must_ be destroyed as
 soon as possible.
 
-When a system process creates an xdg_toplevel, the compositor configures the
-size of the surface. For some system processes this is exact requirement, while
-for others it is a maximal limit. The following table specifies which behaviour
-is expected from which system process.
+When a system process creates an xdg_toplevel, the compositor configures its
+size. For some system processes this is exact requirement, while for others it
+is a maximal limit. The following table specifies which behaviour is expected
+from which system process.
 
 | PROCESS             | LIMIT TYPE |
 |---------------------|------------|
@@ -322,7 +328,7 @@ via DISPATCHER protocol with IPC access rights.
 
 ## CONFIGURATOR
 Through this half-duplex protocol variant clients can query and modify the state
-if the Compositor:
+of the Compositor:
  * query the keymap (keyboard layouts and current layout index),
  * query the number of input and output devices,
  * query the state of input and output devices,
