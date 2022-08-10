@@ -3,7 +3,32 @@ Rose WM is a lightweight Wayland Compositor. At its core it is a simple Window
 Manager, but its functionality can be extended by a number of system processes,
 effectively making it a full-fledged Desktop Environment.
 
-The following diagram shows how the system works.
+## STRUCTURE
+The Compositor performs the following tasks.
+ * It maintains lists of input and output devices.
+ * It maintains lists of desktop surfaces created by clients.
+ * It processes and delivers events from input devices.
+ * It displays desktop surfaces on outputs.
+
+The Compositor uses the concept of _workspace_ which contains desktop surfaces.
+Each desktop surface can only belong to a single workspace at a time, and each
+workspace can only belong to a single output at a time.
+
+The Compositor has _current workspace_ which receives all input events. Each
+workspace has a single _focused surface_ which receives input events if this
+workspace is current. Each output displays a single workspace at a time which is
+its _focused workspace_.
+
+The Compositor has a panel which displays output's index, focused workspace's
+index, and focused surface's name on each output. Panel's functionality can be
+extended by the PANEL system process (see [below](#system-processes)).
+
+The Compositor also can show a menu which contains lists of outputs, workspaces,
+and surfaces. This menu can move and focus workspaces and surfaces.
+
+## SYSTEM PROCESSES
+Compositor's functionality can be extended via a number of system processes. The
+following diagram shows how these processes communicate with the Compositor.
 
 ```
 +--------+                   +------------------+
@@ -15,14 +40,17 @@ The following diagram shows how the system works.
 +--------+                   +------------------+
 ```
 
-Window Manager starts zero or more system processes which communicate with it
-via Wayland protocol and/or via a separate IPC protocol with its own Unix socket
-(_$ROSE_IPC_ENDPOINT_ environment variable contains a path to this socket).
+The [ROSE IPC PROTOCOL](#rose-ipc-protocol) is a separate protocol through which
+clients can query Compositor's state, configure its inputs and outputs, lock and
+unlock the screen.
+
+The ROSE IPC PROTOCOL has its own Unix Domain Socket. Path to the socket is
+specified in the _$ROSE_IPC_ENDPOINT_ environment variable.
 
 _Note: In this document all environment variables are prefixed with the "$"
 symbol._
 
-Here's a table of system processes with their descriptions.
+The following table lists system processes with their descriptions.
 
 | NAME                | DESCRIPTION                                    |
 |---------------------|------------------------------------------------|
@@ -33,7 +61,8 @@ Here's a table of system processes with their descriptions.
 | SCREEN LOCKER       | Displays lock screens on outputs.              |
 
 These processes _must_ create visible windows via the xdg_shell Wayland protocol
-(in other words, no non-standard Wayland protocols are required).
+(in other words, no non-standard Wayland protocols are required: usual GUI libs
+can be used).
 
 System processes _must_ obey compositor's commands: when close event is received
 by any surface which belongs to such process, the surface _must_ be destroyed as
@@ -64,8 +93,8 @@ The following table specifies such processes.
 | SCREEN LOCKER       | Yes                                   |
 
 # CONFIGURATION
-There is a number of configuration files. These files are looked-up in the
-following configuration directories (in the specified order):
+The Compositor is configured via a number of configuration files. These files
+are looked-up in the following directories (in the specified order):
  1. _$HOME_/.config/rosewm
  2. /etc/rosewm
 
@@ -101,8 +130,8 @@ Example:
 /usr/share/fonts/fontawesome/fontawesome-webfont.ttf\n
 ```
 
-Note: Here "\n" denotes the new line character. Each path _must_ end with a new
-line character.
+Note: Here `\n` denotes the new line character. Each path _must_ end with the
+new line character.
 
 ## THEME
 Theme can be configured with a binary file. The format of such file is specified
@@ -163,9 +192,17 @@ Leader can only take the values specified in the following table.
 | 3     | `XKB_KEY_Alt_R`   |
 | 4     | `XKB_KEY_Menu`    |
 
+Requirements:
+ * $N_{core} \in$ `[rose_n_core_action_types, 2 * rose_n_core_action_types]`
+ * $N_{menu} \in$ `[rose_n_menu_action_types, 2 * rose_n_menu_action_types]`
+ * $N_{IPC} \in [0, 128]$
+
+The constants `rose_n_core_action_types` and `rose_n_menu_action_types` are
+defined in the [src/action.h](src/action.h) file.
+
 ### CORE/MENU ACTION TYPE
-Both the _core action_ and _menu action_ types have the same format which is
-specified in the following table.
+Both the _core action_ and _menu action_ types have the same format. This format
+is specified in the following table.
 
 | FIELD              | TYPE                      |
 |--------------------|---------------------------|
@@ -177,11 +214,9 @@ Requirements:
 enumeration;
  * menu action's index field must take values from the `rose_menu_action_type`
 enumeration;
- * there can be defined up to `(2 * rose_n_core_action_types)` core actions;
- * there can be defined up to `(2 * rose_n_menu_action_types)` menu actions.
 
-(These enumerations and constants are defined in the
-[src/action.h](src/action.h) file).
+These enumerations and constants are defined in the
+[src/action.h](src/action.h) file.
 
 ### IPC ACTION TYPE
 _IPC action_ type has the following format.
@@ -196,14 +231,14 @@ Shortcut type is an array of 5 keysyms. Each keysym is represented by a 32-bit
 unsigned integer value packed into array of bytes, starting from value's least
 significant byte, all the way up to the most significant byte (little endian).
 
-If the first keysym in a shortcut has value `0`, then this value is replaced by
+If the first keysym in a shortcut has value 0, then this value is replaced by
 the leader's keysym.
 
 If a shortcut consists of less than 5 keysyms, then unused keysyms must be set
-to `0`.
+to 0.
 
 ## KEYBOARD LAYOUTS
-Keyboard layouts are configured with a simple text file which contains
+Keyboard layouts can be configured with a simple text file which contains
 comma-separated list of layouts names. No new line characters should be present
 in this configuration file.
 
@@ -222,10 +257,10 @@ Example #2 [file: `system_dispatcher`]:
 /usr/bin/python3\0/usr/local/bin/dispatcher.py\0
 ```
 
-Note: Here "\0" denotes the null character.
+Note: Here `\0` denotes the null character.
 
 # ROSE IPC PROTOCOL
-Window Manager uses simple packet-based IPC protocol. Packets have the following
+ROSE IPC PROTOCOL is a simple packet-based protocol. Packets have the following
 format.
 
 | FIELD         | TYPE                                   |
@@ -233,11 +268,11 @@ format.
 | $L_{payload}$ | 16-bit unsigned integer, little endian |
 | payload       | array of $L_{payload}$ bytes           |
 
-Note: Payload's size can not exceed 8 KiB.
+Requirement: Payload's size can not exceed 8 KiB.
 
-Once a client establishes connection with compositor's IPC socket, it _must_
-select a variant of IPC protocol by sending a packet with single-byte payload.
-This payload can only take the values specified in the following table.
+Once a client establishes connection with the Compositor, it _must_ select
+protocol's variant by sending a packet with a single-byte payload. This payload
+can only take the values specified in the following table.
 
 | VALUE | PROTOCOL VARIANT |
 |-------|------------------|
@@ -247,20 +282,38 @@ This payload can only take the values specified in the following table.
 
 Example packet #1, selects CONFIGURATOR protocol variant [hex]:
 ```
-01 00 01
+ 01 00   01
++-----+ +--+
+   ^      ^
+   |      |
+   |      +-- Payload: protocol variant
+   |
+   +-- Payload's size
 ```
 
 Example packet #2, selects DISPATCHER protocol variant [hex]:
 ```
-01 00 02
+ 01 00   02
++-----+ +--+
+   ^      ^
+   |      |
+   |      +-- Payload: protocol variant
+   |
+   +-- Payload's size
 ```
 
 Example packet #3, selects STATUS protocol variant [hex]:
 ```
-01 00 03
+ 01 00   03
++-----+ +--+
+   ^      ^
+   |      |
+   |      +-- Payload: protocol variant
+   |
+   +-- Payload's size
 ```
 
-After a client selects protocol variant, Window Manager verifies client's access
+After a client selects protocol variant, the Compositor verifies client's access
 rights:
  * STATUS protocol is accessible by all clients;
  * CONFIGURATOR and DISPATCHER protocols are only accessible by the DISPATCHER,
@@ -268,31 +321,35 @@ PANEL, SCREEN LOCKER system processes, and by any process which has been started
 via DISPATCHER protocol with IPC access rights.
 
 ## CONFIGURATOR
-Through this half-duplex protocol variant clients can send requests to the
-server, and the server must respond back.
+Through this half-duplex protocol variant clients can query and modify the state
+if the Compositor:
+ * query the keymap (keyboard layouts and current layout index),
+ * query the number of input and output devices,
+ * query the state of input and output devices,
+ * configure input and output devices,
+ * switch keyboard layout,
+ * lock/unlock the screen,
+ * reload configuration files.
 
-Clients can query server's keymap, obtain number and state of input and output
-devices, configure these devices, switch keyboard layout, lock/unlock the
-screen, and reload server's configuration.
-
-This protocol variant is specified in the
-[src/ipc_connection_configurator.c](src/ipc_connection_configurator.c) file.
+This protocol variant is defined in the
+[src/ipc_connection_configurator.c](src/ipc_connection_configurator.c) file (The
+implementation in this case _is_ specification).
 
 ## DISPATCHER
-Through this full-duplex protocol variant the server sends IPC commands to all
-connected clients, while clients can request execution of privileged processes.
+Through this full-duplex protocol variant the Compositor can send IPC commands
+to connected clients, and clients can request execution of privileged processes.
 
-Server's packets contain one or more IPC commands. Each IPC command is an array
-of 64 bytes. Clients interpret these IPC commands in their own way.
+Compositor packet's payload contains one or more IPC commands. Each IPC command
+is an array of 64 bytes. Clients interpret these IPC commands in their own way.
 
-Client's packets have the following payload.
+Client packet's payload has the following format.
 
 | FIELD                  | TYPE                                       |
 |------------------------|--------------------------------------------|
 | access rights          | byte                                       |
 | command line arguments | array of null-character-terminated strings |
 
-The access rights field is a bitwise or of zero or more values from the
+The access rights field is a bitwise OR of zero or more values from the
 `rose_command_access_rights` enumeration. This enumeration is defined in the
 [src/command.h](src/command.h) file.
 
@@ -307,12 +364,12 @@ and access to the privileged Wayland protocols:
 \x2B\x00\x03/usr/bin/python3\0/usr/local/bin/my_app.py\0
 ```
 
-Note: Here "\x" indicates a hexadecimal escape sequence, "\0" denote the null
-character.
+Note: Here `\x` indicates the start of a hexadecimal escape sequence, and `\0`
+denotes the null character.
 
 ## STATUS
-Through this protocol variant the server notifies all connected clients of its
-status. Server's packets contain one or more status messages. Each status
+Through this protocol variant the Compositor can notify all connected clients of
+its status change. Each packet contains one or more status messages. Each status
 message has the following format.
 
 | FIELD | TYPE                                          |
@@ -325,7 +382,7 @@ status message, along with the corresponding contents of message's info field.
 
 | VALUE | DESCRIPTION                      | INFO'S TYPE      | INFO           |
 |-------|----------------------------------|------------------|----------------|
-| 0     | changed: server's state vector   | array of 4 bytes | see below      |
+| 0     | changed: state vector            | array of 4 bytes | see below      |
 | 1     | changed: keymap                  | _empty_          | ---            |
 | 2     | changed: keyboard control scheme | _empty_          | ---            |
 | 3     | changed: theme                   | _empty_          | ---            |
