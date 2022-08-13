@@ -50,6 +50,14 @@ uninstall:
 
 protocols: $(DEPS_SRC)
 
+protocols_clean:
+	rm -f src/pointer-constraints-unstable-v1-protocol.c
+	rm -f src/tablet-unstable-v2-protocol.c
+	rm -f src/xdg-shell-protocol.c
+	rm -f src/pointer-constraints-unstable-v1-protocol.h
+	rm -f src/tablet-unstable-v2-protocol.h
+	rm -f src/xdg-shell-protocol.h
+
 src/pointer-constraints-unstable-v1-protocol.h:
 	$(WAYLAND_SCANNER) server-header \
 		$(WAYLAND_PROTOCOLS_DIR)/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml $@
