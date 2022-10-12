@@ -29,7 +29,7 @@
 
 struct rose_ipc_server {
     // Pointer to the parent server context.
-    struct rose_server_context* ctx;
+    struct rose_server_context* context;
 
     // Listening socket's file descriptor and address.
     int socket_fd;
@@ -79,7 +79,9 @@ rose_handle_event_ipc_server_connection(int fd, uint32_t mask, void* data) {
 
     // Initialize a new connection.
     struct rose_ipc_connection_parameters params = {
-        .socket_fd = fd, .ctx = server->ctx, .container = &(server->container)};
+        .socket_fd = fd,
+        .context = server->context,
+        .container = &(server->container)};
 
     return rose_ipc_connection_initialize(params), 0;
 
@@ -105,14 +107,14 @@ rose_handle_event_display_destroy(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_ipc_server*
-rose_ipc_server_initialize(struct rose_server_context* ctx) {
+rose_ipc_server_initialize(struct rose_server_context* context) {
     // Allocate memory for a new IPC server.
     struct rose_ipc_server* server = malloc(sizeof(struct rose_ipc_server));
 
     if(server == NULL) {
         return NULL;
     } else {
-        *server = (struct rose_ipc_server){.ctx = ctx, .socket_fd = -1};
+        *server = (struct rose_ipc_server){.context = context, .socket_fd = -1};
     }
 
     // Initialize lists of connections.
@@ -123,7 +125,7 @@ rose_ipc_server_initialize(struct rose_server_context* ctx) {
     // Initialize event listeners.
     server->listener_display_destroy.notify = rose_handle_event_display_destroy;
     wl_display_add_destroy_listener(
-        ctx->display, &(server->listener_display_destroy));
+        context->display, &(server->listener_display_destroy));
 
     // Create a UNIX socket which will be listening for incoming connections.
     server->socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -175,7 +177,7 @@ rose_ipc_server_initialize(struct rose_server_context* ctx) {
 
     // Add event source for handling incoming connections.
     server->event_source = wl_event_loop_add_fd(
-        ctx->event_loop, server->socket_fd, WL_EVENT_READABLE,
+        context->event_loop, server->socket_fd, WL_EVENT_READABLE,
         rose_handle_event_ipc_server_connection, server);
 
     if(server->event_source == NULL) {
@@ -240,7 +242,6 @@ rose_ipc_server_dispatch_command(struct rose_ipc_server* server,
     struct wl_list* list =
         &(server->container.connections[rose_ipc_connection_type_dispatcher]);
 
-    // Broadcast the given command.
     struct rose_ipc_connection* connection = NULL;
     struct rose_ipc_connection* _ = NULL;
 
@@ -255,7 +256,6 @@ rose_ipc_server_broadcast_status(struct rose_ipc_server* server,
     struct wl_list* list =
         &(server->container.connections[rose_ipc_connection_type_status]);
 
-    // Broadcast the status.
     struct rose_ipc_connection* connection = NULL;
     struct rose_ipc_connection* _ = NULL;
 

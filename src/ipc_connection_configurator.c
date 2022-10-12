@@ -87,28 +87,29 @@ enum {
 // Device descriptor acquisition utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-#define define_descriptor_acquisition_                                         \
-    /* Initialize descriptor object. */                                        \
-    struct rose_ipc_device_descriptor desc = {.id = device->id};               \
-                                                                               \
-    /* Obtain device's name. */                                                \
-    if(device->dev->name != NULL) {                                            \
-        size_t name_size = strlen(device->dev->name);                          \
-        memcpy(                                                                \
-            desc.name, device->dev->name, min_(name_size, sizeof(desc.name))); \
-    }                                                                          \
-                                                                               \
-    /* Return constructed descriptor. */                                       \
-    return desc;
+#define define_descriptor_acquisition_(object)                         \
+    /* Initialize descriptor object. */                                \
+    struct rose_ipc_device_descriptor descriptor = {.id = object->id}; \
+                                                                       \
+    /* Obtain device's name. */                                        \
+    if(object->device->name != NULL) {                                 \
+        size_t name_size = strlen(object->device->name);               \
+                                                                       \
+        memcpy(descriptor.name, object->device->name,                  \
+               min_(name_size, sizeof(descriptor.name)));              \
+    }                                                                  \
+                                                                       \
+    /* Return constructed descriptor. */                               \
+    return descriptor;
 
 static struct rose_ipc_device_descriptor
-rose_input_device_descriptor_obtain(struct rose_input* device) {
-    define_descriptor_acquisition_;
+rose_input_device_descriptor_obtain(struct rose_input* input) {
+    define_descriptor_acquisition_(input);
 }
 
 static struct rose_ipc_device_descriptor
-rose_output_device_descriptor_obtain(struct rose_output* device) {
-    define_descriptor_acquisition_;
+rose_output_device_descriptor_obtain(struct rose_output* output) {
+    define_descriptor_acquisition_(output);
 }
 
 #undef define_descriptor_acquisition_
@@ -218,14 +219,15 @@ rose_ipc_buffer_ref_read_string(struct rose_ipc_buffer_ref* buffer,
 static struct rose_ipc_device_descriptor
 rose_ipc_buffer_ref_read_device_descriptor(struct rose_ipc_buffer_ref* buffer) {
     // Initialize descriptor object, read device's ID.
-    struct rose_ipc_device_descriptor desc = {
+    struct rose_ipc_device_descriptor descriptor = {
         .id = rose_ipc_buffer_ref_read_uint(buffer)};
 
     // Read device's name.
-    rose_ipc_buffer_ref_read_string(buffer, desc.name, sizeof(desc.name));
+    rose_ipc_buffer_ref_read_string(
+        buffer, descriptor.name, sizeof(descriptor.name));
 
     // Return resulting descriptor.
-    return desc;
+    return descriptor;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -248,12 +250,14 @@ rose_ipc_buffer_write_string(struct rose_ipc_buffer* buffer, char* string,
 
 static void
 rose_ipc_buffer_write_device_descriptor(
-    struct rose_ipc_buffer* buffer, struct rose_ipc_device_descriptor desc) {
+    struct rose_ipc_buffer* buffer,
+    struct rose_ipc_device_descriptor descriptor) {
     // Write device's ID.
-    rose_ipc_buffer_write_uint(buffer, desc.id);
+    rose_ipc_buffer_write_uint(buffer, descriptor.id);
 
     // Write device's name.
-    rose_ipc_buffer_write_string(buffer, desc.name, sizeof(desc.name));
+    rose_ipc_buffer_write_string(
+        buffer, descriptor.name, sizeof(descriptor.name));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -285,7 +289,7 @@ rose_ipc_connection_dispatch_configuration_request(
         1};
 
     // Obtain a pointer to the server context.
-    struct rose_server_context* ctx = connection->ctx;
+    struct rose_server_context* context = connection->context;
 
     // Initialize response.
     struct rose_ipc_buffer response = {};
@@ -330,19 +334,20 @@ rose_ipc_connection_dispatch_configuration_request(
                 &response, rose_ipc_configure_result_success);
 
             // Write the number of keyboard layouts in the keymap.
-            rose_ipc_buffer_write_uint(&response, ctx->keyboard_ctx->n_layouts);
+            rose_ipc_buffer_write_uint(
+                &response, context->keyboard_context->n_layouts);
 
             // Write keyboard layouts.
             rose_ipc_buffer_write_string( //
-                &response, ctx->config.keyboard_layouts.data,
-                ctx->config.keyboard_layouts.size);
+                &response, context->config.keyboard_layouts.data,
+                context->config.keyboard_layouts.size);
 
             break;
 
         case rose_ipc_configure_request_type_obtain_device_count: {
             // Obtain server context's state.
             struct rose_server_context_state state =
-                rose_server_context_state_obtain(ctx);
+                rose_server_context_state_obtain(context);
 
             // Write operation's result.
             rose_ipc_buffer_write_byte(
@@ -358,7 +363,7 @@ rose_ipc_connection_dispatch_configuration_request(
         case rose_ipc_configure_request_type_obtain_input_state: {
             // Obtain an input with the requested ID.
             struct rose_input* input = rose_server_context_obtain_input(
-                ctx, rose_ipc_buffer_ref_read_uint(&request));
+                context, rose_ipc_buffer_ref_read_uint(&request));
 
             // Respond with failure if there is no such input.
             if(input == NULL) {
@@ -369,7 +374,7 @@ rose_ipc_connection_dispatch_configuration_request(
             }
 
             // Obtain input's descriptor.
-            struct rose_ipc_device_descriptor desc =
+            struct rose_ipc_device_descriptor descriptor =
                 rose_input_device_descriptor_obtain(input);
 
             // Write operation's result.
@@ -380,7 +385,7 @@ rose_ipc_connection_dispatch_configuration_request(
             rose_ipc_buffer_write_byte(&response, input->type);
 
             // Write input's descriptor.
-            rose_ipc_buffer_write_device_descriptor(&response, desc);
+            rose_ipc_buffer_write_device_descriptor(&response, descriptor);
 
             // Write input's state which depends on input's type.
             switch(input->type) {
@@ -413,7 +418,7 @@ rose_ipc_connection_dispatch_configuration_request(
         case rose_ipc_configure_request_type_obtain_output_state: {
             // Obtain an output with the requested ID.
             struct rose_output* output = rose_server_context_obtain_output(
-                ctx, rose_ipc_buffer_ref_read_uint(&request));
+                context, rose_ipc_buffer_ref_read_uint(&request));
 
             // Respond with failure if there is no such output.
             if(output == NULL) {
@@ -424,7 +429,7 @@ rose_ipc_connection_dispatch_configuration_request(
             }
 
             // Obtain output's descriptor.
-            struct rose_ipc_device_descriptor desc =
+            struct rose_ipc_device_descriptor descriptor =
                 rose_output_device_descriptor_obtain(output);
 
             // Obtain output's state.
@@ -439,7 +444,7 @@ rose_ipc_connection_dispatch_configuration_request(
                 &response, rose_ipc_configure_result_success);
 
             // Write output's descriptor.
-            rose_ipc_buffer_write_device_descriptor(&response, desc);
+            rose_ipc_buffer_write_device_descriptor(&response, descriptor);
 
             // Write output's transform.
             rose_ipc_buffer_write_byte(&response, state.transform);
@@ -469,7 +474,7 @@ rose_ipc_connection_dispatch_configuration_request(
         case rose_ipc_configure_request_type_set_keyboard_layout: {
             // Set requested layout and write operation's result.
             if(rose_server_context_set_keyboard_layout(
-                   ctx, rose_ipc_buffer_ref_read_byte(&request))) {
+                   context, rose_ipc_buffer_ref_read_byte(&request))) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_success);
             } else {
@@ -482,7 +487,7 @@ rose_ipc_connection_dispatch_configuration_request(
 
         case rose_ipc_configure_request_type_set_pointer_state: {
             // Read target device's descriptor.
-            struct rose_ipc_device_descriptor desc =
+            struct rose_ipc_device_descriptor descriptor =
                 rose_ipc_buffer_ref_read_device_descriptor(&request);
 
             // Read pointer's configuration parameters.
@@ -493,13 +498,13 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Obtain an input device with the requested descriptor.
             struct rose_input* input =
-                rose_server_context_obtain_input(ctx, desc.id);
+                rose_server_context_obtain_input(context, descriptor.id);
 
             // Respond with failure if there is no such device.
             if((input == NULL) ||
                (input->type != rose_input_device_type_pointer) ||
                (memcmp(rose_input_device_descriptor_obtain(input).name,
-                       desc.name, sizeof(desc.name)) != 0)) {
+                       descriptor.name, sizeof(descriptor.name)) != 0)) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_device_not_found);
 
@@ -520,7 +525,7 @@ rose_ipc_connection_dispatch_configuration_request(
 
         case rose_ipc_configure_request_type_set_output_state: {
             // Read target device's descriptor.
-            struct rose_ipc_device_descriptor desc =
+            struct rose_ipc_device_descriptor descriptor =
                 rose_ipc_buffer_ref_read_device_descriptor(&request);
 
             // Read output's configuration parameters.
@@ -534,12 +539,12 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Obtain an output device with the requested descriptor.
             struct rose_output* output =
-                rose_server_context_obtain_output(ctx, desc.id);
+                rose_server_context_obtain_output(context, descriptor.id);
 
             // Respond with failure if there is no such device.
             if((output == NULL) ||
                (memcmp(rose_output_device_descriptor_obtain(output).name,
-                       desc.name, sizeof(desc.name)) != 0)) {
+                       descriptor.name, sizeof(descriptor.name)) != 0)) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_device_not_found);
 
@@ -565,7 +570,7 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Configure the context.
             rose_server_context_configure(
-                ctx, rose_ipc_buffer_ref_read_byte(&request));
+                context, rose_ipc_buffer_ref_read_byte(&request));
 
             break;
 

@@ -37,7 +37,8 @@ rose_handle_event_pointer_axis(struct wl_listener* listener, void* data) {
         wl_container_of(listener, pointer, listener_axis);
 
     // Obtain current workspace.
-    struct rose_workspace* workspace = pointer->parent->ctx->current_workspace;
+    struct rose_workspace* workspace =
+        pointer->parent->context->current_workspace;
 
     // Obtain event data.
     struct wlr_event_pointer_axis* wlr_event = data;
@@ -60,7 +61,8 @@ rose_handle_event_pointer_button(struct wl_listener* listener, void* data) {
         wl_container_of(listener, pointer, listener_button);
 
     // Obtain current workspace.
-    struct rose_workspace* workspace = pointer->parent->ctx->current_workspace;
+    struct rose_workspace* workspace =
+        pointer->parent->context->current_workspace;
 
     // Obtain event data.
     struct wlr_event_pointer_button* wlr_event = data;
@@ -82,7 +84,8 @@ rose_handle_event_pointer_motion(struct wl_listener* listener, void* data) {
         wl_container_of(listener, pointer, listener_motion);
 
     // Obtain current workspace.
-    struct rose_workspace* workspace = pointer->parent->ctx->current_workspace;
+    struct rose_workspace* workspace =
+        pointer->parent->context->current_workspace;
 
     // Obtain event data.
     struct wlr_event_pointer_motion* wlr_event = data;
@@ -105,7 +108,8 @@ rose_handle_event_pointer_motion_absolute(struct wl_listener* listener,
         wl_container_of(listener, pointer, listener_motion_absolute);
 
     // Obtain current workspace.
-    struct rose_workspace* workspace = pointer->parent->ctx->current_workspace;
+    struct rose_workspace* workspace =
+        pointer->parent->context->current_workspace;
 
     // Obtain event data.
     struct wlr_event_pointer_motion_absolute* wlr_event = data;
@@ -127,7 +131,7 @@ rose_handle_event_pointer_frame(struct wl_listener* listener, void* data) {
         wl_container_of(listener, pointer, listener_frame);
 
     // Notify the seat of this event.
-    wlr_seat_pointer_notify_frame(pointer->parent->ctx->seat);
+    wlr_seat_pointer_notify_frame(pointer->parent->context->seat);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -141,11 +145,11 @@ rose_pointer_initialize(struct rose_pointer* pointer,
     *pointer = (struct rose_pointer){.parent = parent};
 
     // Register listeners.
-#define add_signal_(f)                                                      \
-    {                                                                       \
-        pointer->listener_##f.notify = rose_handle_event_pointer_##f;       \
-        wl_signal_add(                                                      \
-            &((parent->dev->pointer)->events.f), &(pointer->listener_##f)); \
+#define add_signal_(f)                                                         \
+    {                                                                          \
+        pointer->listener_##f.notify = rose_handle_event_pointer_##f;          \
+        wl_signal_add(                                                         \
+            &((parent->device->pointer)->events.f), &(pointer->listener_##f)); \
     }
 
     add_signal_(axis);
@@ -157,7 +161,7 @@ rose_pointer_initialize(struct rose_pointer* pointer,
 #undef add_signal_
 
     // Apply preferences.
-    rose_pointer_apply_preferences(pointer, parent->ctx->preference_list);
+    rose_pointer_apply_preferences(pointer, parent->context->preference_list);
 }
 
 void
@@ -183,13 +187,13 @@ rose_pointer_configure(struct rose_pointer* pointer,
     }
 
     // If the pointer device is not a libinput device, then configuration fails.
-    if(!wlr_input_device_is_libinput(pointer->parent->dev)) {
+    if(!wlr_input_device_is_libinput(pointer->parent->device)) {
         return false;
     }
 
     // Obtain a pointer to the underlying libinput device.
     struct libinput_device* dev_libinput =
-        wlr_libinput_get_device_handle(pointer->parent->dev);
+        wlr_libinput_get_device_handle(pointer->parent->device);
 
     // If there is no such device, then configuration fails.
     if(dev_libinput == NULL) {
@@ -222,6 +226,7 @@ rose_pointer_configure(struct rose_pointer* pointer,
     // Set specified parameters.
 
     if((params.flags & rose_pointer_configure_acceleration_type) != 0) {
+        // Note: There are only flat and adaptive acceleration types.
         if(params.acceleration_type == rose_pointer_acceleration_type_flat) {
             libinput_device_config_accel_set_profile(
                 dev_libinput, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT);
@@ -238,7 +243,7 @@ rose_pointer_configure(struct rose_pointer* pointer,
     }
 
     // Update device preference list, if needed.
-    if(pointer->parent->ctx->preference_list != NULL) {
+    if(pointer->parent->context->preference_list != NULL) {
         // Initialize device preference.
         struct rose_device_preference preference = {
             .device_name = rose_input_name_obtain(pointer->parent),
@@ -247,7 +252,7 @@ rose_pointer_configure(struct rose_pointer* pointer,
 
         // Perform update operation.
         rose_device_preference_list_update(
-            pointer->parent->ctx->preference_list, preference);
+            pointer->parent->context->preference_list, preference);
     }
 
     // Configuration succeeded.
@@ -264,10 +269,10 @@ rose_pointer_state_obtain(struct rose_pointer* pointer) {
     struct rose_pointer_state state = {.id = pointer->parent->id};
 
     // Obtain underlying device's state.
-    if(wlr_input_device_is_libinput(pointer->parent->dev)) {
+    if(wlr_input_device_is_libinput(pointer->parent->device)) {
         // Obtain a pointer to the underlying libinput device.
         struct libinput_device* dev_libinput =
-            wlr_libinput_get_device_handle(pointer->parent->dev);
+            wlr_libinput_get_device_handle(pointer->parent->device);
 
         // Obtain acceleration data, if available.
         if((dev_libinput != NULL) &&

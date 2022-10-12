@@ -19,22 +19,22 @@
 int
 main() {
     // Initialize the server context.
-    struct rose_server_context ctx = {};
-    if(!rose_server_context_initialize(&ctx)) {
-        rose_server_context_destroy(&ctx);
+    struct rose_server_context context = {};
+    if(!rose_server_context_initialize(&context)) {
+        rose_server_context_destroy(&context);
         return EXIT_FAILURE;
     }
 
     // Start server's backend.
-    if(!wlr_backend_start(ctx.backend)) {
-        rose_server_context_destroy(&ctx);
+    if(!wlr_backend_start(context.backend)) {
+        rose_server_context_destroy(&context);
         return EXIT_FAILURE;
     }
 
     // Start server's event loop.
-    wl_display_run(ctx.display);
+    wl_display_run(context.display);
 
     // Destroy the context upon exit.
-    rose_server_context_destroy(&ctx);
+    rose_server_context_destroy(&context);
     return EXIT_SUCCESS;
 }

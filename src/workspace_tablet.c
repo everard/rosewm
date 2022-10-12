@@ -24,7 +24,7 @@ rose_workspace_notify_tablet_tool_warp(
     rose_workspace_notify_pointer_warp(workspace, pointer_event);
 
     // Obtain the seat.
-    struct wlr_seat* seat = workspace->ctx->seat;
+    struct wlr_seat* seat = workspace->context->seat;
 
     // Obtain focused surface.
     struct wlr_surface* surface = seat->pointer_state.focused_surface;

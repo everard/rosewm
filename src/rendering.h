@@ -72,21 +72,21 @@ rose_text_rendering_context_initialize(
     struct rose_text_rendering_context_parameters params);
 
 void
-rose_text_rendering_context_destroy(struct rose_text_rendering_context* ctx);
+rose_text_rendering_context_destroy(
+    struct rose_text_rendering_context* context);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Text rendering interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_text_rendering_extents
-rose_compute_string_extents( //
-    struct rose_text_rendering_context* ctx,
-    struct rose_text_rendering_parameters params,
-    struct rose_utf32_string string);
+rose_compute_string_extents(struct rose_text_rendering_context* context,
+                            struct rose_text_rendering_parameters params,
+                            struct rose_utf32_string string);
 
 void
 rose_render_string( //
-    struct rose_text_rendering_context* ctx,
+    struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters params,
     struct rose_utf32_string string, struct rose_pixel_buffer pixel_buffer);
 

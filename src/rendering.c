@@ -30,7 +30,7 @@ static struct rose_matrix
 rose_project_rectangle(struct rose_output* output,
                        struct rose_rectangle rectangle) {
     // Scale the rectangle.
-    float scale = output->dev->scale;
+    float scale = output->device->scale;
 
     float x = (float)(rectangle.x) * scale;
     float y = (float)(rectangle.y) * scale;
@@ -57,7 +57,7 @@ rose_project_rectangle(struct rose_output* output,
     }
 
     // Apply output's transform.
-    wlr_matrix_multiply(r.a, output->dev->transform_matrix, r.a);
+    wlr_matrix_multiply(r.a, output->device->transform_matrix, r.a);
 
     // Return computed transform.
     return r;
@@ -71,7 +71,7 @@ static void
 rose_render_rectangle(struct rose_output* output, struct rose_color color,
                       struct rose_rectangle rectangle) {
     // Project the rectangle to the output and render it with the given color.
-    wlr_render_quad_with_matrix(output->ctx->renderer, color.v,
+    wlr_render_quad_with_matrix(output->context->renderer, color.v,
                                 rose_project_rectangle(output, rectangle).a);
 }
 
@@ -86,7 +86,7 @@ rose_render_rectangle_with_texture( //
 
     // Project the rectangle to the output and render it with the given texture.
     wlr_render_texture_with_matrix( //
-        output->ctx->renderer, texture,
+        output->context->renderer, texture,
         rose_project_rectangle(output, rectangle).a, 1.0f);
 }
 
@@ -98,23 +98,26 @@ struct rose_render_surface_context {
 static void
 rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
     // Obtain a pointer to the rendering context.
-    struct rose_render_surface_context* context = data;
+    struct rose_render_surface_context* render_surface_context = data;
+
+    // Obtain a pointer to the output.
+    struct rose_output* output = render_surface_context->output;
 
     // Compute a rectangle which will represent the given surface.
     struct rose_rectangle rectangle = //
-        {.x = x + context->dx,
-         .y = y + context->dy,
+        {.x = x + render_surface_context->dx,
+         .y = y + render_surface_context->dy,
          .w = surface->current.width,
          .h = surface->current.height,
          .transform = surface->current.transform};
 
     // Render the rectangle with surface's texture.
     rose_render_rectangle_with_texture(
-        context->output, wlr_surface_get_texture(surface), rectangle);
+        output, wlr_surface_get_texture(surface), rectangle);
 
     // Send presentation feedback.
     wlr_presentation_surface_sampled_on_output(
-        context->output->ctx->presentation, surface, context->output->dev);
+        output->context->presentation, surface, output->device);
 }
 
 static void
@@ -122,7 +125,7 @@ rose_render_surface_decoration(struct rose_output* output,
                                struct rose_rectangle surface_rectangle) {
     // Obtain the color scheme.
     struct rose_color_scheme* color_scheme =
-        &(output->ctx->config.color_scheme);
+        &(output->context->config.color_scheme);
 
     // Update surface's rectangle.
     surface_rectangle.x -= 5;
@@ -180,13 +183,13 @@ rose_render_output_widgets(struct rose_output* output, ptrdiff_t start_idx,
 #undef scale_
 
             // Set scissor rectangle and render widget's main surface.
-            wlr_renderer_scissor(output->ctx->renderer, &scissor_rect);
+            wlr_renderer_scissor(output->context->renderer, &scissor_rect);
             wlr_surface_for_each_surface( //
                 widget->xdg_surface->surface, rose_render_surface, &context);
 
             // Reset scissor rectangle and render widget's child pop-up
             // surfaces, if any.
-            wlr_renderer_scissor(output->ctx->renderer, NULL);
+            wlr_renderer_scissor(output->context->renderer, NULL);
             wlr_xdg_surface_for_each_popup_surface(
                 widget->xdg_surface, rose_render_surface, &context);
         }
@@ -201,24 +204,26 @@ void
 rose_render_content(struct rose_output* output) {
     // Obtain pointers to the renderer and output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
-    struct wlr_renderer* renderer = output->ctx->renderer;
+    struct wlr_renderer* renderer = output->context->renderer;
 
     // Obtain the color scheme.
-    struct rose_color_scheme color_scheme = output->ctx->config.color_scheme;
+    struct rose_color_scheme color_scheme =
+        output->context->config.color_scheme;
 
     // Clear this flag. At this point the output is not in direct scan-out mode.
     output->is_scanned_out = false;
 
     // If the screen is locked, or the given output has no focused workspaces,
     // then render output's visible widgets, and do nothing else.
-    if((output->ctx->is_screen_locked) || (workspace == NULL)) {
+    if((output->context->is_screen_locked) || (workspace == NULL)) {
         // Attach the renderer to the output.
-        if(!wlr_output_attach_render(output->dev, NULL)) {
+        if(!wlr_output_attach_render(output->device, NULL)) {
             return;
         }
 
         // Start rendering operation.
-        wlr_renderer_begin(renderer, output->dev->width, output->dev->height);
+        wlr_renderer_begin(
+            renderer, output->device->width, output->device->height);
 
         // Fill-in with solid color.
         wlr_renderer_clear(renderer, color_scheme.workspace_background.v);
@@ -227,11 +232,11 @@ rose_render_content(struct rose_output* output) {
         rose_render_output_widgets(output, 0, rose_output_n_widget_types);
 
         // Finish rendering operation.
-        wlr_output_render_software_cursors(output->dev, NULL);
+        wlr_output_render_software_cursors(output->device, NULL);
         wlr_renderer_end(renderer);
 
         // Commit the rendering operation.
-        wlr_output_commit(output->dev);
+        wlr_output_commit(output->device);
 
         // Do nothing else.
         return;
@@ -295,19 +300,19 @@ rose_render_content(struct rose_output* output) {
         }
 
         // Try attaching surface's buffer.
-        wlr_output_attach_buffer(output->dev, &(wlr_surface->buffer->base));
-        if(!wlr_output_test(output->dev)) {
+        wlr_output_attach_buffer(output->device, &(wlr_surface->buffer->base));
+        if(!wlr_output_test(output->device)) {
             goto no_scanout;
         }
 
         // Try committing the rendering operation.
-        if(!wlr_output_commit(output->dev)) {
+        if(!wlr_output_commit(output->device)) {
             goto no_scanout;
         }
 
         // Send presentation feedback.
         wlr_presentation_surface_sampled_on_output(
-            output->ctx->presentation, wlr_surface, output->dev);
+            output->context->presentation, wlr_surface, output->device);
 
         // Mark the output as scanned-out.
         output->is_scanned_out = true;
@@ -320,12 +325,12 @@ rose_render_content(struct rose_output* output) {
     }
 
     // Attach the renderer to the output.
-    if(!wlr_output_attach_render(output->dev, NULL)) {
+    if(!wlr_output_attach_render(output->device, NULL)) {
         return;
     }
 
     // Start rendering operation, render background.
-    wlr_renderer_begin(renderer, output->dev->width, output->dev->height);
+    wlr_renderer_begin(renderer, output->device->width, output->device->height);
     wlr_renderer_clear(renderer, color_scheme.workspace_background.v);
 
     rose_render_output_widgets(output, rose_output_widget_type_background,
@@ -697,9 +702,9 @@ rose_render_content(struct rose_output* output) {
     }
 
     // Finish rendering operation.
-    wlr_output_render_software_cursors(output->dev, NULL);
+    wlr_output_render_software_cursors(output->device, NULL);
     wlr_renderer_end(renderer);
 
     // Commit the rendering operation.
-    wlr_output_commit(output->dev);
+    wlr_output_commit(output->device);
 }

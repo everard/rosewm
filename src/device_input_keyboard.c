@@ -54,10 +54,10 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     struct wlr_event_keyboard_key* event = data;
 
     // Obtain a pointer to the server context.
-    struct rose_server_context* ctx = keyboard->parent->ctx;
+    struct rose_server_context* context = keyboard->parent->context;
 
     // Obtain pointers to the underlying input device (generic and specialized).
-    struct wlr_input_device* dev_generic = keyboard->parent->dev;
+    struct wlr_input_device* dev_generic = keyboard->parent->device;
     struct wlr_keyboard* dev_keyboard = dev_generic->keyboard;
 
     // Compute key code for the key.
@@ -67,13 +67,12 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     for(xkb_keysym_t const *x = (keysyms).data, *end = x + (keysyms).size; \
         x != end; ++x)
 
-    // If the key is pressed, then manage the session (switch the VT, if
-    // needed).
+    // Manage the session (switch the VT, if needed).
     // Note: User shall be able to switch the VT even if the screen is locked,
     // or keyboard shortcuts are inhibited.
     if(event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
         // Obtain the session.
-        struct wlr_session* session = wlr_backend_get_session(ctx->backend);
+        struct wlr_session* session = wlr_backend_get_session(context->backend);
 
         // If there is a session, then perform additional actions.
         if(session != NULL) {
@@ -88,7 +87,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
             } keysyms;
 
             keysyms.size = xkb_keymap_key_get_syms_by_level(
-                ctx->keyboard_ctx->keymap_raw, keycode, 0, level,
+                context->keyboard_context->keymap_raw, keycode, 0, level,
                 &(keysyms.data));
 
             // Iterate through keysyms array, and check if special keysym has
@@ -116,7 +115,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     } keysyms;
 
     keysyms.size = xkb_keymap_key_get_syms_by_level(
-        ctx->keyboard_ctx->keymap_raw, keycode, 0, 0, &(keysyms.data));
+        context->keyboard_context->keymap_raw, keycode, 0, 0, &(keysyms.data));
 
     // Update keyboard's state: add or remove keysyms generated from pressed
     // keys.
@@ -158,11 +157,11 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     // Update user interaction flag, if needed.
     if(true) {
         xkb_keysym_t target_keysym =
-            ctx->config.keyboard_control_scheme->leader_keysym.value;
+            context->config.keyboard_control_scheme->leader_keysym.value;
 
         for_each_keysym_(keysym, keysyms) {
             if(*keysym == target_keysym) {
-                ctx->is_waiting_for_user_interaction =
+                context->is_waiting_for_user_interaction =
                     (event->state == WL_KEYBOARD_KEY_STATE_PRESSED);
 
                 break;
@@ -174,7 +173,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     // keyboard shortcuts.
     // Note: Screen lock inhibits all types of keyboard actions.
     if((event->state == WL_KEYBOARD_KEY_STATE_PRESSED) &&
-       !(ctx->is_screen_locked)) {
+       !(context->is_screen_locked)) {
         // Obtain current shortcut based on keyboard's state.
         struct rose_keyboard_shortcut shortcut = {};
 
@@ -187,11 +186,11 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
         if(true) {
             // Obtain the size of the list of core actions.
             size_t n_core_actions =
-                ctx->config.keyboard_control_scheme->n_core_actions;
+                context->config.keyboard_control_scheme->n_core_actions;
 
             // Obtain the list of core actions.
             struct rose_keyboard_core_action* core_actions =
-                ctx->config.keyboard_control_scheme->core_actions;
+                context->config.keyboard_control_scheme->core_actions;
 
             // Find an action which corresponds to the shortcut.
             core_action = bsearch( //
@@ -200,7 +199,8 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
             // If shortcuts are inhibited, then only allow the action which
             // toggles said inhibiting.
-            if(ctx->are_keyboard_shortcuts_inhibited && (core_action != NULL)) {
+            if(context->are_keyboard_shortcuts_inhibited &&
+               (core_action != NULL)) {
                 if(core_action->type !=
                    rose_core_action_type_toggle_keyboard_shortcuts_inhibiting) {
                     core_action = NULL;
@@ -209,19 +209,19 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
         }
 
         // If a menu is visible, then handle its actions, and do nothing else.
-        if((ctx->current_workspace->output != NULL) &&
-           (ctx->current_workspace->output->ui.menu.is_visible)) {
+        if((context->current_workspace->output != NULL) &&
+           (context->current_workspace->output->ui.menu.is_visible)) {
             // Obtain a pointer to the menu.
             struct rose_ui_menu* menu =
-                &(ctx->current_workspace->output->ui.menu);
+                &(context->current_workspace->output->ui.menu);
 
             // Obtain the size of the list of menu actions.
             size_t n_menu_actions =
-                ctx->config.keyboard_control_scheme->n_menu_actions;
+                context->config.keyboard_control_scheme->n_menu_actions;
 
             // Obtain the list of menu actions.
             struct rose_keyboard_menu_action* menu_actions =
-                ctx->config.keyboard_control_scheme->menu_actions;
+                context->config.keyboard_control_scheme->menu_actions;
 
             // Find an action which corresponds to the shortcut.
             struct rose_keyboard_menu_action* menu_action = bsearch(
@@ -237,7 +237,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
             if((core_action != NULL) &&
                (core_action->type ==
                 rose_core_action_type_workspace_toggle_menu)) {
-                rose_execute_core_action(ctx, core_action->type);
+                rose_execute_core_action(context, core_action->type);
             }
 
             // Do nothing else.
@@ -246,7 +246,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
         // Execute the core action, if any.
         if(core_action != NULL) {
-            rose_execute_core_action(ctx, core_action->type);
+            rose_execute_core_action(context, core_action->type);
 
             if(core_action->type !=
                rose_core_action_type_switch_keyboard_layout) {
@@ -256,15 +256,15 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
         // Obtain and send an IPC command which corresponds to the shortcut, if
         // needed.
-        if(!(ctx->are_keyboard_shortcuts_inhibited) &&
-           (ctx->ipc_server != NULL)) {
+        if(!(context->are_keyboard_shortcuts_inhibited) &&
+           (context->ipc_server != NULL)) {
             // Obtain the size of the list of IPC actions.
             size_t n_ipc_actions =
-                ctx->config.keyboard_control_scheme->n_ipc_actions;
+                context->config.keyboard_control_scheme->n_ipc_actions;
 
             // Obtain the list of IPC actions.
             struct rose_keyboard_ipc_action* ipc_actions =
-                ctx->config.keyboard_control_scheme->ipc_actions;
+                context->config.keyboard_control_scheme->ipc_actions;
 
             // Find an action which corresponds to the shortcut.
             struct rose_keyboard_ipc_action* ipc_action =
@@ -274,7 +274,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
             // Execute the IPC action, if any.
             if(ipc_action != NULL) {
                 rose_ipc_server_dispatch_command(
-                    ctx->ipc_server, ipc_action->ipc_command);
+                    context->ipc_server, ipc_action->ipc_command);
             }
         }
     }
@@ -282,9 +282,9 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 #undef for_each_keysym_
 
     // Notify the seat of this event.
-    wlr_seat_set_keyboard(ctx->seat, dev_generic);
+    wlr_seat_set_keyboard(context->seat, dev_generic);
     wlr_seat_keyboard_notify_key(
-        ctx->seat, event->time_msec, event->keycode, event->state);
+        context->seat, event->time_msec, event->keycode, event->state);
 }
 
 static void
@@ -297,7 +297,7 @@ rose_handle_event_keyboard_modifiers(struct wl_listener* listener, void* data) {
     struct wlr_keyboard* dev_keyboard = data;
 
     // Obtain a pointer to the seat.
-    struct wlr_seat* seat = keyboard->parent->ctx->seat;
+    struct wlr_seat* seat = keyboard->parent->context->seat;
 
     // Notify the seat of this event, if needed.
     if(dev_keyboard == wlr_seat_get_keyboard(seat)) {
@@ -316,18 +316,18 @@ rose_keyboard_initialize(struct rose_keyboard* keyboard,
     *keyboard = (struct rose_keyboard){.parent = parent};
 
     // Add it to the list.
-    wl_list_insert(&(parent->ctx->inputs_keyboards), &(keyboard->link));
+    wl_list_insert(&(parent->context->inputs_keyboards), &(keyboard->link));
 
     // Set its keymap.
     wlr_keyboard_set_keymap(
-        parent->dev->keyboard, parent->ctx->keyboard_ctx->keymap);
+        parent->device->keyboard, parent->context->keyboard_context->keymap);
 
     // Register listeners.
-#define add_signal_(f)                                                        \
-    {                                                                         \
-        keyboard->listener_##f.notify = rose_handle_event_keyboard_##f;       \
-        wl_signal_add(                                                        \
-            &((parent->dev->keyboard)->events.f), &(keyboard->listener_##f)); \
+#define add_signal_(f)                                                  \
+    {                                                                   \
+        keyboard->listener_##f.notify = rose_handle_event_keyboard_##f; \
+        wl_signal_add(&((parent->device->keyboard)->events.f),          \
+                      &(keyboard->listener_##f));                       \
     }
 
     add_signal_(key);
@@ -336,12 +336,12 @@ rose_keyboard_initialize(struct rose_keyboard* keyboard,
 #undef add_signal_
 
     // Set seat's keyboard, if needed.
-    if(wlr_seat_get_keyboard(parent->ctx->seat) == NULL) {
-        wlr_seat_set_keyboard(parent->ctx->seat, parent->dev);
+    if(wlr_seat_get_keyboard(parent->context->seat) == NULL) {
+        wlr_seat_set_keyboard(parent->context->seat, parent->device);
     }
 
     // Update keyboard focus.
-    rose_workspace_make_current(parent->ctx->current_workspace);
+    rose_workspace_make_current(parent->context->current_workspace);
 }
 
 void

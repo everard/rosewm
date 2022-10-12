@@ -32,7 +32,7 @@ rose_output_widget_compute_layout( //
     int x = 0, y = 0;
 
     // Obtain panel's data.
-    struct rose_ui_panel panel = output->ctx->config.panel;
+    struct rose_ui_panel panel = output->context->config.panel;
     if(output->focused_workspace != NULL) {
         panel = output->focused_workspace->panel;
 
@@ -192,7 +192,7 @@ rose_handle_event_output_widget_surface_map(struct wl_listener* listener,
         // Handle input focus, if needed.
         if((widget->type == rose_output_widget_type_screen_lock) ||
            (widget->type == rose_output_widget_type_prompt)) {
-            rose_workspace_make_current(ui->output->ctx->current_workspace);
+            rose_workspace_make_current(ui->output->context->current_workspace);
         }
     }
 
@@ -232,7 +232,7 @@ rose_handle_event_output_widget_surface_unmap(struct wl_listener* listener,
         // Handle input focus, if needed.
         if((widget->type == rose_output_widget_type_screen_lock) ||
            (widget->type == rose_output_widget_type_prompt)) {
-            rose_workspace_make_current(output->ctx->current_workspace);
+            rose_workspace_make_current(output->context->current_workspace);
         }
     }
 }
@@ -295,7 +295,7 @@ rose_handle_event_output_widget_surface_new_subsurface(
     widget->master = master;
 
     // Send output enter event to the underlying surface.
-    wlr_surface_send_enter(subsurface->surface, master->output->dev);
+    wlr_surface_send_enter(subsurface->surface, master->output->device);
 
     // Add the widget to the list of subsurfaces.
     wl_list_insert(&(master->subsurfaces), &(widget->link));
@@ -335,7 +335,7 @@ rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
     widget->master = master;
 
     // Send output enter event to the underlying surface.
-    wlr_surface_send_enter(xdg_surface->surface, master->output->dev);
+    wlr_surface_send_enter(xdg_surface->surface, master->output->device);
 
     // Add the widget to the list of temporaries.
     wl_list_insert(&(master->temporaries), &(widget->link));
@@ -450,7 +450,7 @@ rose_output_widget_initialize( //
     widget->xdg_surface = xdg_surface;
 
     // Send output enter event to the underlying surface.
-    wlr_surface_send_enter(xdg_surface->surface, ui->output->dev);
+    wlr_surface_send_enter(xdg_surface->surface, ui->output->device);
 
     // Register listeners.
     add_signal_(xdg_surface, map);
@@ -524,7 +524,7 @@ rose_output_widget_make_current(struct rose_output_widget* widget) {
     }
 
     // Acquire keyboard focus.
-    struct wlr_seat* seat = widget->output->ctx->seat;
+    struct wlr_seat* seat = widget->output->context->seat;
     struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(seat);
 
     if(keyboard != NULL) {
@@ -545,7 +545,7 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
     struct rose_output* output = widget->output;
 
     // Obtain panel's data.
-    struct rose_ui_panel panel = output->ctx->config.panel;
+    struct rose_ui_panel panel = output->context->config.panel;
     if(output->focused_workspace != NULL) {
         panel = output->focused_workspace->panel;
 
@@ -694,13 +694,13 @@ rose_output_widget_is_visible(struct rose_output_widget* widget) {
     }
 
     // Normal widgets are not visible if the screen is locked.
-    if(widget->output->ctx->is_screen_locked &&
+    if(widget->output->context->is_screen_locked &&
        (widget->type >= rose_output_n_special_widget_types)) {
         return false;
     }
 
     // Screen lock widget is not visible if the screen is not locked.
-    if(!(widget->output->ctx->is_screen_locked) &&
+    if(!(widget->output->context->is_screen_locked) &&
        (widget->type == rose_output_widget_type_screen_lock)) {
         return false;
     }

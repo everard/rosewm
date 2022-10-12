@@ -53,7 +53,7 @@ rose_font_initialize(FT_Library ft, char const* file_name) {
         malloc(sizeof(struct rose_font) + (size_t)(file_stat.st_size));
 
     if(font == NULL) {
-        goto error;
+        goto exit;
     } else {
         *font = (struct rose_font){
             .data = (unsigned char*)(font) + sizeof(struct rose_font),
@@ -134,13 +134,13 @@ struct rose_string_metrics {
 };
 
 static FT_GlyphSlot
-rose_render_glyph(struct rose_text_rendering_context* ctx, char32_t c) {
+rose_render_glyph(struct rose_text_rendering_context* context, char32_t c) {
     // Find a font face which contains the given character's code point.
-    FT_Face ft_face = ctx->fonts[0]->ft_face;
+    FT_Face ft_face = context->fonts[0]->ft_face;
 
-    for(size_t i = 0; i < ctx->n_fonts; ++i) {
-        if(FT_Get_Char_Index(ctx->fonts[i]->ft_face, c) != 0) {
-            ft_face = ctx->fonts[i]->ft_face;
+    for(size_t i = 0; i < context->n_fonts; ++i) {
+        if(FT_Get_Char_Index(context->fonts[i]->ft_face, c) != 0) {
+            ft_face = context->fonts[i]->ft_face;
             break;
         }
     }
@@ -161,7 +161,7 @@ rose_render_glyph(struct rose_text_rendering_context* ctx, char32_t c) {
 
 static struct rose_string_metrics
 rose_render_glyphs( //
-    struct rose_text_rendering_context* ctx,
+    struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters params,
     struct rose_utf32_string string, FT_Pos pen_x,
     struct rose_glyph_buffer* glyph_buffer) {
@@ -174,8 +174,8 @@ rose_render_glyphs( //
     string.size = min_(string.size, rose_utf32_string_size_max);
 
     // Set font's size.
-    for(size_t i = 0; i < ctx->n_fonts; ++i) {
-        FT_Set_Char_Size(ctx->fonts[i]->ft_face, 0, params.font_size * 64,
+    for(size_t i = 0; i < context->n_fonts; ++i) {
+        FT_Set_Char_Size(context->fonts[i]->ft_face, 0, params.font_size * 64,
                          params.dpi, params.dpi);
     }
 
@@ -183,7 +183,7 @@ rose_render_glyphs( //
     FT_Pos y_ref_min = 0, y_ref_max = 0;
     if(true) {
         // Render a glyph for 'M' character.
-        FT_GlyphSlot glyph = rose_render_glyph(ctx, 0x4D);
+        FT_GlyphSlot glyph = rose_render_glyph(context, 0x4D);
 
         // Compute the space.
         if(glyph != NULL) {
@@ -214,7 +214,7 @@ rose_render_glyphs( //
 
     if(glyph_buffer != NULL) {
         // Render the glyph.
-        FT_GlyphSlot glyph = rose_render_glyph(ctx, 0x2026);
+        FT_GlyphSlot glyph = rose_render_glyph(context, 0x2026);
 
         // Save the rendered glyph, if any.
         if(glyph != NULL) {
@@ -234,7 +234,7 @@ rose_render_glyphs( //
     // Render string's characters.
     for(size_t i = 0, j = 0; i < string.size; ++i) {
         // Render current character.
-        FT_GlyphSlot glyph = rose_render_glyph(ctx, string.data[i]);
+        FT_GlyphSlot glyph = rose_render_glyph(context, string.data[i]);
 
         if(glyph == NULL) {
             continue;
@@ -367,58 +367,63 @@ rose_text_rendering_context_initialize(
     }
 
     // Allocate and initialize a new text rendering context.
-    struct rose_text_rendering_context* ctx =
+    struct rose_text_rendering_context* context =
         malloc(sizeof(struct rose_text_rendering_context) +
                sizeof(struct rose_font*) * params.n_fonts);
 
-    if(ctx != NULL) {
-        *ctx = (struct rose_text_rendering_context){.n_fonts = params.n_fonts};
+    if(context != NULL) {
+        *context =
+            (struct rose_text_rendering_context){.n_fonts = params.n_fonts};
 
-        for(size_t i = 0; i < ctx->n_fonts; ++i) {
-            ctx->fonts[i] = NULL;
+        for(size_t i = 0; i < context->n_fonts; ++i) {
+            context->fonts[i] = NULL;
         }
     } else {
         goto error;
     }
 
     // Initialize FreeType.
-    if(FT_Init_FreeType(&(ctx->ft)) != FT_Err_Ok) {
+    if(FT_Init_FreeType(&(context->ft)) != FT_Err_Ok) {
         goto error;
     }
 
     // Load fonts.
-    for(size_t i = 0; i < ctx->n_fonts; ++i) {
-        ctx->fonts[i] = rose_font_initialize(ctx->ft, params.font_names[i]);
-        if(ctx->fonts[i] == NULL) {
+    for(size_t i = 0; i < context->n_fonts; ++i) {
+        context->fonts[i] =
+            rose_font_initialize(context->ft, params.font_names[i]);
+
+        if(context->fonts[i] == NULL) {
             goto error;
         }
     }
 
-    return ctx;
+    // Initialization succeeded.
+    return context;
 
 error:
-    rose_text_rendering_context_destroy(ctx);
-    return NULL;
+    // On error, destroy the context.
+    return rose_text_rendering_context_destroy(context), NULL;
 }
 
 void
-rose_text_rendering_context_destroy(struct rose_text_rendering_context* ctx) {
-    if(ctx == NULL) {
+rose_text_rendering_context_destroy(
+    struct rose_text_rendering_context* context) {
+    if(context == NULL) {
         return;
     }
 
     // Destroy fonts.
-    for(size_t i = 0; i < ctx->n_fonts; ++i) {
-        rose_font_destroy(ctx->fonts[i]);
+    for(size_t i = 0; i < context->n_fonts; ++i) {
+        rose_font_destroy(context->fonts[i]);
     }
 
     // Destroy FreeType context.
-    if(ctx->ft != NULL) {
-        FT_Done_FreeType(ctx->ft);
+    if(context->ft != NULL) {
+        FT_Done_FreeType(context->ft);
     }
 
     // Free memory.
-    free(ctx);
+    free(context);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -427,13 +432,14 @@ rose_text_rendering_context_destroy(struct rose_text_rendering_context* ctx) {
 
 struct rose_text_rendering_extents
 rose_compute_string_extents( //
-    struct rose_text_rendering_context* ctx,
+    struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters params,
     struct rose_utf32_string string) {
     struct rose_text_rendering_extents extents = {};
 
     // Render glyphs and compute string's bounding box.
-    FT_BBox string_bbox = rose_render_glyphs(ctx, params, string, 0, NULL).bbox;
+    FT_BBox string_bbox =
+        rose_render_glyphs(context, params, string, 0, NULL).bbox;
 
     // Validate string's bounding box.
     if((string_bbox.xMax < string_bbox.xMin) ||
@@ -451,7 +457,7 @@ rose_compute_string_extents( //
 
 void
 rose_render_string( //
-    struct rose_text_rendering_context* ctx,
+    struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters params,
     struct rose_utf32_string string, struct rose_pixel_buffer pixel_buffer) {
     // Convert color value.
@@ -468,7 +474,7 @@ rose_render_string( //
     struct rose_glyph_buffer glyph_buffer = {};
 
     struct rose_string_metrics string_metrics =
-        rose_render_glyphs(ctx, params, string, 0, &glyph_buffer);
+        rose_render_glyphs(context, params, string, 0, &glyph_buffer);
 
     // Validate string's bounding box.
     if((string_metrics.bbox.xMax < string_metrics.bbox.xMin) ||

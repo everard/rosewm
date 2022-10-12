@@ -9,7 +9,6 @@
 #include <wlr/render/wlr_texture.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_surface.h>
-
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 
@@ -198,14 +197,15 @@ rose_output_update_text_buffers(
     struct rose_output_state output_state = rose_output_state_obtain(output);
 
     // Obtain text-rendering-related data.
-    struct rose_text_rendering_context* text_rendering_ctx =
-        output->ctx->text_rendering_ctx;
+    struct rose_text_rendering_context* text_rendering_context =
+        output->context->text_rendering_context;
 
     struct rose_text_rendering_parameters text_rendering_params = {
-        .font_size = output->ctx->config.font_size, .dpi = output_state.dpi};
+        .font_size = output->context->config.font_size,
+        .dpi = output_state.dpi};
 
     struct rose_color_scheme const* color_scheme =
-        &(output->ctx->config.color_scheme);
+        &(output->context->config.color_scheme);
 
     // Obtain panel's data.
     struct rose_ui_panel panel = workspace->panel;
@@ -245,8 +245,8 @@ rose_output_update_text_buffers(
         // Initialize the text buffer.
         struct rose_output_text_buffer* text_buffer =
             rose_output_text_buffer_initialize( //
-                &(output->text_buffers.title), output->ctx->renderer, buffer_w,
-                buffer_h);
+                &(output->text_buffers.title), output->context->renderer,
+                buffer_w, buffer_h);
 
         // Stop the update if the text buffer is not initialized.
         if(!rose_output_text_buffer_is_initialized(text_buffer)) {
@@ -260,7 +260,7 @@ rose_output_update_text_buffers(
 
         // Compose and render the title.
         rose_render_string( //
-            text_rendering_ctx, text_rendering_params,
+            text_rendering_context, text_rendering_params,
             rose_output_workspace_compose_title_string(workspace),
             *(text_buffer->pixels));
 
@@ -286,8 +286,8 @@ rose_output_update_text_buffers(
         // Initialize the text buffer.
         struct rose_output_text_buffer* text_buffer =
             rose_output_text_buffer_initialize( //
-                &(output->text_buffers.menu), output->ctx->renderer, buffer_w,
-                buffer_h);
+                &(output->text_buffers.menu), output->context->renderer,
+                buffer_w, buffer_h);
 
         // Stop the update if the text buffer is not initialized.
         if(!rose_output_text_buffer_is_initialized(text_buffer)) {
@@ -359,7 +359,7 @@ rose_output_update_text_buffers(
 
                     // Render the current line.
                     rose_render_string( //
-                        text_rendering_ctx, text_rendering_params,
+                        text_rendering_context, text_rendering_params,
                         text.lines[i], line_pixels);
                 }
             }
@@ -428,11 +428,11 @@ rose_output_add_workspaces(struct rose_output* output) {
     // If the output has no workspaces, and the list of workspaces without
     // output is empty, then add the first available workspace to that list.
     if(wl_list_empty(&(output->workspaces)) &&
-       wl_list_empty(&(output->ctx->workspaces_without_output))) {
-        if(!wl_list_empty(&(output->ctx->workspaces))) {
+       wl_list_empty(&(output->context->workspaces_without_output))) {
+        if(!wl_list_empty(&(output->context->workspaces))) {
             // Obtain the first available workspace.
-            struct rose_workspace* workspace =
-                wl_container_of(output->ctx->workspaces.prev, workspace, link);
+            struct rose_workspace* workspace = wl_container_of(
+                output->context->workspaces.prev, workspace, link);
 
             // Remove it from the list of available workspaces.
             wl_list_remove(&(workspace->link));
@@ -440,7 +440,7 @@ rose_output_add_workspaces(struct rose_output* output) {
 
             // Add it to the list of workspaces without output.
             wl_list_remove(&(workspace->link_output));
-            wl_list_insert(&(workspace->ctx->workspaces_without_output),
+            wl_list_insert(&(workspace->context->workspaces_without_output),
                            &(workspace->link_output));
         }
     }
@@ -451,7 +451,7 @@ rose_output_add_workspaces(struct rose_output* output) {
         struct rose_workspace* _ = NULL;
 
         wl_list_for_each_safe( //
-            workspace, _, &(output->ctx->workspaces_without_output),
+            workspace, _, &(output->context->workspaces_without_output),
             link_output) {
             // Remove the workspace from the list of available workspaces.
             wl_list_remove(&(workspace->link));
@@ -479,14 +479,14 @@ rose_output_add_workspaces(struct rose_output* output) {
         wl_list_for_each(workspace, &(output->workspaces), link_output) {
             wl_list_for_each(surface, &(workspace->surfaces), link) {
                 wlr_surface_send_enter(
-                    surface->xdg_surface->surface, output->dev);
+                    surface->xdg_surface->surface, output->device);
             }
         }
     }
 
     // Update output's focus, if needed.
-    if(output == output->ctx->current_workspace->output) {
-        rose_output_focus_workspace(output, output->ctx->current_workspace);
+    if(output == output->context->current_workspace->output) {
+        rose_output_focus_workspace(output, output->context->current_workspace);
     } else if(output->focused_workspace == NULL) {
         rose_output_focus_workspace_relative(
             output, rose_output_focus_direction_forward);
@@ -545,7 +545,7 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     output->is_frame_scheduled = false;
 
     // Do nothing else if the output is disabled.
-    if(!output->dev->enabled) {
+    if(!output->device->enabled) {
         return;
     }
 
@@ -613,10 +613,10 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
                 rose_render_content(output);
             } else {
                 // Otherwise, swap buffers.
-                if(wlr_output_attach_render(output->dev, NULL)) {
-                    wlr_output_commit(output->dev);
+                if(wlr_output_attach_render(output->device, NULL)) {
+                    wlr_output_commit(output->device);
                 } else {
-                    wlr_output_schedule_frame(output->dev);
+                    wlr_output_schedule_frame(output->device);
                 }
             }
 
@@ -637,7 +637,7 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     clock_gettime(CLOCK_MONOTONIC, &timestamp);
 
     // Send frame done events to all relevant surfaces.
-    if(!(output->ctx->is_screen_locked)) {
+    if(!(output->context->is_screen_locked)) {
         // If there is a focused workspace, then send required frame done events
         // to its surfaces.
         if(workspace != NULL) {
@@ -696,7 +696,8 @@ rose_handle_event_output_needs_frame(struct wl_listener* listener, void* data) {
         wl_container_of(listener, output, listener_needs_frame);
 
     // Schedule a frame.
-    output->is_frame_scheduled = (wlr_output_schedule_frame(output->dev), true);
+    output->is_frame_scheduled =
+        (wlr_output_schedule_frame(output->device), true);
 }
 
 static void
@@ -746,20 +747,20 @@ rose_handle_event_output_cursor_client_surface_destroy(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_initialize(struct rose_server_context* ctx,
-                       struct wlr_output* dev) {
+rose_output_initialize(struct rose_server_context* context,
+                       struct wlr_output* device) {
     // Initialize output's rendering subsystem.
-    if(!wlr_output_init_render(dev, ctx->allocator, ctx->renderer)) {
+    if(!wlr_output_init_render(device, context->allocator, context->renderer)) {
         return;
     }
 
     // Set device's mode, if needed.
-    if(!wl_list_empty(&(dev->modes))) {
-        wlr_output_set_mode(dev, wlr_output_preferred_mode(dev));
+    if(!wl_list_empty(&(device->modes))) {
+        wlr_output_set_mode(device, wlr_output_preferred_mode(device));
     }
 
     // Create and initialize a new cursor.
-    struct wlr_output_cursor* wlr_cursor = wlr_output_cursor_create(dev);
+    struct wlr_output_cursor* wlr_cursor = wlr_output_cursor_create(device);
     if(wlr_cursor == NULL) {
         return;
     }
@@ -769,18 +770,19 @@ rose_output_initialize(struct rose_server_context* ctx,
     if(output == NULL) {
         return;
     } else {
-        *output = (struct rose_output){
-            .ctx = ctx, .dev = dev, .cursor = {.wlr_cursor = wlr_cursor}};
+        *output = (struct rose_output){.context = context,
+                                       .device = device,
+                                       .cursor = {.wlr_cursor = wlr_cursor}};
     }
 
     // Enable the device.
-    wlr_output_enable(dev, true);
-    wlr_output_commit(dev);
+    wlr_output_enable(device, true);
+    wlr_output_commit(device);
 
     // Initialize the list of output modes.
     if(true) {
         struct wlr_output_mode* mode = NULL;
-        wl_list_for_each(mode, &(dev->modes), link) {
+        wl_list_for_each(mode, &(device->modes), link) {
             // Limit the number of modes.
             if(output->modes.size == rose_n_output_modes_max) {
                 break;
@@ -800,30 +802,30 @@ rose_output_initialize(struct rose_server_context* ctx,
     rose_output_ui_initialize(&(output->ui), output);
 
     // Create a new global for this output.
-    wlr_output_create_global(output->dev);
+    wlr_output_create_global(output->device);
 
     // Add this output to the list.
-    wl_list_insert(&(ctx->outputs), &(output->link));
+    wl_list_insert(&(context->outputs), &(output->link));
 
     // Set output's ID.
-    if(output->link.next != &(output->ctx->outputs)) {
+    if(output->link.next != &(output->context->outputs)) {
         output->id = (wl_container_of(output->link.next, output, link))->id + 1;
     }
 
     // Broadcast output's initialization event though IPC, if needed.
-    if(output->ctx->ipc_server != NULL) {
+    if(output->context->ipc_server != NULL) {
         rose_ipc_server_broadcast_status(
-            output->ctx->ipc_server,
+            output->context->ipc_server,
             (struct rose_ipc_status){
                 .type = rose_ipc_status_type_output_initialized,
                 .device_id = output->id});
     }
 
     // Register listeners.
-#define add_signal_(f)                                              \
-    {                                                               \
-        output->listener_##f.notify = rose_handle_event_output_##f; \
-        wl_signal_add(&(dev->events.f), &(output->listener_##f));   \
+#define add_signal_(f)                                               \
+    {                                                                \
+        output->listener_##f.notify = rose_handle_event_output_##f;  \
+        wl_signal_add(&(device->events.f), &(output->listener_##f)); \
     }
 
 #define initialize_(f)                                              \
@@ -858,13 +860,13 @@ rose_output_initialize(struct rose_server_context* ctx,
             .type = rose_ui_menu_line_type_output, .data = output};
 
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(output->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(output->context->menus_visible), link) {
             rose_ui_menu_notify_line_add(menu, line);
         }
     }
 
     // Apply preferences.
-    rose_output_apply_preferences(output, ctx->preference_list);
+    rose_output_apply_preferences(output, context->preference_list);
 }
 
 void
@@ -873,9 +875,9 @@ rose_output_destroy(struct rose_output* output) {
     rose_ui_menu_hide(&(output->ui.menu));
 
     // Broadcast output's destruction event though IPC, if needed.
-    if(output->ctx->ipc_server != NULL) {
+    if(output->context->ipc_server != NULL) {
         rose_ipc_server_broadcast_status(
-            output->ctx->ipc_server,
+            output->context->ipc_server,
             (struct rose_ipc_status){
                 .type = rose_ipc_status_type_output_destroyed,
                 .device_id = output->id});
@@ -883,7 +885,7 @@ rose_output_destroy(struct rose_output* output) {
 
     // Update IDs of all outputs which precede this one.
     for(struct rose_output* x = output;
-        x->link.prev != &(output->ctx->outputs);) {
+        x->link.prev != &(output->context->outputs);) {
         // Obtain preceding output.
         x = wl_container_of(x->link.prev, x, link);
 
@@ -905,13 +907,13 @@ rose_output_destroy(struct rose_output* output) {
     wl_list_remove(&(output->listener_cursor_client_surface_destroy.link));
 
     // Destroy the global.
-    wlr_output_destroy_global(output->dev);
+    wlr_output_destroy_global(output->device);
 
     // Select output's successor, make sure that the output is not its own
     // successor.
     struct rose_output* successor =
-        ((output->link.next == &(output->ctx->outputs))
-             ? wl_container_of(output->ctx->outputs.next, successor, link)
+        ((output->link.next == &(output->context->outputs))
+             ? wl_container_of(output->context->outputs.next, successor, link)
              : wl_container_of(output->link.next, successor, link));
 
     successor = ((successor == output) ? NULL : successor);
@@ -922,7 +924,7 @@ rose_output_destroy(struct rose_output* output) {
             .type = rose_ui_menu_line_type_output, .data = output};
 
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(output->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(output->context->menus_visible), link) {
             rose_ui_menu_notify_line_remove(menu, line);
         }
     }
@@ -941,7 +943,7 @@ rose_output_destroy(struct rose_output* output) {
         wl_list_for_each(workspace, &(output->workspaces), link_output) {
             wl_list_for_each(surface, &(workspace->surfaces), link) {
                 wlr_surface_send_leave(
-                    surface->xdg_surface->surface, output->dev);
+                    surface->xdg_surface->surface, output->device);
             }
         }
     }
@@ -967,16 +969,16 @@ rose_output_destroy(struct rose_output* output) {
                 // list of available workspaces.
                 wl_list_remove(&(workspace->link));
                 wl_list_insert(rose_workspace_find_position_in_list(
-                                   &(workspace->ctx->workspaces), workspace,
+                                   &(workspace->context->workspaces), workspace,
                                    offsetof(struct rose_workspace, link)),
                                &(workspace->link));
 
                 // And reset its panel.
                 workspace->panel = workspace->panel_saved =
-                    output->ctx->config.panel;
+                    output->context->config.panel;
             } else {
                 // Otherwise, add it to the list of workspaces without output.
-                wl_list_insert(&(workspace->ctx->workspaces_without_output),
+                wl_list_insert(&(workspace->context->workspaces_without_output),
                                &(workspace->link_output));
             }
         }
@@ -990,7 +992,7 @@ rose_output_destroy(struct rose_output* output) {
     // Update all visible menus.
     if(true) {
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(output->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(output->context->menus_visible), link) {
             rose_ui_menu_update(menu);
         }
     }
@@ -1012,7 +1014,7 @@ rose_output_configure(struct rose_output* output,
     }
 
     // If the given output is disabled, then configuration fails.
-    if((output->dev == NULL) || !output->dev->enabled) {
+    if((output->device == NULL) || !output->device->enabled) {
         return false;
     }
 
@@ -1043,11 +1045,11 @@ rose_output_configure(struct rose_output* output,
     // Set specified parameters.
 
     if((params.flags & rose_output_configure_transform) != 0) {
-        wlr_output_set_transform(output->dev, params.transform);
+        wlr_output_set_transform(output->device, params.transform);
     }
 
     if((params.flags & rose_output_configure_scale) != 0) {
-        wlr_output_set_scale(output->dev, (float)(params.scale));
+        wlr_output_set_scale(output->device, (float)(params.scale));
     }
 
     while((params.flags & rose_output_configure_mode) != 0) {
@@ -1056,20 +1058,20 @@ rose_output_configure(struct rose_output* output,
         if(((params.mode.w == 0) && //
             (params.mode.h == 0) && //
             (params.mode.rate == 0)) &&
-           !wl_list_empty(&(output->dev->modes))) {
+           !wl_list_empty(&(output->device->modes))) {
             wlr_output_set_mode(
-                output->dev, wlr_output_preferred_mode(output->dev));
+                output->device, wlr_output_preferred_mode(output->device));
 
             break;
         }
 
         // Set the requested mode if it matches one of the available modes.
         struct wlr_output_mode* mode = NULL;
-        wl_list_for_each(mode, &(output->dev->modes), link) {
+        wl_list_for_each(mode, &(output->device->modes), link) {
             if((mode->width == params.mode.w) &&
                (mode->height == params.mode.h) &&
                (mode->refresh == params.mode.rate)) {
-                wlr_output_set_mode(output->dev, mode);
+                wlr_output_set_mode(output->device, mode);
                 break;
             }
         }
@@ -1079,7 +1081,7 @@ rose_output_configure(struct rose_output* output,
     }
 
     // Update device preference list, if needed.
-    if(output->ctx->preference_list != NULL) {
+    if(output->context->preference_list != NULL) {
         // Initialize device preference.
         struct rose_device_preference preference = {
             .device_name = rose_output_name_obtain(output),
@@ -1088,11 +1090,11 @@ rose_output_configure(struct rose_output* output,
 
         // Perform update operation.
         rose_device_preference_list_update(
-            output->ctx->preference_list, preference);
+            output->context->preference_list, preference);
     }
 
     // Commit output's state.
-    if(wlr_output_commit(output->dev)) {
+    if(wlr_output_commit(output->device)) {
         // If commit is successful, then handle related event.
         rose_handle_event_output_mode(&(output->listener_mode), NULL);
     }
@@ -1212,7 +1214,8 @@ rose_output_add_workspace(struct rose_output* output,
     if(true) {
         struct rose_surface* surface = NULL;
         wl_list_for_each(surface, &(workspace->surfaces), link) {
-            wlr_surface_send_enter(surface->xdg_surface->surface, output->dev);
+            wlr_surface_send_enter(
+                surface->xdg_surface->surface, output->device);
         }
     }
 
@@ -1222,7 +1225,7 @@ rose_output_add_workspace(struct rose_output* output,
             .type = rose_ui_menu_line_type_workspace, .data = workspace};
 
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(output->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(output->context->menus_visible), link) {
             rose_ui_menu_notify_line_add(menu, line);
         }
     }
@@ -1242,7 +1245,7 @@ rose_output_remove_workspace(struct rose_output* output,
             .type = rose_ui_menu_line_type_workspace, .data = workspace};
 
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(output->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(output->context->menus_visible), link) {
             rose_ui_menu_notify_line_remove(menu, line);
         }
     }
@@ -1251,7 +1254,8 @@ rose_output_remove_workspace(struct rose_output* output,
     if(true) {
         struct rose_surface* surface = NULL;
         wl_list_for_each(surface, &(workspace->surfaces), link) {
-            wlr_surface_send_leave(surface->xdg_surface->surface, output->dev);
+            wlr_surface_send_leave(
+                surface->xdg_surface->surface, output->device);
         }
     }
 
@@ -1281,15 +1285,16 @@ rose_output_remove_workspace(struct rose_output* output,
         // available workspaces.
         wl_list_remove(&(workspace->link));
         wl_list_insert(rose_workspace_find_position_in_list(
-                           &(workspace->ctx->workspaces), workspace,
+                           &(workspace->context->workspaces), workspace,
                            offsetof(struct rose_workspace, link)),
                        &(workspace->link));
 
         // And reset its panel.
-        workspace->panel = workspace->panel_saved = output->ctx->config.panel;
+        workspace->panel = workspace->panel_saved =
+            output->context->config.panel;
     } else {
         // Otherwise, add it to the list of workspaces without output.
-        wl_list_insert(&(workspace->ctx->workspaces_without_output),
+        wl_list_insert(&(workspace->context->workspaces_without_output),
                        &(workspace->link_output));
     }
 }
@@ -1313,7 +1318,7 @@ rose_output_schedule_frame(struct rose_output* output) {
     if(!output->is_frame_scheduled) {
         output->is_frame_scheduled = true;
 
-        wlr_output_schedule_frame(output->dev);
+        wlr_output_schedule_frame(output->device);
     }
 }
 
@@ -1324,24 +1329,24 @@ rose_output_schedule_frame(struct rose_output* output) {
 struct rose_output_state
 rose_output_state_obtain(struct rose_output* output) {
     // Compute output's DPI.
-    int dpi = (int)(output->dev->scale * 96.0 + 0.5), w = 0, h = 0;
+    int dpi = (int)(output->device->scale * 96.0 + 0.5), w = 0, h = 0;
 
     // Compute output's width and height.
     if(true) {
-        bool flip = ((output->dev->transform % 2) != 0);
-        w = (flip ? output->dev->height : output->dev->width);
-        h = (flip ? output->dev->width : output->dev->height);
+        bool flip = ((output->device->transform % 2) != 0);
+        w = (flip ? output->device->height : output->device->width);
+        h = (flip ? output->device->width : output->device->height);
     }
 
     // Return output's state.
     return (struct rose_output_state){
         .id = output->id,
-        .transform = output->dev->transform,
+        .transform = output->device->transform,
         .dpi = dpi,
-        .rate = output->dev->refresh,
+        .rate = output->device->refresh,
         .w = w,
         .h = h,
-        .scale = output->dev->scale,
+        .scale = output->device->scale,
         .is_scanned_out = output->is_scanned_out,
         .is_frame_scheduled = output->is_frame_scheduled,
         .is_text_buffers_update_requested =
@@ -1384,7 +1389,7 @@ rose_output_cursor_set(struct rose_output* output,
     } else {
         // Otherwise, find corresponding image for the specified type.
         struct wlr_xcursor_image* image = rose_server_context_get_cursor_image(
-            output->ctx, output->cursor.type, output->dev->scale);
+            output->context, output->cursor.type, output->device->scale);
 
         // And set this image.
         wlr_output_cursor_set_image(

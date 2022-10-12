@@ -209,7 +209,7 @@ rose_workspace_layout_update(enum rose_workspace_layout_update_type type,
                 .type = rose_ui_menu_line_type_surface, .data = surface};
 
             struct rose_ui_menu* menu = NULL;
-            wl_list_for_each(menu, &(workspace->ctx->menus_visible), link) {
+            wl_list_for_each(menu, &(workspace->context->menus_visible), link) {
                 rose_ui_menu_notify_line_add(menu, line);
             }
         }
@@ -241,7 +241,7 @@ rose_workspace_layout_update(enum rose_workspace_layout_update_type type,
                 .type = rose_ui_menu_line_type_surface, .data = surface};
 
             struct rose_ui_menu* menu = NULL;
-            wl_list_for_each(menu, &(workspace->ctx->menus_visible), link) {
+            wl_list_for_each(menu, &(workspace->context->menus_visible), link) {
                 rose_ui_menu_notify_line_remove(menu, line);
             }
         }
@@ -278,7 +278,6 @@ rose_workspace_layout_update(enum rose_workspace_layout_update_type type,
 
 int
 rose_handle_event_workspace_transaction_timer_expiry(void* data) {
-    // Commit workspace's running transaction.
     return rose_workspace_transaction_commit(data), 0;
 }
 
@@ -288,12 +287,13 @@ rose_handle_event_workspace_transaction_timer_expiry(void* data) {
 
 bool
 rose_workspace_initialize(struct rose_workspace* workspace,
-                          struct rose_server_context* ctx) {
+                          struct rose_server_context* context) {
     // Initialize workspace object.
-    *workspace = (struct rose_workspace){.ctx = ctx, .w = 640, .h = 480};
+    *workspace =
+        (struct rose_workspace){.context = context, .w = 640, .h = 480};
 
     // Set workspace's ID.
-    workspace->id = (unsigned)(workspace - ctx->storage.workspace);
+    workspace->id = (unsigned)(workspace - context->storage.workspace);
 
     // Initialize list links.
     wl_list_init(&(workspace->link_output));
@@ -304,18 +304,18 @@ rose_workspace_initialize(struct rose_workspace* workspace,
     wl_list_init(&(workspace->surfaces_visible));
 
     // Add this workspace to the list of available workspaces.
-    wl_list_insert(&(ctx->workspaces), &(workspace->link));
+    wl_list_insert(&(context->workspaces), &(workspace->link));
 
     // Initialize pointer's timer.
     workspace->pointer.timer = wl_event_loop_add_timer(
-        ctx->event_loop, rose_handle_event_workspace_pointer_timer_expiry,
+        context->event_loop, rose_handle_event_workspace_pointer_timer_expiry,
         workspace);
 
     // Initialize transaction's data.
     wl_list_init(&(workspace->transaction.snapshot.surfaces));
     workspace->transaction.timer = wl_event_loop_add_timer(
-        ctx->event_loop, rose_handle_event_workspace_transaction_timer_expiry,
-        workspace);
+        context->event_loop,
+        rose_handle_event_workspace_transaction_timer_expiry, workspace);
 
     // Ensure that workspace's timers are successfully initialized.
     if((workspace->pointer.timer == NULL) ||
@@ -421,22 +421,22 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
              : NULL);
 
     // Deactivate existing pointer constraint, if needed.
-    if((workspace->ctx->current_workspace != workspace) || (prompt != NULL) ||
-       (workspace->ctx->is_screen_locked)) {
-        if((workspace->ctx->current_workspace->focused_surface != NULL) &&
-           (workspace->ctx->current_workspace->focused_surface
+    if((workspace->context->current_workspace != workspace) ||
+       (prompt != NULL) || (workspace->context->is_screen_locked)) {
+        if((workspace->context->current_workspace->focused_surface != NULL) &&
+           (workspace->context->current_workspace->focused_surface
                 ->pointer_constraint != NULL)) {
             wlr_pointer_constraint_v1_send_deactivated(
-                workspace->ctx->current_workspace->focused_surface
+                workspace->context->current_workspace->focused_surface
                     ->pointer_constraint);
         }
     }
 
     // Set the given workspace as current for input events.
-    workspace->ctx->current_workspace = workspace;
+    workspace->context->current_workspace = workspace;
 
     // Handle input focus.
-    if(workspace->ctx->is_screen_locked) {
+    if(workspace->context->is_screen_locked) {
         // If the screen is locked, then obtain a pointer to the parent output's
         // screen lock widget.
         struct rose_output_widget* screen_lock =
@@ -459,12 +459,12 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
             rose_output_widget_make_current(screen_lock);
         } else {
             // Otherwise, end all grabs.
-            wlr_seat_keyboard_end_grab(workspace->ctx->seat);
-            wlr_seat_pointer_end_grab(workspace->ctx->seat);
+            wlr_seat_keyboard_end_grab(workspace->context->seat);
+            wlr_seat_pointer_end_grab(workspace->context->seat);
 
             // Clear keyboard and pointer focus.
-            wlr_seat_keyboard_clear_focus(workspace->ctx->seat);
-            wlr_seat_pointer_clear_focus(workspace->ctx->seat);
+            wlr_seat_keyboard_clear_focus(workspace->context->seat);
+            wlr_seat_pointer_clear_focus(workspace->context->seat);
 
             // And clear focus of all tablets.
             if(true) {
@@ -472,7 +472,7 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
                 struct rose_tablet* _ = NULL;
 
                 wl_list_for_each_safe(
-                    tablet, _, &(workspace->ctx->inputs_tablets), link) {
+                    tablet, _, &(workspace->context->inputs_tablets), link) {
                     rose_tablet_clear_focus(tablet);
                 }
             }
@@ -483,7 +483,7 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
     } else if(workspace->focused_surface != NULL) {
         // If there is a focused surface, then make it accept input events.
         rose_surface_make_current(
-            workspace->focused_surface, workspace->ctx->seat);
+            workspace->focused_surface, workspace->context->seat);
 
         // And activate its pointer constraint, if any.
         if(workspace->focused_surface->pointer_constraint != NULL) {
@@ -492,12 +492,12 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
         }
     } else {
         // Otherwise, end all grabs.
-        wlr_seat_keyboard_end_grab(workspace->ctx->seat);
-        wlr_seat_pointer_end_grab(workspace->ctx->seat);
+        wlr_seat_keyboard_end_grab(workspace->context->seat);
+        wlr_seat_pointer_end_grab(workspace->context->seat);
 
         // Clear keyboard and pointer focus.
-        wlr_seat_keyboard_clear_focus(workspace->ctx->seat);
-        wlr_seat_pointer_clear_focus(workspace->ctx->seat);
+        wlr_seat_keyboard_clear_focus(workspace->context->seat);
+        wlr_seat_pointer_clear_focus(workspace->context->seat);
 
         // And clear focus of all tablets.
         if(true) {
@@ -505,7 +505,7 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
             struct rose_tablet* _ = NULL;
 
             wl_list_for_each_safe(
-                tablet, _, &(workspace->ctx->inputs_tablets), link) {
+                tablet, _, &(workspace->context->inputs_tablets), link) {
                 rose_tablet_clear_focus(tablet);
             }
         }
@@ -520,7 +520,7 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
 bool
 rose_workspace_is_current(struct rose_workspace* workspace) {
     // Check if the given workspace is set to accept input events.
-    return (workspace == workspace->ctx->current_workspace);
+    return (workspace == workspace->context->current_workspace);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -716,8 +716,8 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
         // Send output leave event to the surface, if needed.
         if((surface->workspace->output != workspace->output) &&
            (surface->workspace->output != NULL)) {
-            wlr_surface_send_leave(
-                surface->xdg_surface->surface, surface->workspace->output->dev);
+            wlr_surface_send_leave(surface->xdg_surface->surface,
+                                   surface->workspace->output->device);
         }
 
         // Clear the flag if the surface does not change its output.
@@ -736,7 +736,7 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
     // Send output enter event to the surface, if needed.
     if(need_send_enter_event && (workspace->output != NULL)) {
         wlr_surface_send_enter(
-            surface->xdg_surface->surface, workspace->output->dev);
+            surface->xdg_surface->surface, workspace->output->device);
     }
 
     // If the surface is already mapped, then update workspace's layout.
@@ -748,10 +748,10 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
     // If the workspace does not belong to any outputs, then add this workspace
     // to the first available output.
     if(workspace->output == NULL) {
-        if(!wl_list_empty(&(workspace->ctx->outputs))) {
+        if(!wl_list_empty(&(workspace->context->outputs))) {
             // Obtain a pointer to the first available output.
             struct rose_output* output =
-                wl_container_of(workspace->ctx->outputs.prev, output, link);
+                wl_container_of(workspace->context->outputs.prev, output, link);
 
             // Add the workspace to the output.
             rose_output_add_workspace(output, workspace);
@@ -762,7 +762,7 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
 
             // Add the workspace to the list of workspaces without output.
             wl_list_remove(&(workspace->link_output));
-            wl_list_insert(&(workspace->ctx->workspaces_without_output),
+            wl_list_insert(&(workspace->context->workspaces_without_output),
                            &(workspace->link_output));
         }
     }
@@ -816,7 +816,7 @@ rose_workspace_remove_surface(struct rose_workspace* workspace,
                 // not current, then add it to the list of available workspaces.
                 wl_list_remove(&(workspace->link));
                 wl_list_insert(rose_workspace_find_position_in_list(
-                                   &(workspace->ctx->workspaces), workspace,
+                                   &(workspace->context->workspaces), workspace,
                                    offsetof(struct rose_workspace, link)),
                                &(workspace->link));
 
@@ -826,7 +826,7 @@ rose_workspace_remove_surface(struct rose_workspace* workspace,
 
                 // And reset its panel.
                 workspace->panel = workspace->panel_saved =
-                    workspace->ctx->config.panel;
+                    workspace->context->config.panel;
             }
         } else if(workspace->output->focused_workspace != workspace) {
             // Otherwise, if the workspace is not a focused workspace of its
@@ -860,7 +860,7 @@ rose_workspace_reposition_surface( //
     // previous position.
     if(true) {
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(workspace->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(workspace->context->menus_visible), link) {
             rose_ui_menu_notify_line_remove(menu, line);
         }
     }
@@ -873,7 +873,7 @@ rose_workspace_reposition_surface( //
     // position.
     if(true) {
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(workspace->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(workspace->context->menus_visible), link) {
             rose_ui_menu_notify_line_add(menu, line);
 
             // Move menu's head, if needed.
@@ -1109,7 +1109,7 @@ rose_workspace_notify_surface_name_update(struct rose_workspace* workspace,
             .type = rose_ui_menu_line_type_surface, .data = surface};
 
         struct rose_ui_menu* menu = NULL;
-        wl_list_for_each(menu, &(workspace->ctx->menus_visible), link) {
+        wl_list_for_each(menu, &(workspace->context->menus_visible), link) {
             rose_ui_menu_notify_line_update(menu, line);
         }
     }

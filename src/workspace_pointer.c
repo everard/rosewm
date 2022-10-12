@@ -69,6 +69,7 @@ rose_workspace_point_relate(double x, double y, struct rose_surface* surface) {
     // Check if the point is on the edge of the surface's decoration. Surfaces
     // which are maximized or in fullscreen mode have no decorations.
     if(!(state.is_maximized || state.is_fullscreen)) {
+        // Construct rectangles for decoration's boundary areas.
         static double const d = 5.0, d_2 = 10.0;
         struct rectangle rectangles
             [rose_workspace_point_surface_relation_touches_south_west -
@@ -116,6 +117,7 @@ rose_workspace_point_relate(double x, double y, struct rose_surface* surface) {
 
 #define array_size_(a) ((size_t)(sizeof(a) / sizeof(a[0])))
 
+        // Check if the point is inside any of the constructed rectangles.
         for(size_t i = 0; i != array_size_(rectangles); ++i) {
             if(is_inside_(x, y, rectangles[i])) {
                 return (rose_workspace_point_surface_relation_touches_north +
@@ -338,7 +340,7 @@ rose_handle_event_workspace_pointer_timer_expiry(void* data) {
     workspace->pointer.is_timer_armed = false;
 
     // If the screen is locked, then do nothing else.
-    if(workspace->ctx->is_screen_locked) {
+    if(workspace->context->is_screen_locked) {
         return 0;
     }
 
@@ -419,7 +421,7 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
     }
 
     // If the screen is locked, then cancel any interactive mode.
-    if(workspace->ctx->is_screen_locked) {
+    if(workspace->context->is_screen_locked) {
         rose_workspace_cancel_interactive_mode(workspace);
     }
 
@@ -429,10 +431,10 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
     }
 
     // Obtain current seat.
-    struct wlr_seat* seat = workspace->ctx->seat;
+    struct wlr_seat* seat = workspace->context->seat;
 
     // Perform additional actions depending on current mode.
-    if(workspace->ctx->is_screen_locked) {
+    if(workspace->context->is_screen_locked) {
         // If the screen is locked, then obtain a pointer to the parent output's
         // screen lock widget.
         struct rose_output_widget* screen_lock =
@@ -760,7 +762,7 @@ rose_workspace_notify_pointer_axis(struct rose_workspace* workspace,
                                    struct rose_pointer_event_axis event) {
     // If the screen is locked, then notify the seat of this event, and do
     // nothing else.
-    if(workspace->ctx->is_screen_locked) {
+    if(workspace->context->is_screen_locked) {
         goto notify_seat;
     }
 
@@ -807,22 +809,25 @@ notify_seat:
     enum wlr_axis_source source = (int)(event.source);
 
     wlr_seat_pointer_notify_axis( //
-        workspace->ctx->seat, event.time_msec, orientation, event.delta,
+        workspace->context->seat, event.time_msec, orientation, event.delta,
         event.delta_discrete, source);
 }
 
 void
 rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
                                      struct rose_pointer_event_button event) {
+    // Obtain current seat.
+    struct wlr_seat* seat = workspace->context->seat;
+
     // If the screen is locked, then cancel any interactive mode, notify the
     // seat of this event, and do nothing else.
-    if(workspace->ctx->is_screen_locked) {
+    if(workspace->context->is_screen_locked) {
         // Cancel interactive mode.
         rose_workspace_cancel_interactive_mode(workspace);
 
         // Notify the seat.
         wlr_seat_pointer_notify_button(
-            workspace->ctx->seat, event.time_msec, event.button,
+            seat, event.time_msec, event.button,
             ((event.state == rose_pointer_button_state_released)
                  ? WLR_BUTTON_RELEASED
                  : WLR_BUTTON_PRESSED));
@@ -898,7 +903,7 @@ rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
                     case rose_output_ui_selection_type_widget:
                         // Notify the seat of this event.
                         wlr_seat_pointer_notify_button(
-                            workspace->ctx->seat, event.time_msec, event.button,
+                            seat, event.time_msec, event.button,
                             ((event.state == rose_pointer_button_state_released)
                                  ? WLR_BUTTON_RELEASED
                                  : WLR_BUTTON_PRESSED));
@@ -958,7 +963,7 @@ rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
                     if(relation ==
                        rose_workspace_point_surface_relation_inside) {
                         wlr_seat_pointer_notify_button( //
-                            workspace->ctx->seat, event.time_msec, event.button,
+                            seat, event.time_msec, event.button,
                             WLR_BUTTON_PRESSED);
                     }
 
@@ -972,7 +977,7 @@ rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
                     // If the pointer is inside the surface, then either notify
                     // the seat of current event, or start interactive move
                     // mode.
-                    if(workspace->ctx->is_waiting_for_user_interaction) {
+                    if(workspace->context->is_waiting_for_user_interaction) {
                         // Start interactive move mode.
                         rose_workspace_mode_set(
                             workspace, event.time_msec,
@@ -980,7 +985,7 @@ rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
                     } else {
                         // Notify the seat.
                         wlr_seat_pointer_notify_button( //
-                            workspace->ctx->seat, event.time_msec, event.button,
+                            seat, event.time_msec, event.button,
                             WLR_BUTTON_PRESSED);
                     }
                 } else if(relation ==
@@ -1002,7 +1007,7 @@ rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
 
                     rose_workspace_mode_set(
                         workspace, event.time_msec,
-                        (workspace->ctx->is_waiting_for_user_interaction
+                        (workspace->context->is_waiting_for_user_interaction
                              ? rose_workspace_mode_interactive_move
                              : resize_mode_));
 
@@ -1020,7 +1025,7 @@ rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
     // If the workspace is in normal mode, then notify the seat of this event.
     if(workspace->mode == rose_workspace_mode_normal) {
         wlr_seat_pointer_notify_button(
-            workspace->ctx->seat, event.time_msec, event.button,
+            seat, event.time_msec, event.button,
             ((event.state == rose_pointer_button_state_released)
                  ? WLR_BUTTON_RELEASED
                  : WLR_BUTTON_PRESSED));
@@ -1040,7 +1045,7 @@ rose_workspace_notify_pointer_move(struct rose_workspace* workspace,
 
     // Send relative pointer motion event.
     wlr_relative_pointer_manager_v1_send_relative_motion(
-        workspace->ctx->relative_pointer_manager, workspace->ctx->seat,
+        workspace->context->relative_pointer_manager, workspace->context->seat,
         time_nsec, event.dx, event.dy, event.dx_unaccel, event.dy_unaccel);
 }
 

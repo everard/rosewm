@@ -33,10 +33,10 @@ struct rose_input {
     enum rose_input_device_type type;
 
     // Pointer to the server context.
-    struct rose_server_context* ctx;
+    struct rose_server_context* context;
 
     // Pointer to the underlying input device.
-    struct wlr_input_device* dev;
+    struct wlr_input_device* device;
 
     // Device variant.
     union {
@@ -60,8 +60,8 @@ struct rose_input {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_input_initialize(struct rose_server_context* ctx,
-                      struct wlr_input_device* dev);
+rose_input_initialize(struct rose_server_context* context,
+                      struct wlr_input_device* device);
 
 // Note: This function is called automatically upon input device's destruction.
 void

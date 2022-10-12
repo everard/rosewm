@@ -188,7 +188,7 @@ rose_ui_menu_line_select_next(
             struct rose_output* output = line.data;
 
 #define select_(d)                                       \
-    ((output->link.d != &(output->ctx->outputs))         \
+    ((output->link.d != &(output->context->outputs))     \
          ? wl_container_of(output->link.d, output, link) \
          : NULL)
 
@@ -395,21 +395,21 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
             rose_output_state_obtain(menu->output);
 
         // Prepare text-rendering-related data.
-        struct rose_text_rendering_context* text_rendering_ctx =
-            menu->output->ctx->text_rendering_ctx;
+        struct rose_text_rendering_context* text_rendering_context =
+            menu->output->context->text_rendering_context;
 
         struct rose_text_rendering_parameters text_rendering_params = {
-            .font_size = menu->output->ctx->config.font_size,
+            .font_size = menu->output->context->config.font_size,
             .dpi = output_state.dpi};
 
         // Compute line's height. Use "M" string as a reference.
         struct rose_utf32_string string = {.data = U"M", .size = 1};
-        menu->layout.line_h =
-            (int)((2.0 * rose_compute_string_extents(
-                             text_rendering_ctx, text_rendering_params, string)
-                             .h) /
-                      output_state.scale +
-                  0.5);
+        menu->layout.line_h = (int)((2.0 * rose_compute_string_extents(
+                                               text_rendering_context,
+                                               text_rendering_params, string)
+                                               .h) /
+                                        output_state.scale +
+                                    0.5);
 
         // Make sure line's height is positive.
         menu->layout.line_h = max_(2, menu->layout.line_h);
@@ -634,7 +634,7 @@ rose_ui_menu_show(struct rose_ui_menu* menu,
 
     // Add the menu to the list of visible menus.
     wl_list_remove(&(menu->link));
-    wl_list_insert(&(menu->output->ctx->menus_visible), &(menu->link));
+    wl_list_insert(&(menu->output->context->menus_visible), &(menu->link));
 
     // Set menu's flags.
     menu->is_visible = true;
@@ -1081,7 +1081,7 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 
                 // Obtain output's name.
                 struct rose_utf8_string name =
-                    rose_convert_ntbs_to_utf8(output->dev->name);
+                    rose_convert_ntbs_to_utf8(output->device->name);
 
                 // Write the name to the name buffer.
                 write_name_;

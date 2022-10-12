@@ -79,20 +79,24 @@ enum rose_output_cursor_type {
 };
 
 struct rose_output {
-    // Pointers to the server context and output device.
-    struct rose_server_context* ctx;
-    struct wlr_output* dev;
+    // Pointer to the server context.
+    struct rose_server_context* context;
+
+    // Pointer to the underlying output device.
+    struct wlr_output* device;
 
     // List of available modes.
     struct rose_output_mode_list modes;
 
     // Associated cursor.
     struct {
-        // Cursor's abstraction and cursor's client-set surface.
+        // Cursor's abstraction.
         struct wlr_output_cursor* wlr_cursor;
+
+        // Cursor's client-set surface.
         struct wlr_surface* client_surface;
 
-        // Cursor's hotspot coordinates.
+        // Client-set surface's hotspot coordinates.
         int32_t hotspot_x, hotspot_y;
 
         // Cursor's type which defines its visual representation.
@@ -203,7 +207,8 @@ enum rose_output_focus_direction {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_initialize(struct rose_server_context* ctx, struct wlr_output* dev);
+rose_output_initialize(struct rose_server_context* context,
+                       struct wlr_output* device);
 
 // Note: This function is called automatically upon output device's destruction.
 void

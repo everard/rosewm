@@ -22,17 +22,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_server_context {
-    // Text rendering context.
-    struct rose_text_rendering_context* text_rendering_ctx;
+    // Associated contexts.
+    struct rose_text_rendering_context* text_rendering_context;
+    struct rose_keyboard_context* keyboard_context;
 
-    // Keyboard context.
-    struct rose_keyboard_context* keyboard_ctx;
-
-    // Cursor context.
     struct {
         struct wlr_xcursor_manager* manager;
         struct wlr_xcursor* cursors[rose_n_output_cursor_types];
-    } cursor_ctx;
+    } cursor_context;
 
     // Wayland display and event loop.
     struct wl_display* display;
@@ -100,10 +97,11 @@ struct rose_server_context {
     // IPC server.
     struct rose_ipc_server* ipc_server;
 
-    // Command list.
+    // Command list. Contains a map of running commands with access rights.
     struct rose_command_list* command_list;
 
-    // Device preference list.
+    // Device preference list (devices from this list will be configured upon
+    // detection).
     struct rose_device_preference_list* preference_list;
 
     // Event listeners.
@@ -167,21 +165,21 @@ typedef unsigned rose_server_context_configure_mask;
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_server_context_initialize(struct rose_server_context* ctx);
+rose_server_context_initialize(struct rose_server_context* context);
 
 void
-rose_server_context_destroy(struct rose_server_context* ctx);
+rose_server_context_destroy(struct rose_server_context* context);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_server_context_set_keyboard_layout( //
-    struct rose_server_context* ctx, unsigned layout_idx);
+rose_server_context_set_keyboard_layout(struct rose_server_context* context,
+                                        unsigned layout_idx);
 
 void
-rose_server_context_configure(struct rose_server_context* ctx,
+rose_server_context_configure(struct rose_server_context* context,
                               rose_server_context_configure_mask flags);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -190,7 +188,7 @@ rose_server_context_configure(struct rose_server_context* ctx,
 
 struct wlr_xcursor_image*
 rose_server_context_get_cursor_image( //
-    struct rose_server_context* ctx, enum rose_output_cursor_type type,
+    struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -198,20 +196,22 @@ rose_server_context_get_cursor_image( //
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_input*
-rose_server_context_obtain_input(struct rose_server_context* ctx, unsigned id);
+rose_server_context_obtain_input(struct rose_server_context* context,
+                                 unsigned id);
 
 struct rose_output*
-rose_server_context_obtain_output(struct rose_server_context* ctx, unsigned id);
+rose_server_context_obtain_output(struct rose_server_context* context,
+                                  unsigned id);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_ipc_status
-rose_server_context_obtain_status(struct rose_server_context* ctx);
+rose_server_context_obtain_status(struct rose_server_context* context);
 
 struct rose_server_context_state
-rose_server_context_state_obtain(struct rose_server_context* ctx);
+rose_server_context_state_obtain(struct rose_server_context* context);
 
 ////////////////////////////////////////////////////////////////////////////////
 // IPC access rights checking interface.
@@ -219,7 +219,7 @@ rose_server_context_state_obtain(struct rose_server_context* ctx);
 
 bool
 rose_server_context_check_ipc_access_rights(
-    struct rose_server_context* ctx, pid_t pid,
+    struct rose_server_context* context, pid_t pid,
     enum rose_ipc_connection_type connection_type);
 
 #endif // H_FDEAC0DEC4E94DF387CFAB74ABE394AD

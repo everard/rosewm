@@ -110,6 +110,6 @@ struct rose_keyboard_context*
 rose_keyboard_context_initialize(char const* keyboard_layouts);
 
 void
-rose_keyboard_context_destroy(struct rose_keyboard_context* keyboard_ctx);
+rose_keyboard_context_destroy(struct rose_keyboard_context* context);
 
 #endif // H_A2A240823BDF420B83340167CDA6465B

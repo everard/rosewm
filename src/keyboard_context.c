@@ -403,13 +403,13 @@ rose_keyboard_control_scheme_destroy(
 struct rose_keyboard_context*
 rose_keyboard_context_initialize(char const* keyboard_layouts) {
     // Allocate and initialize a new keyboard context.
-    struct rose_keyboard_context* keyboard_ctx =
+    struct rose_keyboard_context* context =
         malloc(sizeof(struct rose_keyboard_context));
 
-    if(keyboard_ctx == NULL) {
-        return keyboard_ctx;
+    if(context == NULL) {
+        return context;
     } else {
-        *keyboard_ctx = (struct rose_keyboard_context){};
+        *context = (struct rose_keyboard_context){};
     }
 
     // Create an XKB context.
@@ -424,20 +424,20 @@ rose_keyboard_context_initialize(char const* keyboard_layouts) {
         struct xkb_rule_names rules = {.layout = keyboard_layouts};
 
         // Create the keymap.
-        keyboard_ctx->keymap = xkb_keymap_new_from_names(
+        context->keymap = xkb_keymap_new_from_names(
             xkb_context, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-        if(keyboard_ctx->keymap == NULL) {
+        if(context->keymap == NULL) {
             goto error;
         }
     }
 
     // Create the keymap which will be used for processing compositor's
     // bindings.
-    keyboard_ctx->keymap_raw = xkb_keymap_new_from_names(
+    context->keymap_raw = xkb_keymap_new_from_names(
         xkb_context, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-    if(keyboard_ctx->keymap_raw == NULL) {
+    if(context->keymap_raw == NULL) {
         goto error;
     }
 
@@ -445,26 +445,26 @@ rose_keyboard_context_initialize(char const* keyboard_layouts) {
     xkb_context_unref(xkb_context);
 
     // Obtain the number of keyboard layouts in the main keymap.
-    keyboard_ctx->n_layouts =
-        (unsigned)(xkb_keymap_num_layouts(keyboard_ctx->keymap));
+    context->n_layouts = (unsigned)(xkb_keymap_num_layouts(context->keymap));
 
     // Initialization succeeded.
-    return keyboard_ctx;
+    return context;
 
 error:
     // On error, destroy the context.
-    rose_keyboard_context_destroy(keyboard_ctx);
+    rose_keyboard_context_destroy(context);
     xkb_context_unref(xkb_context);
 
+    // Initialization failed.
     return NULL;
 }
 
 void
-rose_keyboard_context_destroy(struct rose_keyboard_context* keyboard_ctx) {
+rose_keyboard_context_destroy(struct rose_keyboard_context* context) {
     // Destroy the keymaps.
-    xkb_keymap_unref(keyboard_ctx->keymap);
-    xkb_keymap_unref(keyboard_ctx->keymap_raw);
+    xkb_keymap_unref(context->keymap);
+    xkb_keymap_unref(context->keymap_raw);
 
     // Free memory.
-    free(keyboard_ctx);
+    free(context);
 }

@@ -39,7 +39,7 @@ enum rose_workspace_mode {
 
 struct rose_workspace {
     // Pointers to the server context and output.
-    struct rose_server_context* ctx;
+    struct rose_server_context* context;
     struct rose_output* output;
 
     // Lists of surfaces.
@@ -115,7 +115,7 @@ enum rose_workspace_focus_direction {
 
 bool
 rose_workspace_initialize(struct rose_workspace* workspace,
-                          struct rose_server_context* ctx);
+                          struct rose_server_context* context);
 
 void
 rose_workspace_destroy(struct rose_workspace* workspace);

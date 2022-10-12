@@ -101,7 +101,7 @@ rose_ipc_connection_transition(struct rose_ipc_connection* connection,
 
         // Check access rights of the process.
         if(!rose_server_context_check_ipc_access_rights(
-               connection->ctx, pid, connection->type)) {
+               connection->context, pid, connection->type)) {
             return false;
         }
     }
@@ -164,7 +164,7 @@ rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
 
     // Execute the command.
     rose_command_list_execute_command(
-        connection->ctx->command_list, rights, command_and_args);
+        connection->context->command_list, rights, command_and_args);
 end:
     return;
 }
@@ -376,7 +376,7 @@ rose_ipc_connection_handle_rx(void* context, enum rose_ipc_io_result result,
             if(connection->type == rose_ipc_connection_type_status) {
                 rose_ipc_connection_send_status(
                     connection,
-                    rose_server_context_obtain_status(connection->ctx));
+                    rose_server_context_obtain_status(connection->context));
             }
 
             return;
@@ -460,7 +460,7 @@ rose_ipc_connection_initialize(struct rose_ipc_connection_parameters params) {
         return;
     } else {
         *connection = (struct rose_ipc_connection){
-            .ctx = params.ctx, .container = params.container};
+            .context = params.context, .container = params.container};
     }
 
     // Add connection to the list.
@@ -472,7 +472,7 @@ rose_ipc_connection_initialize(struct rose_ipc_connection_parameters params) {
     if(true) {
         struct rose_ipc_io_context_parameters io_context_params = {
             .socket_fd = params.socket_fd,
-            .event_loop = params.ctx->event_loop,
+            .event_loop = params.context->event_loop,
             .rx_callback_fn = rose_ipc_connection_handle_rx,
             .tx_callback_fn = rose_ipc_connection_handle_tx,
             .external_context = connection};
@@ -485,7 +485,7 @@ rose_ipc_connection_initialize(struct rose_ipc_connection_parameters params) {
 
     // Create watchdog timer.
     connection->watchdog_timer = wl_event_loop_add_timer(
-        connection->ctx->event_loop,
+        connection->context->event_loop,
         rose_handle_event_ipc_connection_watchdog_timer_expiry, connection);
 
     if(connection->watchdog_timer == NULL) {

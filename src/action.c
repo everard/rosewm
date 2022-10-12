@@ -13,29 +13,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_execute_core_action(struct rose_server_context* ctx,
+rose_execute_core_action(struct rose_server_context* context,
                          enum rose_core_action_type action_type) {
     // Obtain current focus info.
     struct {
         struct rose_workspace* workspace;
         struct rose_surface* surface;
         struct rose_output* output;
-    } focus = {.workspace = ctx->current_workspace,
-               .surface = ctx->current_workspace->focused_surface,
-               .output = ctx->current_workspace->output};
+    } focus = {.workspace = context->current_workspace,
+               .surface = context->current_workspace->focused_surface,
+               .output = context->current_workspace->output};
 
     // Perform action.
     switch(action_type) {
         // Main actions.
         case rose_core_action_type_terminate_display:
-            wl_display_terminate(ctx->display);
+            wl_display_terminate(context->display);
             break;
 
         case rose_core_action_type_switch_keyboard_layout: {
-            if(ctx->keyboard_ctx->n_layouts > 1) {
+            if(context->keyboard_context->n_layouts > 1) {
                 rose_server_context_set_keyboard_layout(
-                    ctx, (ctx->keyboard_ctx->layout_idx + 1) %
-                             ctx->keyboard_ctx->n_layouts);
+                    context, (context->keyboard_context->layout_idx + 1) %
+                                 context->keyboard_context->n_layouts);
             }
 
             break;
@@ -43,13 +43,14 @@ rose_execute_core_action(struct rose_server_context* ctx,
 
         case rose_core_action_type_toggle_keyboard_shortcuts_inhibiting:
             // Switch the flag.
-            ctx->are_keyboard_shortcuts_inhibited =
-                !(ctx->are_keyboard_shortcuts_inhibited);
+            context->are_keyboard_shortcuts_inhibited =
+                !(context->are_keyboard_shortcuts_inhibited);
 
             // Broadcast the change through IPC, if needed.
-            if(ctx->ipc_server != NULL) {
+            if(context->ipc_server != NULL) {
                 rose_ipc_server_broadcast_status(
-                    ctx->ipc_server, rose_server_context_obtain_status(ctx));
+                    context->ipc_server,
+                    rose_server_context_obtain_status(context));
             }
 
             break;
@@ -102,11 +103,11 @@ rose_execute_core_action(struct rose_server_context* ctx,
 
         case rose_core_action_type_surface_move_to_workspace_new:
             if((focus.surface != NULL) && (focus.output != NULL)) {
-                if(!wl_list_empty(&(ctx->workspaces))) {
+                if(!wl_list_empty(&(context->workspaces))) {
                     // Obtain the first workspace from the list of free
                     // workspaces.
-                    struct rose_workspace* workspace =
-                        wl_container_of(ctx->workspaces.prev, workspace, link);
+                    struct rose_workspace* workspace = wl_container_of(
+                        context->workspaces.prev, workspace, link);
 
                     // Add it to the focused output, and focus the workspace.
                     rose_output_add_workspace(focus.output, workspace);
@@ -155,11 +156,11 @@ rose_execute_core_action(struct rose_server_context* ctx,
         // Workspace-related actions.
         case rose_core_action_type_workspace_add:
             if(focus.output != NULL) {
-                if(!wl_list_empty(&(ctx->workspaces))) {
+                if(!wl_list_empty(&(context->workspaces))) {
                     // Obtain the first workspace from the list of free
                     // workspaces.
-                    struct rose_workspace* workspace =
-                        wl_container_of(ctx->workspaces.prev, workspace, link);
+                    struct rose_workspace* workspace = wl_container_of(
+                        context->workspaces.prev, workspace, link);
 
                     // Add it to the focused output, and focus the workspace.
                     rose_output_add_workspace(focus.output, workspace);
@@ -218,17 +219,14 @@ rose_execute_core_action(struct rose_server_context* ctx,
 
         // Terminal-related actions.
         case rose_core_action_type_run_terminal:
-            // Start a new terminal instance as a stand-alone process.
-            rose_execute_command(ctx->config.terminal_arg_list);
-
+            rose_execute_command(context->config.terminal_arg_list);
             break;
 
         case rose_core_action_type_run_terminal_ipc:
-            // Start a new terminal instance as compositor's child process, save
-            // it in the command list, and enable its IPC access.
-            rose_command_list_execute_command( //
-                ctx->command_list, rose_command_access_ipc,
-                ctx->config.terminal_arg_list);
+            // Start a new terminal instance as compositor's child process.
+            rose_command_list_execute_command(
+                context->command_list, rose_command_access_ipc,
+                context->config.terminal_arg_list);
 
             break;
 
@@ -262,17 +260,14 @@ rose_execute_menu_action(struct rose_ui_menu* menu,
         // Menu's actions.
         case rose_menu_action_type_cancel:
             rose_ui_menu_perform_action(menu, rose_ui_menu_action_cancel);
-
             break;
 
         case rose_menu_action_type_commit:
             rose_ui_menu_perform_action(menu, rose_ui_menu_action_commit);
-
             break;
 
         case rose_menu_action_type_select:
             rose_ui_menu_perform_action(menu, rose_ui_menu_action_select);
-
             break;
 
         case rose_menu_action_type_switch_line_type:

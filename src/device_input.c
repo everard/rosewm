@@ -49,29 +49,29 @@ rose_handle_event_input_destroy(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_input_initialize(struct rose_server_context* ctx,
-                      struct wlr_input_device* dev) {
+rose_input_initialize(struct rose_server_context* context,
+                      struct wlr_input_device* device) {
     // Allocate and initialize a new input.
     struct rose_input* input = malloc(sizeof(struct rose_input));
 
     if(input == NULL) {
         return;
     } else {
-        *input = (struct rose_input){.ctx = ctx, .dev = dev};
+        *input = (struct rose_input){.context = context, .device = device};
     }
 
     // Add it to the list.
-    wl_list_insert(&(ctx->inputs), &(input->link));
+    wl_list_insert(&(context->inputs), &(input->link));
 
     // Set input's ID.
-    if(input->link.next != &(ctx->inputs)) {
+    if(input->link.next != &(context->inputs)) {
         input->id = (wl_container_of(input->link.next, input, link))->id + 1;
     }
 
     // Broadcast input's initialization event though IPC, if needed.
-    if(input->ctx->ipc_server != NULL) {
+    if(input->context->ipc_server != NULL) {
         rose_ipc_server_broadcast_status(
-            input->ctx->ipc_server,
+            input->context->ipc_server,
             (struct rose_ipc_status){
                 .type = rose_ipc_status_type_input_initialized,
                 .device_id = input->id});
@@ -79,10 +79,10 @@ rose_input_initialize(struct rose_server_context* ctx,
 
     // Register listeners.
     input->listener_destroy.notify = rose_handle_event_input_destroy;
-    wl_signal_add(&(dev->events.destroy), &(input->listener_destroy));
+    wl_signal_add(&(device->events.destroy), &(input->listener_destroy));
 
     // Perform device-specific initialization.
-    switch(dev->type) {
+    switch(device->type) {
         case WLR_INPUT_DEVICE_KEYBOARD:
             input->type = (rose_keyboard_initialize(&(input->keyboard), input),
                            rose_input_device_type_keyboard);
@@ -103,22 +103,23 @@ rose_input_initialize(struct rose_server_context* ctx,
     }
 
     // Update seat's capabilities.
-    rose_update_seat_capabilities(input->ctx->seat);
+    rose_update_seat_capabilities(input->context->seat);
 }
 
 void
 rose_input_destroy(struct rose_input* input) {
     // Broadcast input's destruction event though IPC, if needed.
-    if(input->ctx->ipc_server != NULL) {
+    if(input->context->ipc_server != NULL) {
         rose_ipc_server_broadcast_status(
-            input->ctx->ipc_server,
+            input->context->ipc_server,
             (struct rose_ipc_status){
                 .type = rose_ipc_status_type_input_destroyed,
                 .device_id = input->id});
     }
 
     // Update IDs of all inputs which precede this one.
-    for(struct rose_input* x = input; x->link.prev != &(input->ctx->inputs);) {
+    for(struct rose_input* x = input;
+        x->link.prev != &(input->context->inputs);) {
         (x = wl_container_of(x->link.prev, x, link))->id--;
     }
 
@@ -142,13 +143,12 @@ rose_input_destroy(struct rose_input* input) {
             rose_tablet_destroy(&(input->tablet));
             break;
 
-        // Unknown device.
         default:
             break;
     }
 
     // Update seat's capabilities.
-    rose_update_seat_capabilities(input->ctx->seat);
+    rose_update_seat_capabilities(input->context->seat);
 
     // Free memory.
     free(input);

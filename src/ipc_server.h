@@ -20,7 +20,7 @@ struct rose_ipc_server;
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_ipc_server*
-rose_ipc_server_initialize(struct rose_server_context* ctx);
+rose_ipc_server_initialize(struct rose_server_context* context);
 
 void
 rose_ipc_server_destroy(struct rose_ipc_server* server);

@@ -102,7 +102,7 @@ rose_tablet_tool_obtain(struct rose_tablet* tablet,
     }
 
     // Obtain a pointer to the server context.
-    struct rose_server_context* context = tablet->parent->ctx;
+    struct rose_server_context* context = tablet->parent->context;
 
     // Obtain a pointer to the tablet tool.
     struct rose_tablet_tool* tool = wlr_tool->data;
@@ -344,10 +344,10 @@ rose_handle_event_tablet_tip(struct wl_listener* listener, void* data) {
 void
 rose_tablet_initialize(struct rose_tablet* tablet, struct rose_input* parent) {
     // Obtain a pointer to the server context.
-    struct rose_server_context* context = parent->ctx;
+    struct rose_server_context* context = parent->context;
 
     // Obtain a pointer to the underlying device.
-    struct wlr_tablet* dev_tablet = parent->dev->tablet;
+    struct wlr_tablet* dev_tablet = parent->device->tablet;
 
     // Initialize the tablet object.
     *tablet = (struct rose_tablet){.parent = parent};
@@ -373,8 +373,8 @@ rose_tablet_initialize(struct rose_tablet* tablet, struct rose_input* parent) {
 #undef add_signal_
 
     // Create protocol object.
-    tablet->handle =
-        wlr_tablet_create(context->tablet_manager, context->seat, parent->dev);
+    tablet->handle = wlr_tablet_create(
+        context->tablet_manager, context->seat, parent->device);
 }
 
 void

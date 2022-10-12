@@ -485,14 +485,14 @@ rose_output_apply_preferences(
 // Device name acquisition interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
-#define acquire_name_(device)                              \
+#define acquire_name_(object)                              \
     /* Initialize an empty name. */                        \
     struct rose_device_name device_name = {};              \
                                                            \
     /* Obtain device's name. */                            \
-    if(device->dev->name != NULL) {                        \
-        size_t name_size = strlen(device->dev->name);      \
-        memcpy(device_name.data, device->dev->name,        \
+    if(object->device->name != NULL) {                     \
+        size_t name_size = strlen(object->device->name);   \
+        memcpy(device_name.data, object->device->name,     \
                min_(name_size, sizeof(device_name.data))); \
     }                                                      \
                                                            \

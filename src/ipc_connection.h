@@ -25,7 +25,7 @@ enum {
 
 struct rose_ipc_connection {
     // Pointers to the parent server context and container.
-    struct rose_server_context* ctx;
+    struct rose_server_context* context;
     struct rose_ipc_connection_container* container;
 
     // IO context.
@@ -66,7 +66,7 @@ struct rose_ipc_connection_parameters {
     int socket_fd;
 
     // Pointer to the parent server context.
-    struct rose_server_context* ctx;
+    struct rose_server_context* context;
 
     // Pointer to the parent container.
     struct rose_ipc_connection_container* container;
