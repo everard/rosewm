@@ -3,7 +3,7 @@
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
-#include "rendering.h"
+#include "rendering_text.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -455,11 +455,14 @@ rose_compute_string_extents( //
     return extents;
 }
 
-void
+struct rose_text_rendering_extents
 rose_render_string( //
     struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters params,
-    struct rose_utf32_string string, struct rose_pixel_buffer pixel_buffer) {
+    struct rose_utf32_string string, //
+    struct rose_pixel_buffer pixel_buffer) {
+    struct rose_text_rendering_extents extents = {};
+
     // Convert color value.
     unsigned color_value[] = //
         {(unsigned)(params.color.v[2] * 255.0 + 0.5),
@@ -562,9 +565,16 @@ rose_render_string( //
         }
     }
 
+    // Compute string's extents.
+    extents.w = string_metrics.bbox.xMax - string_metrics.bbox.xMin;
+    extents.h = string_metrics.bbox.yMax - string_metrics.bbox.yMin;
+
 cleanup:
     // Free memory.
     for(size_t i = 0; i < glyph_buffer.size; ++i) {
         FT_Done_Glyph(glyph_buffer.glyphs[i]);
     }
+
+    // Return string's extents.
+    return extents;
 }
