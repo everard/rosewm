@@ -40,7 +40,7 @@ struct rose_text_rendering_extents {
 
 struct rose_pixel_buffer {
     unsigned char* data;
-    int w, h;
+    int w, h, pitch;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

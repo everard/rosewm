@@ -473,6 +473,11 @@ rose_render_string( //
     params.w_max = ((params.w_max != 0) ? min_(pixel_buffer.w, params.w_max)
                                         : pixel_buffer.w);
 
+    // Compute pixel buffer's pitch, if needed.
+    if(pixel_buffer.pitch <= 0) {
+        pixel_buffer.pitch = pixel_buffer.w * 4;
+    }
+
     // Render glyphs and compute string's bounding box.
     struct rose_glyph_buffer glyph_buffer = {};
 
@@ -551,7 +556,7 @@ rose_render_string( //
                     ++j, line_src += bitmap_pitch) {
                     unsigned char* src = line_src;
                     unsigned char* dst =
-                        pixel_buffer.data + 4 * (pixel_buffer.w * j + dst_dx);
+                        pixel_buffer.data + pixel_buffer.pitch * j + 4 * dst_dx;
 
                     for(int k = 0; k != w; ++k) {
                         unsigned char c = *(src++);

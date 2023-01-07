@@ -273,8 +273,13 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
             // Execute the IPC action, if any.
             if(ipc_action != NULL) {
+                // Dispatch the IPC command which corresponds to the given
+                // action.
                 rose_ipc_server_dispatch_command(
                     context->ipc_server, ipc_action->ipc_command);
+
+                // And do nothing else.
+                return;
             }
         }
     }
