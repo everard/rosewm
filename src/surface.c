@@ -5,9 +5,9 @@
 //
 #include "server_context.h"
 
-#include <wlr/types/wlr_surface.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_subcompositor.h>
 
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
@@ -243,12 +243,11 @@ rose_handle_event_surface_request_maximize(struct wl_listener* listener,
 static void
 rose_handle_event_surface_request_fullscreen(struct wl_listener* listener,
                                              void* data) {
+    unused_(data);
+
     // Obtain a pointer to the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_request_fullscreen);
-
-    // Obtain a pointer to the event.
-    struct wlr_xdg_toplevel_set_fullscreen_event* event = data;
 
     // Configure the surface within its workspace.
     rose_workspace_surface_configure(
@@ -256,7 +255,8 @@ rose_handle_event_surface_request_fullscreen(struct wl_listener* listener,
         (struct rose_surface_configure_parameters){
             .flags = rose_surface_configure_fullscreen |
                      rose_surface_configure_no_transaction,
-            .is_fullscreen = event->fullscreen});
+            .is_fullscreen =
+                surface->xdg_surface->toplevel->requested.fullscreen});
 }
 
 static void
@@ -570,7 +570,7 @@ rose_surface_initialize(struct rose_surface_parameters params) {
         rose_surface_create(rose_surface_type_toplevel);
 
     if(surface == NULL) {
-        wlr_xdg_toplevel_send_close(xdg_surface);
+        wlr_xdg_toplevel_send_close(xdg_surface->toplevel);
         return;
     } else {
         xdg_surface->data = surface;
@@ -765,6 +765,70 @@ rose_surface_pointer_constraint_initialize(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// State change requesting interface implementation.
+////////////////////////////////////////////////////////////////////////////////
+
+void
+rose_surface_request_close(struct rose_surface* surface) {
+    // Note: This request is only meaningful for top-level surfaces.
+    if(surface->type == rose_surface_type_toplevel) {
+        wlr_xdg_toplevel_send_close(surface->xdg_surface->toplevel);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Output entering/leaving interface implementation.
+////////////////////////////////////////////////////////////////////////////////
+
+void
+rose_surface_output_enter( //
+    struct rose_surface* surface, struct rose_output* output) {
+    // Note: This operation is only meaningful for top-level surfaces.
+    if(surface->type == rose_surface_type_toplevel) {
+        // Send the event to the main surface.
+        wlr_surface_send_enter(surface->xdg_surface->surface, output->device);
+
+        // Send the event to all subsurfaces and temporary surfaces.
+        if(true) {
+            struct rose_surface* x = NULL;
+            struct rose_surface* _ = NULL;
+
+            wl_list_for_each_safe(x, _, &(surface->subsurfaces), link) {
+                wlr_surface_send_enter(x->subsurface->surface, output->device);
+            }
+
+            wl_list_for_each_safe(x, _, &(surface->temporaries), link) {
+                wlr_surface_send_enter(x->xdg_surface->surface, output->device);
+            }
+        }
+    }
+}
+
+void
+rose_surface_output_leave( //
+    struct rose_surface* surface, struct rose_output* output) {
+    // Note: This operation is only meaningful for top-level surfaces.
+    if(surface->type == rose_surface_type_toplevel) {
+        // Send the event to the main surface.
+        wlr_surface_send_leave(surface->xdg_surface->surface, output->device);
+
+        // Send the event to all subsurfaces and temporary surfaces.
+        if(true) {
+            struct rose_surface* x = NULL;
+            struct rose_surface* _ = NULL;
+
+            wl_list_for_each_safe(x, _, &(surface->subsurfaces), link) {
+                wlr_surface_send_leave(x->subsurface->surface, output->device);
+            }
+
+            wl_list_for_each_safe(x, _, &(surface->temporaries), link) {
+                wlr_surface_send_leave(x->xdg_surface->surface, output->device);
+            }
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Configuration interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -800,7 +864,8 @@ rose_surface_configure(struct rose_surface* surface,
         target.w = params.w;
         target.h = params.h;
 
-        wlr_xdg_toplevel_set_size(surface->xdg_surface, params.w, params.h);
+        wlr_xdg_toplevel_set_size(
+            surface->xdg_surface->toplevel, params.w, params.h);
     }
 
     if((params.flags & rose_surface_configure_position) != 0) {
@@ -811,19 +876,19 @@ rose_surface_configure(struct rose_surface* surface,
     if((params.flags & rose_surface_configure_activated) != 0) {
         target.is_activated = params.is_activated;
         wlr_xdg_toplevel_set_activated(
-            surface->xdg_surface, params.is_activated);
+            surface->xdg_surface->toplevel, params.is_activated);
     }
 
     if((params.flags & rose_surface_configure_maximized) != 0) {
         target.is_maximized = params.is_maximized;
         wlr_xdg_toplevel_set_maximized(
-            surface->xdg_surface, params.is_maximized);
+            surface->xdg_surface->toplevel, params.is_maximized);
     }
 
     if((params.flags & rose_surface_configure_fullscreen) != 0) {
         target.is_fullscreen = params.is_fullscreen;
         wlr_xdg_toplevel_set_fullscreen(
-            surface->xdg_surface, params.is_fullscreen);
+            surface->xdg_surface->toplevel, params.is_fullscreen);
     }
 
     // Update surface's transaction, if needed.

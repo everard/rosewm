@@ -12,32 +12,15 @@
 // Forward declarations.
 ////////////////////////////////////////////////////////////////////////////////
 
-struct rose_pixel_buffer;
+struct rose_raster;
 struct rose_server_context;
 
 struct rose_surface;
 struct rose_workspace;
 
 struct wlr_surface;
-struct wlr_texture;
-
 struct wlr_output;
 struct wlr_output_cursor;
-
-////////////////////////////////////////////////////////////////////////////////
-// Text buffer definition.
-////////////////////////////////////////////////////////////////////////////////
-
-struct rose_output_text_buffer {
-    // Pixel buffer.
-    struct rose_pixel_buffer* pixels;
-
-    // Corresponding texture.
-    struct wlr_texture* texture;
-
-    // Size of the pixel buffer in bytes.
-    size_t pixel_buffer_data_size;
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Output mode definition.
@@ -59,7 +42,7 @@ struct rose_output_mode_list {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Output definition.
+// Output cursor type definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_output_cursor_type {
@@ -77,6 +60,10 @@ enum rose_output_cursor_type {
     rose_output_cursor_type_client,
     rose_n_output_cursor_types
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// Output definition.
+////////////////////////////////////////////////////////////////////////////////
 
 struct rose_output {
     // Pointer to the server context.
@@ -111,16 +98,19 @@ struct rose_output {
 
     // User interface.
     struct rose_output_ui ui;
+
+    // A text which is currently being shown in the menu, if the menu is
+    // visible.
     struct rose_ui_menu_text ui_menu_text;
 
     // Focus.
     struct rose_surface* focused_surface;
     struct rose_workspace* focused_workspace;
 
-    // Text buffers for workspace's title bar and menu.
+    // Rasters for the title bar and the menu.
     struct {
-        struct rose_output_text_buffer title, menu;
-    } text_buffers;
+        struct rose_raster *title, *menu;
+    } rasters;
 
     // Event listeners.
     struct wl_listener listener_mode;
@@ -138,7 +128,7 @@ struct rose_output {
     unsigned id, n_frames_without_damage;
 
     // Flags.
-    bool is_scanned_out, is_frame_scheduled, is_text_buffers_update_requested;
+    bool is_scanned_out, is_frame_scheduled, is_rasters_update_requested;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +152,7 @@ struct rose_output_state {
     double scale;
 
     // Output's flags.
-    bool is_scanned_out, is_frame_scheduled, is_text_buffers_update_requested;
+    bool is_scanned_out, is_frame_scheduled, is_rasters_update_requested;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

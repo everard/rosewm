@@ -166,7 +166,7 @@ rose_handle_event_tablet_axis(struct wl_listener* listener, void* data) {
         wl_container_of(listener, tablet, listener_axis);
 
     // Obtain event data.
-    struct wlr_event_tablet_tool_axis* wlr_event = data;
+    struct wlr_tablet_tool_axis_event* wlr_event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
@@ -258,7 +258,7 @@ rose_handle_event_tablet_proximity(struct wl_listener* listener, void* data) {
         wl_container_of(listener, tablet, listener_proximity);
 
     // Obtain event data.
-    struct wlr_event_tablet_tool_proximity* wlr_event = data;
+    struct wlr_tablet_tool_proximity_event* wlr_event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
@@ -296,7 +296,7 @@ rose_handle_event_tablet_button(struct wl_listener* listener, void* data) {
         wl_container_of(listener, tablet, listener_button);
 
     // Obtain event data.
-    struct wlr_event_tablet_tool_button* wlr_event = data;
+    struct wlr_tablet_tool_button_event* wlr_event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
@@ -320,15 +320,14 @@ rose_handle_event_tablet_tip(struct wl_listener* listener, void* data) {
         wl_container_of(listener, tablet, listener_tip);
 
     // Obtain event data.
-    struct wlr_event_tablet_tool_tip* wlr_event = data;
+    struct wlr_tablet_tool_tip_event* wlr_event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
         rose_tablet_tool_obtain(tablet, wlr_event->tool);
 
-    // Handle the event, if needed.
+    // Send corresponding event, if needed.
     if(tool != NULL) {
-        // Send the event.
         if(wlr_event->state == WLR_TABLET_TOOL_TIP_UP) {
             wlr_send_tablet_v2_tablet_tool_up(tool->handle);
         } else {
@@ -347,7 +346,8 @@ rose_tablet_initialize(struct rose_tablet* tablet, struct rose_input* parent) {
     struct rose_server_context* context = parent->context;
 
     // Obtain a pointer to the underlying device.
-    struct wlr_tablet* dev_tablet = parent->device->tablet;
+    struct wlr_tablet* dev_tablet =
+        wlr_tablet_from_input_device(parent->device);
 
     // Initialize the tablet object.
     *tablet = (struct rose_tablet){.parent = parent};

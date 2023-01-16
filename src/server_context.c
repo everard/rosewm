@@ -9,11 +9,12 @@
 #include <wlr/backend/libinput.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
-#include <wlr/util/log.h>
 
-#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_subcompositor.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_seat.h>
+
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_tablet_v2.h>
@@ -35,7 +36,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <assert.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -1060,6 +1060,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
 
     // Initialize the compositor.
     try_(wlr_compositor_create(context->display, context->renderer));
+    try_(wlr_subcompositor_create(context->display));
 
     // Initialize the seat.
     try_(context->seat = wlr_seat_create(context->display, "seat0"));
@@ -1091,7 +1092,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
     // Initialize Wayland protocols: xdg-shell, xdg-decoration-manager.
     if(true) {
         struct wlr_xdg_shell* xdg_shell =
-            wlr_xdg_shell_create(context->display);
+            wlr_xdg_shell_create(context->display, 5);
 
         struct wlr_xdg_decoration_manager_v1* xdg_decoration_manager =
             wlr_xdg_decoration_manager_v1_create(context->display);
@@ -1162,23 +1163,51 @@ rose_server_context_initialize(struct rose_server_context* context) {
 
 void
 rose_server_context_destroy(struct rose_server_context* context) {
-    // Free memory.
-    free(context->config.background_arg_list);
-    free(context->config.dispatcher_arg_list);
-    free(context->config.notification_daemon_arg_list);
-    free(context->config.panel_arg_list);
-    free(context->config.screen_locker_arg_list);
-    free(context->config.terminal_arg_list);
-    free(context->config.keyboard_layouts.data);
+    // Destroy event sources.
+    if(true) {
+        struct wl_event_source* sources[] = //
+            {context->event_source_sigint, context->event_source_sigterm,
+             context->event_source_sigchld, context->event_source_timer};
 
-    for_each_(struct rose_utf8_string, path, context->config.paths) {
-        free(path->data);
+        for(size_t i = 0; i != array_size_(sources); ++i) {
+            if(sources[i] != NULL) {
+                wl_event_source_remove(sources[i]);
+            }
+        }
     }
 
-    // Destroy keyboard control scheme.
-    if(context->config.keyboard_control_scheme != NULL) {
-        rose_keyboard_control_scheme_destroy(
-            context->config.keyboard_control_scheme);
+#define kill_(type)                                    \
+    if(context->processes.type##_pid != (pid_t)(-1)) { \
+        kill(context->processes.type##_pid, SIGTERM);  \
+    }
+
+    // Kill system processes.
+    kill_(background);
+    kill_(dispatcher);
+    kill_(notification_daemon);
+    kill_(panel);
+    kill_(screen_locker);
+
+#undef kill_
+
+    // Destroy input devices.
+    if(true) {
+        struct rose_input* input = NULL;
+        struct rose_input* _ = NULL;
+
+        wl_list_for_each_safe(input, _, &(context->inputs), link) {
+            rose_input_destroy(input);
+        }
+    }
+
+    // Destroy output devices.
+    if(true) {
+        struct rose_output* output = NULL;
+        struct rose_output* _ = NULL;
+
+        wl_list_for_each_safe(output, _, &(context->outputs), link) {
+            rose_output_destroy(output);
+        }
     }
 
     // Destroy workspaces.
@@ -1202,6 +1231,41 @@ rose_server_context_destroy(struct rose_server_context* context) {
                 rose_workspace_destroy(workspace);
             }
         }
+    }
+
+    // Destroy the display.
+    if(context->display != NULL) {
+        wl_display_destroy_clients(context->display);
+        wl_display_destroy(context->display);
+    }
+
+    // Destroy the renderer.
+    if(context->renderer != NULL) {
+        wlr_renderer_destroy(context->renderer);
+    }
+
+    // Destroy the allocator.
+    if(context->allocator != NULL) {
+        wlr_allocator_destroy(context->allocator);
+    }
+
+    // Free memory.
+    free(context->config.background_arg_list);
+    free(context->config.dispatcher_arg_list);
+    free(context->config.notification_daemon_arg_list);
+    free(context->config.panel_arg_list);
+    free(context->config.screen_locker_arg_list);
+    free(context->config.terminal_arg_list);
+    free(context->config.keyboard_layouts.data);
+
+    for_each_(struct rose_utf8_string, path, context->config.paths) {
+        free(path->data);
+    }
+
+    // Destroy keyboard control scheme.
+    if(context->config.keyboard_control_scheme != NULL) {
+        rose_keyboard_control_scheme_destroy(
+            context->config.keyboard_control_scheme);
     }
 
     // Destroy text rendering context.
@@ -1228,49 +1292,6 @@ rose_server_context_destroy(struct rose_server_context* context) {
     if(context->preference_list != NULL) {
         rose_device_preference_list_destroy(context->preference_list);
     }
-
-    // Destroy event sources.
-    if(true) {
-        struct wl_event_source* sources[] = //
-            {context->event_source_sigint, context->event_source_sigterm,
-             context->event_source_sigchld, context->event_source_timer};
-
-        for(size_t i = 0; i != array_size_(sources); ++i) {
-            if(sources[i] != NULL) {
-                wl_event_source_remove(sources[i]);
-            }
-        }
-    }
-
-    // Destroy the display.
-    if(context->display != NULL) {
-        wl_display_destroy_clients(context->display);
-        wl_display_destroy(context->display);
-    }
-
-    // Destroy the renderer.
-    if(context->renderer != NULL) {
-        wlr_renderer_destroy(context->renderer);
-    }
-
-    // Destroy the allocator.
-    if(context->allocator != NULL) {
-        wlr_allocator_destroy(context->allocator);
-    }
-
-#define kill_(type)                                    \
-    if(context->processes.type##_pid != (pid_t)(-1)) { \
-        kill(context->processes.type##_pid, SIGKILL);  \
-    }
-
-    // Kill system processes.
-    kill_(background);
-    kill_(dispatcher);
-    kill_(notification_daemon);
-    kill_(panel);
-    kill_(screen_locker);
-
-#undef kill_
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1293,8 +1314,11 @@ rose_server_context_set_keyboard_layout( //
     // Update layouts of all keyboard devices.
     struct rose_keyboard* keyboard = NULL;
     wl_list_for_each(keyboard, &(context->inputs_keyboards), link) {
-        // Obtain underlying input device and its modifiers.
-        struct wlr_keyboard* dev_keyboard = keyboard->parent->device->keyboard;
+        // Obtain underlying input device.
+        struct wlr_keyboard* dev_keyboard =
+            wlr_keyboard_from_input_device(keyboard->parent->device);
+
+        // Obtain its modifiers.
         struct wlr_keyboard_modifiers modifiers = dev_keyboard->modifiers;
 
         // Update keyboard's modifiers.
@@ -1393,7 +1417,8 @@ rose_server_context_configure(struct rose_server_context* context,
                 wl_list_for_each(keyboard, &(context->inputs_keyboards), link) {
                     // Obtain underlying input device.
                     struct wlr_keyboard* dev_keyboard =
-                        keyboard->parent->device->keyboard;
+                        wlr_keyboard_from_input_device(
+                            keyboard->parent->device);
 
                     // Set the keymap.
                     wlr_keyboard_set_keymap(

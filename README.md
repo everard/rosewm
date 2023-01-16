@@ -423,7 +423,7 @@ Build system uses `pkg-config` to obtain compiler and linker flags for
 dependencies.
 
 Dependencies:
- * WLRoots version 0.15
+ * WLRoots version 0.16
  * wayland-protocols
  * wayland-scanner
  * wayland-server

@@ -41,7 +41,7 @@ rose_handle_event_pointer_axis(struct wl_listener* listener, void* data) {
         pointer->parent->context->current_workspace;
 
     // Obtain event data.
-    struct wlr_event_pointer_axis* wlr_event = data;
+    struct wlr_pointer_axis_event* wlr_event = data;
     struct rose_pointer_event_axis event = //
         {.time_msec = wlr_event->time_msec,
          .delta_discrete = wlr_event->delta_discrete,
@@ -65,7 +65,7 @@ rose_handle_event_pointer_button(struct wl_listener* listener, void* data) {
         pointer->parent->context->current_workspace;
 
     // Obtain event data.
-    struct wlr_event_pointer_button* wlr_event = data;
+    struct wlr_pointer_button_event* wlr_event = data;
     struct rose_pointer_event_button event = //
         {.time_msec = wlr_event->time_msec,
          .button = wlr_event->button,
@@ -88,7 +88,7 @@ rose_handle_event_pointer_motion(struct wl_listener* listener, void* data) {
         pointer->parent->context->current_workspace;
 
     // Obtain event data.
-    struct wlr_event_pointer_motion* wlr_event = data;
+    struct wlr_pointer_motion_event* wlr_event = data;
     struct rose_pointer_event_motion event = //
         {.time_msec = wlr_event->time_msec,
          .dx = wlr_event->delta_x,
@@ -112,7 +112,7 @@ rose_handle_event_pointer_motion_absolute(struct wl_listener* listener,
         pointer->parent->context->current_workspace;
 
     // Obtain event data.
-    struct wlr_event_pointer_motion_absolute* wlr_event = data;
+    struct wlr_pointer_motion_absolute_event* wlr_event = data;
     struct rose_pointer_event_motion_absolute event = //
         {.time_msec = wlr_event->time_msec,
          .x = wlr_event->x,
@@ -144,14 +144,17 @@ rose_pointer_initialize(struct rose_pointer* pointer,
     // Initialize the pointer device.
     *pointer = (struct rose_pointer){.parent = parent};
 
-    // Register listeners.
-#define add_signal_(f)                                                         \
-    {                                                                          \
-        pointer->listener_##f.notify = rose_handle_event_pointer_##f;          \
-        wl_signal_add(                                                         \
-            &((parent->device->pointer)->events.f), &(pointer->listener_##f)); \
+    // Obtain a pointer to the underlying input device.
+    struct wlr_pointer* dev_pointer =
+        wlr_pointer_from_input_device(pointer->parent->device);
+
+#define add_signal_(f)                                                     \
+    {                                                                      \
+        pointer->listener_##f.notify = rose_handle_event_pointer_##f;      \
+        wl_signal_add(&(dev_pointer->events.f), &(pointer->listener_##f)); \
     }
 
+    // Register listeners.
     add_signal_(axis);
     add_signal_(button);
     add_signal_(motion);
@@ -297,6 +300,8 @@ rose_pointer_state_obtain(struct rose_pointer* pointer) {
 
             // Obtain the speed.
             state.speed = libinput_device_config_accel_get_speed(dev_libinput);
+
+            // And set the flag.
             state.is_acceleration_supported = true;
         }
     }

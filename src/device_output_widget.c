@@ -6,7 +6,8 @@
 #include "server_context.h"
 
 #include <wlr/types/wlr_buffer.h>
-#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <stdlib.h>
 
@@ -125,7 +126,6 @@ rose_output_widget_compute_layout( //
                 case rose_ui_panel_position_bottom:
                     y = screen_h - panel.size;
                     // fall-through
-
                 case rose_ui_panel_position_top:
                     x = screen_w / 2;
                     break;
@@ -440,7 +440,7 @@ rose_output_widget_initialize( //
         type, rose_output_widget_surface_type_toplevel);
 
     if(widget == NULL) {
-        wlr_xdg_toplevel_send_close(xdg_surface);
+        wlr_xdg_toplevel_send_close(toplevel);
         return;
     }
 
@@ -664,15 +664,15 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
     h = max_(h, 1);
 
     // Set widget surface's size.
-    wlr_xdg_toplevel_set_size(widget->xdg_surface, w, h);
+    wlr_xdg_toplevel_set_size(widget->xdg_surface->toplevel, w, h);
 
     // Compute widget's layout.
     widget->state =
         rose_output_widget_compute_layout(output, widget->type, w, h);
 
     // Request activated and maximized state for the underlying surface.
-    wlr_xdg_toplevel_set_activated(widget->xdg_surface, true);
-    wlr_xdg_toplevel_set_maximized(widget->xdg_surface, true);
+    wlr_xdg_toplevel_set_activated(widget->xdg_surface->toplevel, true);
+    wlr_xdg_toplevel_set_maximized(widget->xdg_surface->toplevel, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

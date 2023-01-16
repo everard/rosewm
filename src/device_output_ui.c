@@ -5,7 +5,7 @@
 //
 #include "device_output_ui.h"
 
-#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +93,7 @@ rose_output_ui_destroy(struct rose_output_ui* ui) {
 
         wl_list_for_each_safe(widget, _, &(ui->widgets[i]), link) {
             // Close the underlying top-level XDG surface.
-            wlr_xdg_toplevel_send_close(widget->xdg_surface);
+            wlr_xdg_toplevel_send_close(widget->xdg_surface->toplevel);
 
             // Destroy the widget.
             rose_output_widget_destroy(widget);

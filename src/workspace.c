@@ -6,7 +6,6 @@
 #include "server_context.h"
 
 #include <wlr/types/wlr_seat.h>
-#include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 
@@ -342,10 +341,8 @@ rose_workspace_destroy(struct rose_workspace* workspace) {
         struct rose_surface* _ = NULL;
 
         wl_list_for_each_safe(surface, _, &(workspace->surfaces), link) {
-            // Close the underlying top-level XDG surface.
-            wlr_xdg_toplevel_send_close(surface->xdg_surface);
-
-            // Destroy the surface.
+            // Close and destroy the surface.
+            rose_surface_request_close(surface);
             rose_surface_destroy(surface);
         }
     }
@@ -716,8 +713,7 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
         // Send output leave event to the surface, if needed.
         if((surface->workspace->output != workspace->output) &&
            (surface->workspace->output != NULL)) {
-            wlr_surface_send_leave(surface->xdg_surface->surface,
-                                   surface->workspace->output->device);
+            rose_surface_output_leave(surface, surface->workspace->output);
         }
 
         // Clear the flag if the surface does not change its output.
@@ -735,8 +731,7 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
 
     // Send output enter event to the surface, if needed.
     if(need_send_enter_event && (workspace->output != NULL)) {
-        wlr_surface_send_enter(
-            surface->xdg_surface->surface, workspace->output->device);
+        rose_surface_output_enter(surface, workspace->output);
     }
 
     // If the surface is already mapped, then update workspace's layout.

@@ -3,16 +3,15 @@
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
-#include "server_context.h"
 #include "rendering.h"
+#include "rendering_raster.h"
+#include "server_context.h"
 
-#include <wlr/render/wlr_texture.h>
+#include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_surface.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 
-#include <drm_fourcc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -28,99 +27,7 @@
 #define clamp_(x, a, b) max_((a), min_((x), (b)))
 
 ////////////////////////////////////////////////////////////////////////////////
-// Text buffer initialization/destruction utility functions.
-////////////////////////////////////////////////////////////////////////////////
-
-static struct rose_output_text_buffer*
-rose_output_text_buffer_initialize( //
-    struct rose_output_text_buffer* buffer, struct wlr_renderer* renderer,
-    int w, int h) {
-    // Clamp the dimensions.
-    w = clamp_(w, 1, 32768);
-    h = clamp_(h, 1, 32768);
-
-    // Do nothing else if the buffer is already initialized.
-    if((buffer->pixels != NULL) && (buffer->texture != NULL) &&
-       (buffer->pixels->w == w) && (buffer->pixels->h == h)) {
-        goto end;
-    }
-
-    // Compute and validate pixel buffer's data size.
-#define mul_(x, y)                     \
-    {                                  \
-        size_t z = (x) * (size_t)(y);  \
-        if((z / (size_t)(y)) == (x)) { \
-            (x) = z;                   \
-        } else {                       \
-            goto end;                  \
-        }                              \
-    }
-
-    size_t pixel_buffer_data_size = (size_t)(w);
-    mul_(pixel_buffer_data_size, h);
-    mul_(pixel_buffer_data_size, 4);
-
-#undef mul_
-
-    // Compute and validate pixel buffer's full size.
-    size_t pixel_buffer_data_offset = sizeof(struct rose_pixel_buffer);
-    size_t pixel_buffer_size =
-        pixel_buffer_data_offset + pixel_buffer_data_size;
-
-    if(pixel_buffer_size < pixel_buffer_data_size) {
-        goto end;
-    }
-
-    // Destroy existing buffer.
-    free(buffer->pixels);
-    wlr_texture_destroy(buffer->texture);
-
-    // Initialize a new buffer.
-    *buffer = (struct rose_output_text_buffer){
-        .pixels = malloc(pixel_buffer_size),
-        .pixel_buffer_data_size = pixel_buffer_data_size};
-
-    // Do nothing else if memory allocation failed.
-    if(buffer->pixels == NULL) {
-        goto end;
-    }
-
-    // Initialize the pixel buffer.
-    *(buffer->pixels) = (struct rose_pixel_buffer){
-        .data = (unsigned char*)(buffer->pixels) + pixel_buffer_data_offset,
-        .w = w,
-        .h = h};
-
-    // Clear the pixel buffer.
-    memset(buffer->pixels->data, 0, buffer->pixel_buffer_data_size);
-
-    // Create buffer's texture.
-    buffer->texture = wlr_texture_from_pixels(
-        renderer, DRM_FORMAT_ARGB8888, w * 4, w, h, buffer->pixels->data);
-
-end:
-    return buffer;
-}
-
-static void
-rose_output_text_buffer_destroy(struct rose_output_text_buffer* buffer) {
-    // Free pixel buffer's memory.
-    free(buffer->pixels);
-
-    // Destroy the texture.
-    wlr_texture_destroy(buffer->texture);
-
-    // Zero-initialize the buffer.
-    *buffer = (struct rose_output_text_buffer){};
-}
-
-static bool
-rose_output_text_buffer_is_initialized(struct rose_output_text_buffer* buffer) {
-    return ((buffer->pixels != NULL) && (buffer->texture != NULL));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Title-string-composition-related utility functions.
+// Title string composition utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum {
@@ -173,18 +80,43 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Text-buffer-manipulation-related utility functions.
+// Raster initialization utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum rose_output_text_buffers_update_type {
-    rose_output_text_buffers_update_normal,
-    rose_output_text_buffers_update_forced
+static struct rose_raster*
+rose_output_raster_initialize( //
+    struct rose_raster* raster, struct wlr_renderer* renderer, int w, int h) {
+    // Clamp the dimensions.
+    w = clamp_(w, 1, 32768);
+    h = clamp_(h, 1, 32768);
+
+    // Do nothing else if the raster is already initialized.
+    if((raster != NULL) && (raster->base.width == w) &&
+       (raster->base.height == h)) {
+        return raster;
+    }
+
+    // Destroy existing raster, if any.
+    if(raster != NULL) {
+        rose_raster_destroy(raster);
+    }
+
+    // Initialize a new raster.
+    return rose_raster_initialize(renderer, w, h);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Raster manipulation-related utility functions and types.
+////////////////////////////////////////////////////////////////////////////////
+
+enum rose_output_rasters_update_type {
+    rose_output_rasters_update_normal,
+    rose_output_rasters_update_forced
 };
 
 static void
-rose_output_update_text_buffers(
-    struct rose_output* output,
-    enum rose_output_text_buffers_update_type update_type) {
+rose_output_update_rasters(struct rose_output* output,
+                           enum rose_output_rasters_update_type update_type) {
     // Obtain a pointer to the output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
 
@@ -196,7 +128,7 @@ rose_output_update_text_buffers(
     // Obtain output's state.
     struct rose_output_state output_state = rose_output_state_obtain(output);
 
-    // Obtain text-rendering-related data.
+    // Obtain text rendering-related data.
     struct rose_text_rendering_context* text_rendering_context =
         output->context->text_rendering_context;
 
@@ -204,6 +136,7 @@ rose_output_update_text_buffers(
         .font_size = output->context->config.font_size,
         .dpi = output_state.dpi};
 
+    // Obtain the color scheme.
     struct rose_color_scheme const* color_scheme =
         &(output->context->config.color_scheme);
 
@@ -218,10 +151,10 @@ rose_output_update_text_buffers(
         }
     }
 
-    // Update title's text buffer, if needed.
+    // Update title's raster, if needed.
     while(panel.is_visible) {
         // Stop the update, if needed.
-        if((update_type == rose_output_text_buffers_update_normal) &&
+        if((update_type == rose_output_rasters_update_normal) &&
            (output->focused_surface == workspace->focused_surface) &&
            ((output->focused_surface == NULL) ||
             !(output->focused_surface->is_name_updated))) {
@@ -234,63 +167,67 @@ rose_output_update_text_buffers(
             output->focused_surface->is_name_updated = false;
         }
 
-        // Compute text buffer's dimensions.
-        int buffer_w = ((((panel.position == rose_ui_panel_position_left) ||
-                          (panel.position == rose_ui_panel_position_right))
-                             ? output_state.h
-                             : output_state.w) /
-                        2),
-            buffer_h = (int)(panel.size * output_state.scale + 0.5);
+        // Compute raster's dimensions.
+        int w = ((((panel.position == rose_ui_panel_position_left) ||
+                   (panel.position == rose_ui_panel_position_right))
+                      ? output_state.h
+                      : output_state.w) /
+                 2),
+            h = (int)(panel.size * output_state.scale + 0.5);
 
-        // Initialize the text buffer.
-        struct rose_output_text_buffer* text_buffer =
-            rose_output_text_buffer_initialize( //
-                &(output->text_buffers.title), output->context->renderer,
-                buffer_w, buffer_h);
+        // Initialize the raster.
+        struct rose_raster* raster = output->rasters.title =
+            rose_output_raster_initialize(
+                output->rasters.title, output->context->renderer, w, h);
 
-        // Stop the update if the text buffer is not initialized.
-        if(!rose_output_text_buffer_is_initialized(text_buffer)) {
+        // Stop the update if the raster is not initialized.
+        if(raster == NULL) {
             break;
         }
 
-        // Set text's color and clear text buffer's pixels.
+        // Clear the raster.
+        rose_raster_clear(raster);
+
+        // Set text's color.
         text_rendering_params.color = color_scheme->panel_foreground;
-        memset(
-            text_buffer->pixels->data, 0, text_buffer->pixel_buffer_data_size);
+
+        // Initialize a pixel buffer for text rendering.
+        struct rose_pixel_buffer pixels = //
+            {.data = raster->pixels,
+             .w = raster->base.width,
+             .h = raster->base.height};
 
         // Compose and render the title.
         rose_render_string( //
             text_rendering_context, text_rendering_params,
-            rose_output_workspace_compose_title_string(workspace),
-            *(text_buffer->pixels));
+            rose_output_workspace_compose_title_string(workspace), pixels);
 
-        // Update text buffer's texture.
-        wlr_texture_write_pixels( //
-            text_buffer->texture, text_buffer->pixels->w * 4,
-            text_buffer->pixels->w, text_buffer->pixels->h, 0, 0, 0, 0,
-            text_buffer->pixels->data);
+        // Update raster's texture.
+        pixman_region32_t region = {
+            .extents = {.x1 = 0, .y1 = 0, .x2 = pixels.w, .y2 = pixels.h}};
+
+        rose_raster_texture_update(raster, &region);
 
         // Note: Update succeeded.
         break;
     }
 
-    // Update menu's text buffer, if needed.
+    // Update menu's raster, if needed.
     for(struct rose_ui_menu* menu = &(output->ui.menu);
         menu->is_visible &&
         (menu->is_updated ||
-         (update_type == rose_output_text_buffers_update_forced));) {
-        // Compute text buffer's dimensions.
-        int buffer_w = (int)(menu->area.w * output_state.scale + 0.5),
-            buffer_h = (int)(menu->area.h * output_state.scale + 0.5);
+         (update_type == rose_output_rasters_update_forced));) {
+        // Compute raster's dimensions.
+        int w = (int)(menu->area.w * output_state.scale + 0.5),
+            h = (int)(menu->area.h * output_state.scale + 0.5);
 
-        // Initialize the text buffer.
-        struct rose_output_text_buffer* text_buffer =
-            rose_output_text_buffer_initialize( //
-                &(output->text_buffers.menu), output->context->renderer,
-                buffer_w, buffer_h);
+        // Initialize the raster.
+        struct rose_raster* raster = output->rasters.menu =
+            rose_output_raster_initialize(
+                output->rasters.menu, output->context->renderer, w, h);
 
-        // Stop the update if the text buffer is not initialized.
-        if(!rose_output_text_buffer_is_initialized(text_buffer)) {
+        // Stop the update if the raster is not initialized.
+        if(raster == NULL) {
             break;
         }
 
@@ -304,32 +241,32 @@ rose_output_update_text_buffers(
         // Set text's color.
         text_rendering_params.color = color_scheme->menu_foreground;
 
-        // Render the text line-by-line, compute text buffer's updated area.
+        // Render the text line-by-line, compute raster's updated area.
         int updated_area[2] = {-1, 0};
         if(true) {
-            // Compute menu line's height in text buffer's space.
+            // Compute menu line's height in raster's space.
             int line_h = (int)(menu->layout.line_h * output_state.scale + 0.5);
 
             // Initialize a pixel buffer for a text line.
             struct rose_pixel_buffer line_pixels = {
-                .w = text_buffer->pixels->w, .h = line_h};
+                .w = raster->base.width, .h = line_h};
 
             // Compute text line's stride.
             ptrdiff_t line_stride = 4 * line_pixels.w * line_pixels.h;
 
             // Render the lines.
-            int h_space_left = text_buffer->pixels->h;
+            int h_space_left = raster->base.height;
             for(ptrdiff_t i = 0; i < text.n_lines; ++i) {
-                // Stop rendering if there is no space left in the text buffer.
+                // Stop rendering if there is no space left in the raster.
                 if(h_space_left <= 0) {
                     break;
                 }
 
                 // Compute current line's parameters.
-                line_pixels.data = text_buffer->pixels->data + i * line_stride;
+                line_pixels.data = raster->pixels + i * line_stride;
                 line_pixels.h = min_(line_pixels.h, h_space_left);
 
-                // Update text buffer's available space.
+                // Update raster's available space.
                 h_space_left -= line_h;
 
 #define line_diff_(a, b)   \
@@ -365,12 +302,15 @@ rose_output_update_text_buffers(
             }
         }
 
-        // Update text buffer's texture, if needed.
+        // Update raster's texture, if needed.
         if(updated_area[0] >= 0) {
-            wlr_texture_write_pixels( //
-                text_buffer->texture, text_buffer->pixels->w * 4,
-                text_buffer->pixels->w, updated_area[1] - updated_area[0], 0,
-                updated_area[0], 0, updated_area[0], text_buffer->pixels->data);
+            pixman_region32_t region = //
+                {.extents = {.x1 = 0,
+                             .y1 = updated_area[0],
+                             .x2 = raster->base.width,
+                             .y2 = updated_area[1]}};
+
+            rose_raster_texture_update(raster, &region);
         }
 
         // Clear menu's flags.
@@ -382,9 +322,9 @@ rose_output_update_text_buffers(
 }
 
 static void
-rose_output_request_text_buffers_update(struct rose_output* output) {
+rose_output_request_rasters_update(struct rose_output* output) {
     // Set the flag.
-    output->is_text_buffers_update_requested = true;
+    output->is_rasters_update_requested = true;
 
     // Schedule a frame.
     rose_output_schedule_frame(output);
@@ -478,8 +418,7 @@ rose_output_add_workspaces(struct rose_output* output) {
 
         wl_list_for_each(workspace, &(output->workspaces), link_output) {
             wl_list_for_each(surface, &(workspace->surfaces), link) {
-                wlr_surface_send_enter(
-                    surface->xdg_surface->surface, output->device);
+                rose_surface_output_enter(surface, output);
             }
         }
     }
@@ -494,7 +433,7 @@ rose_output_add_workspaces(struct rose_output* output) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface-notification-related utility functions.
+// Surface notification-related utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
@@ -529,8 +468,8 @@ rose_handle_event_output_mode(struct wl_listener* listener, void* data) {
         }
     }
 
-    // Request update of output's text buffers.
-    rose_output_request_text_buffers_update(output);
+    // Request update of output's rasters.
+    rose_output_request_rasters_update(output);
 }
 
 static void
@@ -555,7 +494,7 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
 
     // Determine if redraw is required.
     bool is_redraw_required = //
-        (output->is_text_buffers_update_requested) ||
+        (output->is_rasters_update_requested) ||
         (output->n_frames_without_damage < 2);
 
     // Update output's damage tracking data.
@@ -587,19 +526,19 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
             min_(workspace->n_frames_without_commits, 2);
     }
 
-    // Update output's text buffers, if needed.
+    // Update output's rasters, if needed.
     if(is_redraw_required) {
         // Determine the type of the update.
-        enum rose_output_text_buffers_update_type update_type =
-            (output->is_text_buffers_update_requested
-                 ? rose_output_text_buffers_update_forced
-                 : rose_output_text_buffers_update_normal);
+        enum rose_output_rasters_update_type update_type =
+            (output->is_rasters_update_requested
+                 ? rose_output_rasters_update_forced
+                 : rose_output_rasters_update_normal);
 
         // Clear the flag.
-        output->is_text_buffers_update_requested = false;
+        output->is_rasters_update_requested = false;
 
-        // Update the buffers.
-        rose_output_update_text_buffers(output, update_type);
+        // Update the rasters.
+        rose_output_update_rasters(output, update_type);
     }
 
     // If there is no need to do full redraw, then perform additional actions
@@ -821,7 +760,6 @@ rose_output_initialize(struct rose_server_context* context,
                 .device_id = output->id});
     }
 
-    // Register listeners.
 #define add_signal_(f)                                               \
     {                                                                \
         output->listener_##f.notify = rose_handle_event_output_##f;  \
@@ -834,6 +772,7 @@ rose_output_initialize(struct rose_server_context* context,
         wl_list_init(&(output->listener_##f.link));                 \
     }
 
+    // Register and initialize listeners.
     add_signal_(mode);
     add_signal_(frame);
     add_signal_(needs_frame);
@@ -848,8 +787,8 @@ rose_output_initialize(struct rose_server_context* context,
     // Set output cursor's type.
     rose_output_cursor_set(output, rose_output_cursor_type_default);
 
-    // Request update of output's text buffers.
-    rose_output_request_text_buffers_update(output);
+    // Request update of output's rasters.
+    rose_output_request_rasters_update(output);
 
     // Add workspaces to the output.
     rose_output_add_workspaces(output);
@@ -889,13 +828,13 @@ rose_output_destroy(struct rose_output* output) {
         // Obtain preceding output.
         x = wl_container_of(x->link.prev, x, link);
 
-        // Decrement its ID and request update of its text buffers.
-        x->id--, rose_output_request_text_buffers_update(x);
+        // Decrement its ID and request update of its rasters.
+        x->id--, rose_output_request_rasters_update(x);
     }
 
-    // Destroy output's text buffers.
-    rose_output_text_buffer_destroy(&(output->text_buffers.title));
-    rose_output_text_buffer_destroy(&(output->text_buffers.menu));
+    // Destroy output's rasters.
+    rose_raster_destroy(output->rasters.title);
+    rose_raster_destroy(output->rasters.menu);
 
     // Remove listeners from signals.
     wl_list_remove(&(output->listener_mode.link));
@@ -942,8 +881,7 @@ rose_output_destroy(struct rose_output* output) {
 
         wl_list_for_each(workspace, &(output->workspaces), link_output) {
             wl_list_for_each(surface, &(workspace->surfaces), link) {
-                wlr_surface_send_leave(
-                    surface->xdg_surface->surface, output->device);
+                rose_surface_output_leave(surface, output);
             }
         }
     }
@@ -1163,8 +1101,8 @@ rose_output_focus_workspace(struct rose_output* output,
         }
     }
 
-    // Request update of output's text buffers.
-    rose_output_request_text_buffers_update(output);
+    // Request update of output's rasters.
+    rose_output_request_rasters_update(output);
 }
 
 void
@@ -1214,8 +1152,7 @@ rose_output_add_workspace(struct rose_output* output,
     if(true) {
         struct rose_surface* surface = NULL;
         wl_list_for_each(surface, &(workspace->surfaces), link) {
-            wlr_surface_send_enter(
-                surface->xdg_surface->surface, output->device);
+            rose_surface_output_enter(surface, output);
         }
     }
 
@@ -1254,8 +1191,7 @@ rose_output_remove_workspace(struct rose_output* output,
     if(true) {
         struct rose_surface* surface = NULL;
         wl_list_for_each(surface, &(workspace->surfaces), link) {
-            wlr_surface_send_leave(
-                surface->xdg_surface->surface, output->device);
+            rose_surface_output_leave(surface, output);
         }
     }
 
@@ -1349,8 +1285,7 @@ rose_output_state_obtain(struct rose_output* output) {
         .scale = output->device->scale,
         .is_scanned_out = output->is_scanned_out,
         .is_frame_scheduled = output->is_frame_scheduled,
-        .is_text_buffers_update_requested =
-            output->is_text_buffers_update_requested};
+        .is_rasters_update_requested = output->is_rasters_update_requested};
 }
 
 struct rose_output_mode_list

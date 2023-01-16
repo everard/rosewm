@@ -51,14 +51,14 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
         wl_container_of(listener, keyboard, listener_key);
 
     // Obtain event data.
-    struct wlr_event_keyboard_key* event = data;
+    struct wlr_keyboard_key_event* event = data;
 
     // Obtain a pointer to the server context.
     struct rose_server_context* context = keyboard->parent->context;
 
-    // Obtain pointers to the underlying input device (generic and specialized).
-    struct wlr_input_device* dev_generic = keyboard->parent->device;
-    struct wlr_keyboard* dev_keyboard = dev_generic->keyboard;
+    // Obtain a pointer to the underlying input device.
+    struct wlr_keyboard* dev_keyboard =
+        wlr_keyboard_from_input_device(keyboard->parent->device);
 
     // Compute key code for the key.
     xkb_keycode_t keycode = event->keycode + 8;
@@ -156,9 +156,11 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
     // Update user interaction flag, if needed.
     if(true) {
+        // Obtain the leader's keysym.
         xkb_keysym_t target_keysym =
             context->config.keyboard_control_scheme->leader_keysym.value;
 
+        // Check if the leader has been pressed/released.
         for_each_keysym_(keysym, keysyms) {
             if(*keysym == target_keysym) {
                 context->is_waiting_for_user_interaction =
@@ -287,7 +289,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 #undef for_each_keysym_
 
     // Notify the seat of this event.
-    wlr_seat_set_keyboard(context->seat, dev_generic);
+    wlr_seat_set_keyboard(context->seat, dev_keyboard);
     wlr_seat_keyboard_notify_key(
         context->seat, event->time_msec, event->keycode, event->state);
 }
@@ -323,18 +325,21 @@ rose_keyboard_initialize(struct rose_keyboard* keyboard,
     // Add it to the list.
     wl_list_insert(&(parent->context->inputs_keyboards), &(keyboard->link));
 
+    // Obtain a pointer to the underlying input device.
+    struct wlr_keyboard* dev_keyboard =
+        wlr_keyboard_from_input_device(keyboard->parent->device);
+
     // Set its keymap.
     wlr_keyboard_set_keymap(
-        parent->device->keyboard, parent->context->keyboard_context->keymap);
+        dev_keyboard, parent->context->keyboard_context->keymap);
 
-    // Register listeners.
-#define add_signal_(f)                                                  \
-    {                                                                   \
-        keyboard->listener_##f.notify = rose_handle_event_keyboard_##f; \
-        wl_signal_add(&((parent->device->keyboard)->events.f),          \
-                      &(keyboard->listener_##f));                       \
+#define add_signal_(f)                                                       \
+    {                                                                        \
+        keyboard->listener_##f.notify = rose_handle_event_keyboard_##f;      \
+        wl_signal_add(&(dev_keyboard->events.f), &(keyboard->listener_##f)); \
     }
 
+    // Register listeners.
     add_signal_(key);
     add_signal_(modifiers);
 
@@ -342,7 +347,7 @@ rose_keyboard_initialize(struct rose_keyboard* keyboard,
 
     // Set seat's keyboard, if needed.
     if(wlr_seat_get_keyboard(parent->context->seat) == NULL) {
-        wlr_seat_set_keyboard(parent->context->seat, parent->device);
+        wlr_seat_set_keyboard(parent->context->seat, dev_keyboard);
     }
 
     // Update keyboard focus.

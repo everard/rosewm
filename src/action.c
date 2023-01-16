@@ -5,9 +5,6 @@
 //
 #include "server_context.h"
 
-#include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/interfaces/wlr_keyboard.h>
-
 ////////////////////////////////////////////////////////////////////////////////
 // Action execution interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +12,6 @@
 void
 rose_execute_core_action(struct rose_server_context* context,
                          enum rose_core_action_type action_type) {
-    // Obtain current focus info.
     struct {
         struct rose_workspace* workspace;
         struct rose_surface* surface;
@@ -24,7 +20,6 @@ rose_execute_core_action(struct rose_server_context* context,
                .surface = context->current_workspace->focused_surface,
                .output = context->current_workspace->output};
 
-    // Perform action.
     switch(action_type) {
         // Main actions.
         case rose_core_action_type_terminate_display:
@@ -58,7 +53,7 @@ rose_execute_core_action(struct rose_server_context* context,
         // Surface-related actions.
         case rose_core_action_type_surface_close:
             if(focus.surface != NULL) {
-                wlr_xdg_toplevel_send_close(focus.surface->xdg_surface);
+                rose_surface_request_close(focus.surface);
             }
 
             break;

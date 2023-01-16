@@ -6,7 +6,7 @@
 #include "surface_snapshot.h"
 
 #include <wlr/types/wlr_buffer.h>
-#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_compositor.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Initialization/destruction interface implementation.

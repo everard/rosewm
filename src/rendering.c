@@ -3,18 +3,19 @@
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
-#include "server_context.h"
 #include "rendering.h"
+#include "rendering_raster.h"
+#include "server_context.h"
 
+#include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_surface.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/render/wlr_renderer.h>
 
 ////////////////////////////////////////////////////////////////////////////////
-// Matrix-computation-related utility functions and types.
+// Matrix computation-related utility functions and types.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_matrix {
@@ -154,7 +155,7 @@ rose_render_output_widgets(struct rose_output* output, ptrdiff_t start_idx,
     // Obtain output's state.
     struct rose_output_state output_state = rose_output_state_obtain(output);
 
-    // Iterate through the entire UI.
+    // Iterate through the supplied range of UI widget types.
     struct rose_output_widget* widget = NULL;
     for(ptrdiff_t i = start_idx; i != sentinel_idx; ++i) {
         wl_list_for_each(widget, &(output->ui.widgets_mapped[i]), link_mapped) {
@@ -265,7 +266,7 @@ rose_render_content(struct rose_output* output) {
         // direct scan-out is not possible.
         if((surface == NULL) || (panel.is_visible || menu->is_visible) ||
            (workspace->mode != rose_workspace_mode_normal)) {
-            goto no_scanout;
+            break;
         }
 
         struct rose_surface_state state = rose_surface_state_obtain(surface);
@@ -276,38 +277,56 @@ rose_render_content(struct rose_output* output) {
         if(((state.x != 0) || (state.y != 0)) || (wlr_surface == NULL) ||
            !wl_list_empty(&(surface->subsurfaces)) ||
            !wl_list_empty(&(surface->temporaries))) {
-            goto no_scanout;
+            break;
         }
 
         // If surface's state does not match output's state, then scan-out is
         // not possible.
         if((wlr_surface->current.transform != output_state.transform) ||
            (wlr_surface->current.scale != output_state.scale)) {
-            goto no_scanout;
+            break;
         }
 
         // If any of the normal UI widgets is visible, then scan-out is not
         // possible.
-        struct rose_output_widget* widget = NULL;
-        for(ptrdiff_t i = rose_output_n_special_widget_types;
-            i != rose_output_n_widget_types; ++i) {
-            wl_list_for_each(
-                widget, &(output->ui.widgets_mapped[i]), link_mapped) {
-                if(rose_output_widget_is_visible(widget)) {
-                    goto no_scanout;
+        if(true) {
+            // At this point there are no visible widgets.
+            bool is_widget_found = false;
+
+            // Search for visible widget.
+            struct rose_output_widget* widget = NULL;
+            for(ptrdiff_t i = rose_output_n_special_widget_types;
+                i != rose_output_n_widget_types; ++i) {
+                wl_list_for_each(
+                    widget, &(output->ui.widgets_mapped[i]), link_mapped) {
+                    if(rose_output_widget_is_visible(widget)) {
+                        // Note: The widget has been found.
+                        goto found;
+                    }
                 }
+
+                continue;
+
+            found:
+                is_widget_found = true;
+                break;
+            }
+
+            // If such widget has been found, then scan-out is not possible.
+            if(is_widget_found) {
+                break;
             }
         }
 
         // Try attaching surface's buffer.
         wlr_output_attach_buffer(output->device, &(wlr_surface->buffer->base));
         if(!wlr_output_test(output->device)) {
-            goto no_scanout;
+            break;
         }
 
         // Try committing the rendering operation.
         if(!wlr_output_commit(output->device)) {
-            goto no_scanout;
+            break;
         }
 
         // Send presentation feedback.
@@ -319,9 +338,6 @@ rose_render_content(struct rose_output* output) {
 
         // Do nothing else.
         return;
-
-    no_scanout:
-        break;
     }
 
     // Attach the renderer to the output.
@@ -333,6 +349,7 @@ rose_render_content(struct rose_output* output) {
     wlr_renderer_begin(renderer, output->device->width, output->device->height);
     wlr_renderer_clear(renderer, color_scheme.workspace_background.v);
 
+    // Render background widgets.
     rose_render_output_widgets(output, rose_output_widget_type_background,
                                rose_output_widget_type_background + 1);
 
@@ -373,7 +390,6 @@ rose_render_content(struct rose_output* output) {
     } else {
         // Otherwise, render all visible surfaces.
         struct rose_surface* surface = NULL;
-
         wl_list_for_each(
             surface, &(workspace->surfaces_visible), link_visible) {
             // Obtain surface's state.
@@ -438,48 +454,43 @@ rose_render_content(struct rose_output* output) {
         // Start rendering panel's text.
         int dx = 1;
 
+        // Obtain title bar's raster.
+        struct rose_raster* raster = output->rasters.title;
+
         // Render the title bar.
-        if(true) {
-            // Obtain title bar's text buffer.
-            struct rose_output_text_buffer* text_buffer =
-                &(output->text_buffers.title);
+        if(raster != NULL) {
+            bool is_tilted = (panel.position == rose_ui_panel_position_left) ||
+                             (panel.position == rose_ui_panel_position_right);
 
-            // Render the text buffer.
-            if(text_buffer->texture != NULL) {
-                bool is_tilted =
-                    (panel.position == rose_ui_panel_position_left) ||
-                    (panel.position == rose_ui_panel_position_right);
+            // Compute the extents.
+            rectangle.w =
+                (is_tilted ? raster->base.height : raster->base.width);
 
-                // Compute text's extents.
-                rectangle.w = (is_tilted ? text_buffer->pixels->h
-                                         : text_buffer->pixels->w);
-
-                rectangle.h = (is_tilted ? text_buffer->pixels->w
-                                         : text_buffer->pixels->h);
+            rectangle.h =
+                (is_tilted ? raster->base.width : raster->base.height);
 
 #define scale_(x) (int)((double)(x) / output_state.scale + 0.5)
 
-                // Scale text buffer's rectangle.
-                rectangle.w = scale_(rectangle.w);
-                rectangle.h = scale_(rectangle.h);
+            // Scale the rectangle.
+            rectangle.w = scale_(rectangle.w);
+            rectangle.h = scale_(rectangle.h);
 
 #undef scale_
 
-                // Compute text's position.
-                if(panel.position == rose_ui_panel_position_left) {
-                    rectangle.y = workspace->h - rectangle.h - dx;
-                    rectangle.transform = WL_OUTPUT_TRANSFORM_270;
-                } else if(panel.position == rose_ui_panel_position_right) {
-                    rectangle.y += dx;
-                    rectangle.transform = WL_OUTPUT_TRANSFORM_90;
-                } else {
-                    rectangle.x += dx;
-                }
-
-                // Render the text.
-                rose_render_rectangle_with_texture(
-                    output, text_buffer->texture, rectangle);
+            // Compute the position.
+            if(panel.position == rose_ui_panel_position_left) {
+                rectangle.y = workspace->h - rectangle.h - dx;
+                rectangle.transform = WL_OUTPUT_TRANSFORM_270;
+            } else if(panel.position == rose_ui_panel_position_right) {
+                rectangle.y += dx;
+                rectangle.transform = WL_OUTPUT_TRANSFORM_90;
+            } else {
+                rectangle.x += dx;
             }
+
+            // Render the texture.
+            rose_render_rectangle_with_texture(
+                output, raster->texture, rectangle);
         }
     }
 
@@ -523,12 +534,11 @@ rose_render_content(struct rose_output* output) {
             }
         }
 
-        // Obtain menu's text buffer.
-        struct rose_output_text_buffer* text_buffer =
-            &(output->text_buffers.menu);
+        // Obtain menu text's raster.
+        struct rose_raster* raster = output->rasters.menu;
 
-        // Render the text buffer.
-        if(text_buffer->texture != NULL) {
+        // Render the text.
+        if(raster != NULL) {
             rectangle.x = menu->area.x + menu->layout.margin_x;
             rectangle.y = menu->area.y + menu->layout.margin_y;
             rectangle.h = menu->page.n_lines * menu->layout.line_h;
@@ -538,9 +548,9 @@ rose_render_content(struct rose_output* output) {
                 {.width = rectangle.w * output_state.scale,
                  .height = rectangle.h * output_state.scale};
 
-            // Crop and render text buffer's texture.
+            // Crop and render raster's texture.
             wlr_render_subtexture_with_matrix( //
-                renderer, text_buffer->texture, &box,
+                renderer, raster->texture, &box,
                 rose_project_rectangle(output, rectangle).a, 1.0f);
         }
     }
