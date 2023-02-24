@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -127,13 +127,13 @@ rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
                                     struct rose_ipc_buffer_ref command_buffer) {
     // Validate the given buffer.
     if(command_buffer.size == 0) {
-        goto end;
+        return;
     }
 
     // Read command's access rights.
     rose_command_access_rights_mask rights = command_buffer.data[0];
 
-    // Shrink command's buffer.
+    // Shrink the command buffer.
     command_buffer.data++;
     command_buffer.size--;
 
@@ -142,12 +142,10 @@ rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
     // zero-terminated.
     if((command_buffer.size == 0) ||
        (command_buffer.data[command_buffer.size - 1] != '\0')) {
-        goto end;
+        return;
     }
 
     // Allocate memory for the command and its arguments.
-    // Note: The first element in the list is the command itself, and the last
-    // element is always NULL.
     char* command_and_args[rose_n_ipc_command_arguments_max + 1] = {};
 
     // Read the command and its arguments.
@@ -157,16 +155,18 @@ rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
         // Save the argument.
         *arg = (char*)(command_buffer.data);
 
-        // Skip until the null character.
-        for(; *(command_buffer.data++) != '\0'; command_buffer.size--) {
-        }
+        // Obtain the size of the argument.
+        size_t arg_size = strlen(*arg) + 1;
+
+        // Shrink the command buffer. This is safe because the command buffer is
+        // always zero-terminated.
+        command_buffer.data += arg_size;
+        command_buffer.size -= arg_size;
     }
 
     // Execute the command.
     rose_command_list_execute_command(
         connection->context->command_list, rights, command_and_args);
-end:
-    return;
 }
 
 static void
@@ -208,7 +208,7 @@ rose_ipc_connection_dispatch_command_queue(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Status-reporting-related utility functions.
+// Status reporting-related utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool
@@ -344,7 +344,7 @@ rose_ipc_connection_transmit_status_buffer(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Data-transmission-related event handlers.
+// Data transmission event handlers.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
