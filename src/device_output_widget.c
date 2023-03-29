@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -33,7 +33,7 @@ rose_output_widget_compute_layout( //
     int x = 0, y = 0;
 
     // Obtain panel's data.
-    struct rose_ui_panel panel = output->context->config.panel;
+    struct rose_ui_panel panel = output->context->config.theme.panel;
     if(output->focused_workspace != NULL) {
         panel = output->focused_workspace->panel;
 
@@ -545,7 +545,7 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
     struct rose_output* output = widget->output;
 
     // Obtain panel's data.
-    struct rose_ui_panel panel = output->context->config.panel;
+    struct rose_ui_panel panel = output->context->config.theme.panel;
     if(output->focused_workspace != NULL) {
         panel = output->focused_workspace->panel;
 

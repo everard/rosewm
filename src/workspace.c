@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -821,7 +821,7 @@ rose_workspace_remove_surface(struct rose_workspace* workspace,
 
                 // And reset its panel.
                 workspace->panel = workspace->panel_saved =
-                    workspace->context->config.panel;
+                    workspace->context->config.theme.panel;
             }
         } else if(workspace->output->focused_workspace != workspace) {
             // Otherwise, if the workspace is not a focused workspace of its

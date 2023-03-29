@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -133,12 +133,12 @@ rose_output_update_rasters(struct rose_output* output,
         output->context->text_rendering_context;
 
     struct rose_text_rendering_parameters text_rendering_params = {
-        .font_size = output->context->config.font_size,
+        .font_size = output->context->config.theme.font_size,
         .dpi = output_state.dpi};
 
     // Obtain the color scheme.
     struct rose_color_scheme const* color_scheme =
-        &(output->context->config.color_scheme);
+        &(output->context->config.theme.color_scheme);
 
     // Obtain panel's data.
     struct rose_ui_panel panel = workspace->panel;
@@ -913,7 +913,7 @@ rose_output_destroy(struct rose_output* output) {
 
                 // And reset its panel.
                 workspace->panel = workspace->panel_saved =
-                    output->context->config.panel;
+                    output->context->config.theme.panel;
             } else {
                 // Otherwise, add it to the list of workspaces without output.
                 wl_list_insert(&(workspace->context->workspaces_without_output),
@@ -1227,7 +1227,7 @@ rose_output_remove_workspace(struct rose_output* output,
 
         // And reset its panel.
         workspace->panel = workspace->panel_saved =
-            output->context->config.panel;
+            output->context->config.theme.panel;
     } else {
         // Otherwise, add it to the list of workspaces without output.
         wl_list_insert(&(workspace->context->workspaces_without_output),
