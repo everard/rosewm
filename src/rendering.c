@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -72,7 +72,7 @@ static void
 rose_render_rectangle(struct rose_output* output, struct rose_color color,
                       struct rose_rectangle rectangle) {
     // Project the rectangle to the output and render it with the given color.
-    wlr_render_quad_with_matrix(output->context->renderer, color.v,
+    wlr_render_quad_with_matrix(output->context->renderer, color.rgba32,
                                 rose_project_rectangle(output, rectangle).a);
 }
 
@@ -126,7 +126,7 @@ rose_render_surface_decoration(struct rose_output* output,
                                struct rose_rectangle surface_rectangle) {
     // Obtain the color scheme.
     struct rose_color_scheme* color_scheme =
-        &(output->context->config.color_scheme);
+        &(output->context->config.theme.color_scheme);
 
     // Update surface's rectangle.
     surface_rectangle.x -= 5;
@@ -209,7 +209,7 @@ rose_render_content(struct rose_output* output) {
 
     // Obtain the color scheme.
     struct rose_color_scheme color_scheme =
-        output->context->config.color_scheme;
+        output->context->config.theme.color_scheme;
 
     // Clear this flag. At this point the output is not in direct scan-out mode.
     output->is_scanned_out = false;
@@ -227,7 +227,7 @@ rose_render_content(struct rose_output* output) {
             renderer, output->device->width, output->device->height);
 
         // Fill-in with solid color.
-        wlr_renderer_clear(renderer, color_scheme.workspace_background.v);
+        wlr_renderer_clear(renderer, color_scheme.workspace_background.rgba32);
 
         // Render widgets.
         rose_render_output_widgets(output, 0, rose_output_n_widget_types);
@@ -347,9 +347,9 @@ rose_render_content(struct rose_output* output) {
 
     // Start rendering operation, render background.
     wlr_renderer_begin(renderer, output->device->width, output->device->height);
-    wlr_renderer_clear(renderer, color_scheme.workspace_background.v);
+    wlr_renderer_clear(renderer, color_scheme.workspace_background.rgba32);
 
-    // Render background widgets.
+    // Render background widget.
     rose_render_output_widgets(output, rose_output_widget_type_background,
                                rose_output_widget_type_background + 1);
 
