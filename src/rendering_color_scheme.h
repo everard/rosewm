@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -11,7 +11,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_color {
-    float v[4];
+    unsigned char rgba8[4];
+    float rgba32[4];
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +39,6 @@ struct rose_color_scheme {
 // Initialization interface.
 ////////////////////////////////////////////////////////////////////////////////
 
-// Initializes default color scheme.
 struct rose_color_scheme
 rose_color_scheme_initialize_default();
 
