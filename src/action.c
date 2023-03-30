@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -214,14 +214,14 @@ rose_execute_core_action(struct rose_server_context* context,
 
         // Terminal-related actions.
         case rose_core_action_type_run_terminal:
-            rose_execute_command(context->config.terminal_arg_list);
+            rose_execute_command(context->config.argument_lists.terminal);
             break;
 
         case rose_core_action_type_run_terminal_ipc:
             // Start a new terminal instance as compositor's child process.
             rose_command_list_execute_command(
-                context->command_list, rose_command_access_ipc,
-                context->config.terminal_arg_list);
+                context->command_list, context->config.argument_lists.terminal,
+                rose_command_access_ipc);
 
             break;
 

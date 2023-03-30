@@ -120,8 +120,6 @@ rose_ipc_connection_transition(struct rose_ipc_connection* connection,
 // Dispatcher-related utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_n_ipc_command_arguments_max = 255 };
-
 static void
 rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
                                     struct rose_ipc_buffer_ref command_buffer) {
@@ -137,36 +135,13 @@ rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
     command_buffer.data++;
     command_buffer.size--;
 
-    // Validate remaining part of the buffer.
-    // Note: This ensures that the command and its arguments are always
-    // zero-terminated.
-    if((command_buffer.size == 0) ||
-       (command_buffer.data[command_buffer.size - 1] != '\0')) {
-        return;
-    }
-
-    // Allocate memory for the command and its arguments.
-    char* command_and_args[rose_n_ipc_command_arguments_max + 1] = {};
-
-    // Read the command and its arguments.
-    for(char **arg = command_and_args,
-             **sentinel = command_and_args + rose_n_ipc_command_arguments_max;
-        (arg != sentinel) && (command_buffer.size != 0); ++arg) {
-        // Save the argument.
-        *arg = (char*)(command_buffer.data);
-
-        // Obtain the size of the argument.
-        size_t arg_size = strlen(*arg) + 1;
-
-        // Shrink the command buffer. This is safe because the command buffer is
-        // always zero-terminated.
-        command_buffer.data += arg_size;
-        command_buffer.size -= arg_size;
-    }
+    // Initialize argument list.
+    struct rose_command_argument_list argument_list = {
+        .data = (char*)(command_buffer.data), .size = command_buffer.size};
 
     // Execute the command.
     rose_command_list_execute_command(
-        connection->context->command_list, rights, command_and_args);
+        connection->context->command_list, argument_list, rights);
 }
 
 static void
