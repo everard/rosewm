@@ -1,17 +1,18 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
 #include "command.h"
+#include "filesystem.h"
 #include "map.h"
 
 #include <wayland-server-core.h>
+#include <limits.h>
 #include <signal.h>
-#include <unistd.h>
-
-#include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Command definition.
@@ -111,12 +112,19 @@ rose_command_list_destroy(struct rose_command_list* command_list) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_command_list_execute_command( //
+rose_command_list_execute_command(
     struct rose_command_list* command_list,
-    rose_command_access_rights_mask rights, char* command_and_args[]) {
+    struct rose_command_argument_list argument_list,
+    rose_command_access_rights_mask rights) {
     // Do nothing if command list is not specified.
     if(command_list == NULL) {
         return false;
+    }
+
+    // If no access rights are specified, then execute the command as a
+    // stand-alone process.
+    if(rights == 0) {
+        return (rose_execute_command(argument_list), true);
     }
 
     // Allocate and initialize a new command.
@@ -127,13 +135,13 @@ rose_command_list_execute_command( //
     } else {
         // Start a child process with the given arguments, and save its PID.
         *command = (struct rose_command){
-            .pid = rose_execute_command_in_child_process(command_and_args),
+            .pid = rose_execute_command_in_child_process(argument_list),
             .rights = rights};
     }
 
     // Check if the child process has been started successfully.
     if(command->pid == (pid_t)(-1)) {
-        goto error;
+        return (free(command), false);
     }
 
     // Add command to the list.
@@ -143,15 +151,12 @@ rose_command_list_execute_command( //
     // Update map's root.
     command_list->root = result.root;
 
-    // If the command has been successfully added to the list, then signal
-    // operation's success.
-    if(result.node == &(command->node)) {
-        return true;
+    // Check if the command has been successfully added to the list.
+    if(result.node != &(command->node)) {
+        return (free(command), false);
     }
 
-error:
-    // On error, free command's memory and signal operation's failure.
-    return free(command), false;
+    return true;
 }
 
 void
@@ -198,7 +203,7 @@ rose_command_list_query_access_rights(struct rose_command_list* command_list,
         return 0;
     }
 
-    // Find command's node with the given PID.
+    // Find a command with the given PID.
     struct rose_map_node* node = rose_map_find(
         command_list->root, &command_pid, rose_command_key_compare);
 
@@ -217,11 +222,39 @@ rose_command_list_query_access_rights(struct rose_command_list* command_list,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Command argument list initialization interface implementation.
+////////////////////////////////////////////////////////////////////////////////
+
+struct rose_command_argument_list
+rose_command_argument_list_initialize(char const* file_path) {
+    // Read argument list.
+    struct rose_memory memory = rose_filesystem_read_data(file_path);
+    if((memory.size != 0) && (memory.size <= UINT16_MAX)) {
+        if(memory.data[memory.size - 1] == '\0') {
+            return (struct rose_command_argument_list){
+                .data = (char*)(memory.data), .size = memory.size};
+        }
+    }
+
+    // Return empty argument list on error.
+    return (rose_free(&memory), (struct rose_command_argument_list){});
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Command execution interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
+enum { rose_n_command_arguments_max = 255 };
+
 pid_t
-rose_execute_command_in_child_process(char* command_and_args[]) {
+rose_execute_command_in_child_process(
+    struct rose_command_argument_list argument_list) {
+    // Ensure that the argument list is always zero-terminated.
+    if((argument_list.size == 0) ||
+       (argument_list.data[argument_list.size - 1] != '\0')) {
+        return -1;
+    }
+
     // Fork and save child's PID.
     pid_t child_pid = -1;
     if((child_pid = fork()) == -1) {
@@ -231,6 +264,22 @@ rose_execute_command_in_child_process(char* command_and_args[]) {
     // Handle fork.
     if(child_pid == 0) {
         // Fork: the following code is only executed in the child process.
+
+        // Allocate memory for command line arguments.
+        char* arguments[rose_n_command_arguments_max + 1] = {};
+
+        // Parse argument list.
+        for(char **arg = arguments,
+                 **sentinel = arguments + rose_n_command_arguments_max;
+            (arg != sentinel) && (argument_list.size != 0); ++arg) {
+            // Save the argument and obtain its size.
+            size_t arg_size = strlen(*arg = argument_list.data) + 1;
+
+            // Shrink the argument list. This is safe because the list is always
+            // zero-terminated.
+            argument_list.data += arg_size;
+            argument_list.size -= arg_size;
+        }
 
         // Set SID.
         setsid();
@@ -246,7 +295,7 @@ rose_execute_command_in_child_process(char* command_and_args[]) {
         signal(SIGINT, SIG_DFL);
 
         // Execute the command.
-        execvp(command_and_args[0], command_and_args);
+        execvp(arguments[0], arguments);
 
         // Terminate the child process, if needed.
         exit(EXIT_FAILURE);
@@ -258,14 +307,20 @@ rose_execute_command_in_child_process(char* command_and_args[]) {
 }
 
 void
-rose_execute_command(char* command_and_args[]) {
+rose_execute_command(struct rose_command_argument_list argument_list) {
+    // Ensure that the argument list is always zero-terminated.
+    if((argument_list.size == 0) ||
+       (argument_list.data[argument_list.size - 1] != '\0')) {
+        return;
+    }
+
     // Fork for the first time.
     if(fork() == 0) {
         // Fork: the following code is only executed in the child process.
 
         // Execute the command.
         int status = EXIT_SUCCESS;
-        if(rose_execute_command_in_child_process(command_and_args) == -1) {
+        if(rose_execute_command_in_child_process(argument_list) == -1) {
             status = EXIT_FAILURE;
         }
 
