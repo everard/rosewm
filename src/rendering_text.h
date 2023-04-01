@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -10,6 +10,12 @@
 #include "unicode.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+// Forward declarations.
+////////////////////////////////////////////////////////////////////////////////
+
+struct rose_memory;
+
+////////////////////////////////////////////////////////////////////////////////
 // Text rendering context declaration.
 // Note: Pointer to this type shall be used as an opaque handle.
 ////////////////////////////////////////////////////////////////////////////////
@@ -17,16 +23,19 @@
 struct rose_text_rendering_context;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Text rendering context initialization-related definitions.
+// Text rendering context initialization parameters definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_text_rendering_context_parameters {
-    char const** font_names;
+    // A pointer to an array of font data.
+    struct rose_memory* fonts;
+
+    // Size of the array.
     size_t n_fonts;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Text rendering-related definitions.
+// Text rendering parameters definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_text_rendering_parameters {
@@ -34,12 +43,25 @@ struct rose_text_rendering_parameters {
     struct rose_color color;
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// Text rendering extents definition. This type is used as a return type of
+// rendering operations.
+////////////////////////////////////////////////////////////////////////////////
+
 struct rose_text_rendering_extents {
     int w, h;
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// Pixel buffer definition. This type is used as a target for rendering.
+////////////////////////////////////////////////////////////////////////////////
+
 struct rose_pixel_buffer {
+    // A pointer to the region of memory containing pixel data in 8 bit per
+    // channel RGBA format.
     unsigned char* data;
+
+    // Width, height, and pitch (pitch is the byte size of the line of pixels).
     int w, h, pitch;
 };
 
@@ -47,6 +69,9 @@ struct rose_pixel_buffer {
 // Text rendering context initialization/destruction interface.
 ////////////////////////////////////////////////////////////////////////////////
 
+// Note: This function takes ownership of the fonts which have been passed in
+// initialization parameters. If this function fails, then font data shall be
+// freed.
 struct rose_text_rendering_context*
 rose_text_rendering_context_initialize(
     struct rose_text_rendering_context_parameters params);
