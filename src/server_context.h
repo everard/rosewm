@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -14,8 +14,24 @@
 
 #include "ipc_server.h"
 #include "rendering.h"
+#include "rendering_theme.h"
 #include "surface.h"
 #include "workspace.h"
+
+////////////////////////////////////////////////////////////////////////////////
+// Forward declarations.
+////////////////////////////////////////////////////////////////////////////////
+
+struct wlr_backend;
+struct wlr_renderer;
+struct wlr_allocator;
+
+struct wlr_relative_pointer_manager_v1;
+struct wlr_pointer_constraints_v1;
+
+struct wlr_tablet_manager_v2;
+struct wlr_presentation;
+struct wlr_seat;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Server context definition.
@@ -35,6 +51,7 @@ struct rose_server_context {
     struct wl_display* display;
     struct wl_event_loop* event_loop;
 
+    // Event sources.
     struct wl_event_source* event_source_sigint;
     struct wl_event_source* event_source_sigterm;
     struct wl_event_source* event_source_sigchld;
@@ -68,10 +85,15 @@ struct rose_server_context {
         // Paths to configuration directories.
         struct rose_utf8_string paths[2];
 
-        // Command line arguments for system processes.
-        char **background_arg_list, **dispatcher_arg_list;
-        char **notification_daemon_arg_list, **panel_arg_list;
-        char **screen_locker_arg_list, **terminal_arg_list;
+        // Argument lists for system processes.
+        struct {
+            struct rose_command_argument_list background;
+            struct rose_command_argument_list dispatcher;
+            struct rose_command_argument_list notification_daemon;
+            struct rose_command_argument_list panel;
+            struct rose_command_argument_list screen_locker;
+            struct rose_command_argument_list terminal;
+        } argument_lists;
 
         // Keyboard layouts.
         struct rose_utf8_string keyboard_layouts;
@@ -79,10 +101,8 @@ struct rose_server_context {
         // Keyboard control scheme.
         struct rose_keyboard_control_scheme* keyboard_control_scheme;
 
-        // Theme: font size, panel, color scheme.
-        int font_size;
-        struct rose_ui_panel panel;
-        struct rose_color_scheme color_scheme;
+        // Theme.
+        struct rose_theme theme;
     } config;
 
     // System processes.
