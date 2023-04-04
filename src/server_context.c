@@ -1,8 +1,9 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
 //
+#include "filesystem.h"
 #include "server_context.h"
 
 #include <wlr/backend.h>
@@ -31,7 +32,6 @@
 #include <wlr/interfaces/wlr_keyboard.h>
 
 #include <sys/wait.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -40,62 +40,27 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Helper macros.
 ////////////////////////////////////////////////////////////////////////////////
 
 #define unused_(x) ((void)(x))
-#define array_size_(x) ((size_t)(sizeof(x) / sizeof(x[0])))
 
+// Computes the size of the given array.
+#define array_size_(a) ((size_t)(sizeof(a) / sizeof((a)[0])))
+
+// Adds an iteration statement which runs through elements of the given array.
 #define for_each_(type, x, array)                                \
     for(type* x = array, *sentinel = array + array_size_(array); \
         x != sentinel; ++x)
 
-#define min_(a, b) ((a) < (b) ? (a) : (b))
-#define max_(a, b) ((a) > (b) ? (a) : (b))
-#define clamp_(x, a, b) max_((a), min_((x), (b)))
-
-////////////////////////////////////////////////////////////////////////////////
-// Constants.
-////////////////////////////////////////////////////////////////////////////////
-
-enum {
-    rose_configuration_file_size_max = 16384,
-    rose_utf8_string_size_max = 4096
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// Theme definition.
-////////////////////////////////////////////////////////////////////////////////
-
-struct rose_theme {
-    int font_size;
-    struct rose_ui_panel panel;
-    struct rose_color_scheme color_scheme;
-};
-
-static struct rose_theme const rose_default_theme = {
-    .font_size = 16,
-    .panel = {.position = rose_ui_panel_position_top,
-              .size = 40,
-              .is_visible = true},
-    .color_scheme = {.panel_background = {{0.15f, 0.15f, 0.15f, 1.0f}},
-                     .panel_foreground = {{1.0f, 1.0f, 1.0f, 1.0f}},
-                     .menu_background = {{0.13f, 0.13f, 0.13f, 1.0f}},
-                     .menu_foreground = {{1.0f, 1.0f, 1.0f, 1.0f}},
-                     .menu_highlight0 = {{0.23f, 0.1f, 0.1f, 1.0f}},
-                     .menu_highlight1 = {{0.33f, 0.1f, 0.1f, 1.0f}},
-                     .surface_background0 = {{0.8f, 0.8f, 0.8f, 1.0f}},
-                     .surface_background1 = {{0.6f, 0.6f, 0.6f, 1.0f}},
-                     .surface_resizing_background0 = {{0.8f, 0.8f, 0.8f, 0.5f}},
-                     .surface_resizing_background1 = {{0.6f, 0.6f, 0.6f, 0.5f}},
-                     .surface_resizing = {{0.1f, 0.1f, 0.1f, 0.5f}},
-                     .workspace_background = {{0.2f, 0.2f, 0.2f, 1.0f}}}};
-
 ////////////////////////////////////////////////////////////////////////////////
 // String buffer definition.
 ////////////////////////////////////////////////////////////////////////////////
+
+enum { rose_utf8_string_size_max = 4095 };
 
 struct rose_utf8_string_buffer {
     char data[rose_utf8_string_size_max + 1];
@@ -106,338 +71,108 @@ struct rose_utf8_string_buffer {
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_utf8_string_buffer
-rose_utf8_string_concat(char* string0, char* string1) {
+rose_utf8_string_concat(char* a, char* b) {
     // Zero-initialize a new string buffer.
     struct rose_utf8_string_buffer buffer = {};
 
     // Append strings to the buffer.
-    strncat(buffer.data, string0, rose_utf8_string_size_max);
-    strncat(
-        buffer.data, string1, rose_utf8_string_size_max - strlen(buffer.data));
+    strncat(buffer.data, a, rose_utf8_string_size_max);
+    strncat(buffer.data, b, rose_utf8_string_size_max - strlen(buffer.data));
 
     // Return the buffer.
     return buffer;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// IO utility functions.
-////////////////////////////////////////////////////////////////////////////////
-
-static size_t
-rose_obtain_configuration_file_size(char const* file_name) {
-    struct stat file_stat = {};
-    if(stat(file_name, &file_stat) != 0) {
-        return 0;
-    }
-
-    if((file_stat.st_size < 1) ||
-       (file_stat.st_size > rose_configuration_file_size_max)) {
-        return 0;
-    }
-
-    return (size_t)(file_stat.st_size);
-}
-
-static struct rose_text_rendering_context_parameters
-rose_text_rendering_context_parameters_read(char const* file_name) {
-    // Initialize an empty object.
-    struct rose_text_rendering_context_parameters params = {};
-
-    // Read font paths from the file, if needed.
-    if(file_name != NULL) {
-        // Obtain file's size.
-        size_t file_size = rose_obtain_configuration_file_size(file_name);
-        if(file_size == 0) {
-            goto end;
-        }
-
-        // Open the file with the given name.
-        FILE* file = fopen(file_name, "rb");
-        if(file == NULL) {
-            goto end;
-        }
-
-        // Read the data.
-        char data[rose_configuration_file_size_max] = {};
-        if(fread(data, file_size, 1, file) != 1) {
-            fclose(file);
-            goto end;
-        }
-
-        // Close the file.
-        fclose(file);
-
-        // Ensure that the file has proper format.
-        if((data[0] == '\n') || (data[file_size - 1] != '\n')) {
-            goto end;
-        }
-
-        // Count the number of font paths and ensure zero-termination.
-        size_t n_fonts = 0;
-        for(size_t i = 0; i != file_size; ++i) {
-            if(data[i] == '\n') {
-                data[i] = '\0';
-                ++n_fonts;
-            }
-        }
-
-        // Compute the size of the font list in bytes.
-        size_t font_list_size = n_fonts * sizeof(char*);
-        if((font_list_size / n_fonts) != sizeof(char*)) {
-            goto end;
-        }
-
-        size_t font_list_data_offset = font_list_size;
-        if((font_list_size += file_size) < file_size) {
-            goto end;
-        }
-
-        // Allocate memory for the font list.
-        char** font_list = malloc(font_list_size);
-        if(font_list == NULL) {
-            goto end;
-        }
-
-        params.font_names = (char const**)(font_list);
-        params.n_fonts = n_fonts;
-
-        // Initialize the list.
-        memcpy((char*)(font_list) + font_list_data_offset, data, file_size);
-        for(size_t i = 0; i != n_fonts; ++i) {
-            font_list[i] = NULL;
-        }
-
-        for(size_t i = 0, j = 0, k = 0; i != file_size; ++i) {
-            if(data[i] == '\0') {
-                font_list[j++] = (char*)(font_list) + font_list_data_offset + k;
-                k = i + 1;
-            }
-        }
-    }
-
-end:
-    return params;
-}
-
-static char**
-rose_argument_list_read(char const* file_name) {
-    // Initialize an empty argument list.
-    char** arg_list = NULL;
-
-    // Read an argument list from the file, if needed.
-    if(file_name != NULL) {
-        // Obtain file's size.
-        size_t file_size = rose_obtain_configuration_file_size(file_name);
-        if(file_size == 0) {
-            goto end;
-        }
-
-        // Open the file with the given name.
-        FILE* file = fopen(file_name, "rb");
-        if(file == NULL) {
-            goto end;
-        }
-
-        // Read the data.
-        char data[rose_configuration_file_size_max] = {};
-        if(fread(data, file_size, 1, file) != 1) {
-            fclose(file);
-            goto end;
-        }
-
-        // Close the file.
-        fclose(file);
-
-        // Ensure that the file has proper format.
-        if((data[0] == '\0') || (data[file_size - 1] != '\0')) {
-            goto end;
-        }
-
-        // Count the number of arguments.
-        size_t n_args = 1;
-        for(size_t i = 0; i != file_size; ++i) {
-            if(data[i] == '\0') {
-                ++n_args;
-            }
-        }
-
-        // Compute the size of the argument list in bytes.
-        size_t arg_list_size = n_args * sizeof(char*);
-        if((arg_list_size / n_args) != sizeof(char*)) {
-            goto end;
-        }
-
-        size_t arg_list_data_offset = arg_list_size;
-        if((arg_list_size += file_size) < file_size) {
-            goto end;
-        }
-
-        // Allocate memory for the argument list.
-        arg_list = malloc(arg_list_size);
-        if(arg_list == NULL) {
-            goto end;
-        }
-
-        // Initialize the argument list.
-        memcpy((char*)(arg_list) + arg_list_data_offset, data, file_size);
-        for(size_t i = 0; i != n_args; ++i) {
-            arg_list[i] = NULL;
-        }
-
-        for(size_t i = 0, j = 0, k = 0; i != file_size; ++i) {
-            if(data[i] == '\0') {
-                arg_list[j++] = (char*)(arg_list) + arg_list_data_offset + k;
-                k = i + 1;
-            }
-        }
-    }
-
-end:
-    return arg_list;
-}
-
 static struct rose_utf8_string
-rose_utf8_string_read(char const* file_name) {
-    // Initialize an empty string.
-    struct rose_utf8_string string = {};
-
-    // Read the string from the file, if needed.
-    if(file_name != NULL) {
-        // Obtain file's size.
-        size_t file_size = rose_obtain_configuration_file_size(file_name);
-        if((file_size == 0) || (file_size > rose_utf8_string_size_max)) {
-            goto end;
-        }
-
-        // Open the file with the given name.
-        FILE* file = fopen(file_name, "rb");
-        if(file == NULL) {
-            goto end;
-        }
-
-        // Allocate memory for the string.
-        char* file_data = calloc(1, file_size + 1);
-        if(file_data == NULL) {
-            fclose(file);
-            goto end;
-        }
-
-        // Read the string from the file.
-        if(fread(file_data, file_size, 1, file) != 1) {
-            free(file_data);
-            fclose(file);
-            goto end;
-        }
-
-        // Set string's data and size.
-        string.data = file_data;
-        string.size = file_size;
-
-        // Close the file.
-        fclose(file);
-    }
-
-end:
-    return string;
-}
-
-static bool
-rose_theme_read(char const* file_name, struct rose_theme* dst) {
-    // If the file is not specified, then read fails.
-    if(file_name == NULL) {
-        return false;
-    }
-
-    // Open the file with the given name.
-    FILE* file = fopen(file_name, "rb");
-    if(file == NULL) {
-        return false;
-    }
-
-    // Initialize a theme.
-    struct rose_theme theme = rose_default_theme;
-
-    // Read font size.
-    theme.font_size = fgetc(file);
-    theme.font_size = clamp_(theme.font_size, 1, 144);
-
-    // Read panel's position.
-    theme.panel.position = fgetc(file);
-    switch(theme.panel.position) {
-        case rose_ui_panel_position_top:
-            // fall-through
-        case rose_ui_panel_position_bottom:
-            // fall-through
-        case rose_ui_panel_position_left:
-            // fall-through
-        case rose_ui_panel_position_right:
-            break;
-
-        default:
-            goto error;
-    }
-
-    // Read panel's size.
-    theme.panel.size = fgetc(file);
-    theme.panel.size = clamp_(theme.panel.size, 1, 128);
-
-#define read_color_(c)                                \
-    if(true) {                                        \
-        unsigned char data[4] = {};                   \
-        if(fread(data, sizeof(data), 1, file) != 1) { \
-            goto error;                               \
-        }                                             \
-                                                      \
-        for(size_t i = 0; i != sizeof(data); ++i) {   \
-            if(data[i] == 0) {                        \
-                c.v[i] = 0.0f;                        \
-            } else if(data[i] >= 255) {               \
-                c.v[i] = 1.0f;                        \
-            } else {                                  \
-                c.v[i] = (data[i] / 255.0f);          \
-                c.v[i] = clamp_(c.v[i], 0.0f, 1.0f);  \
-            }                                         \
-        }                                             \
-    }
-
-    // Read color scheme.
-    read_color_(theme.color_scheme.panel_background);
-    read_color_(theme.color_scheme.panel_foreground);
-    read_color_(theme.color_scheme.panel_highlight);
-    read_color_(theme.color_scheme.menu_background);
-    read_color_(theme.color_scheme.menu_foreground);
-    read_color_(theme.color_scheme.menu_highlight0);
-    read_color_(theme.color_scheme.menu_highlight1);
-    read_color_(theme.color_scheme.surface_background0);
-    read_color_(theme.color_scheme.surface_background1);
-    read_color_(theme.color_scheme.surface_resizing_background0);
-    read_color_(theme.color_scheme.surface_resizing_background1);
-    read_color_(theme.color_scheme.surface_resizing);
-    read_color_(theme.color_scheme.workspace_background);
-
-#undef read_color_
-
-    // Close the file.
-    fclose(file);
-
-    // Write the theme.
-    return (*dst = theme), true;
-
-error:
-    return fclose(file), false;
+rose_utf8_string_read(char const* file_path) {
+    return rose_convert_ntbs_to_utf8(
+        (char*)(rose_filesystem_read_ntbs(file_path).data));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Process starting utility functions.
+// Text rendering context initialization utility function.
+////////////////////////////////////////////////////////////////////////////////
+
+static struct rose_text_rendering_context*
+rose_text_rendering_context_initialize_from_file(char const* file_path) {
+    // Initialization fails if configuration file is not specified.
+    if(file_path == NULL) {
+        return NULL;
+    }
+
+    // Read configuration file.
+    struct rose_memory file = rose_filesystem_read_ntbs(file_path);
+    if(file.size == 0) {
+        return NULL;
+    }
+
+    // Parse configuration file.
+    for(size_t i = 0; i != file.size; ++i) {
+        switch(file.data[i]) {
+            case '\r':
+            // fall-through
+            case '\n':
+                file.data[i] = '\0';
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Initialize an empty array for fonts.
+    struct rose_memory fonts[8] = {};
+    size_t n_fonts = 0;
+
+    // Read fonts.
+    for(size_t offset = 0; offset != file.size;) {
+        // Limit the number of fonts.
+        if(n_fonts == array_size_(fonts)) {
+            break;
+        }
+
+        // Obtain the font file path.
+        char* font_file_path = (char*)(file.data + offset);
+
+        // Update the offset.
+        offset += strlen(font_file_path) + 1;
+
+        // If the path is an empty string, then skip it.
+        if(font_file_path[0] == '\0') {
+            continue;
+        }
+
+        // Read font from the current path.
+        if((fonts[n_fonts++] = rose_filesystem_read_data(font_file_path))
+               .size == 0) {
+            for(size_t i = 0; i != n_fonts; ++i) {
+                rose_free(&(fonts[i]));
+            }
+
+            break;
+        }
+    }
+
+    // Deallocate file data.
+    rose_free(&file);
+
+    // Initialize text rendering context.
+    return rose_text_rendering_context_initialize(
+        (struct rose_text_rendering_context_parameters){
+            .fonts = fonts, .n_fonts = n_fonts});
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Process starting/querying utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
 rose_server_context_start_processes(struct rose_server_context* context) {
 #define start_(type)                                                           \
-    if((context->processes.type##_pid == (pid_t)(-1)) &&                       \
-       (context->config.type##_arg_list != NULL)) {                            \
+    if((context->config.argument_lists.type.data != NULL) &&                   \
+       (context->processes.type##_pid == (pid_t)(-1))) {                       \
         context->processes.type##_pid = rose_execute_command_in_child_process( \
-            context->config.type##_arg_list);                                  \
+            context->config.argument_lists.type);                              \
     }
 
     start_(background);
@@ -447,6 +182,39 @@ rose_server_context_start_processes(struct rose_server_context* context) {
     start_(screen_locker);
 
 #undef start_
+}
+
+static pid_t
+rose_obtain_parent_pid(pid_t pid) {
+    // Initialize an empty path string.
+    char path[1024] = {};
+
+    // Construct the path to stats file.
+    if(true) {
+        // Write the string.
+        int n = snprintf(path, sizeof(path), "/proc/%d/stat", pid);
+
+        // Check for errors.
+        if((n <= 0) || (n >= (int)(sizeof(path)))) {
+            return (pid_t)(-1);
+        }
+    }
+
+    // Open the file.
+    FILE* file = fopen(path, "r");
+    if(file == NULL) {
+        return (pid_t)(-1);
+    }
+
+    // Read the file.
+    int parent_pid = -1;
+    fscanf(file, "%*d %*s %*c %d", &parent_pid);
+
+    // Close the file.
+    fclose(file);
+
+    // Return the PID.
+    return (pid_t)(parent_pid);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -833,20 +601,16 @@ rose_server_context_initialize(struct rose_server_context* context) {
     // Read the theme.
     if(true) {
         // Initialize default theme.
-        struct rose_theme theme = rose_default_theme;
+        context->config.theme = rose_theme_initialize_default();
 
         // Try reading the theme from one of the configuration files.
         for_each_(struct rose_utf8_string, path, context->config.paths) {
-            if(rose_theme_read(
-                   rose_utf8_string_concat(path->data, "theme").data, &theme)) {
+            if(rose_theme_initialize(
+                   rose_utf8_string_concat(path->data, "theme").data,
+                   &(context->config.theme))) {
                 break;
             }
         }
-
-        // Save the theme.
-        context->config.font_size = theme.font_size;
-        context->config.panel = theme.panel;
-        context->config.color_scheme = theme.color_scheme;
     }
 
     // Read keyboard layouts.
@@ -859,28 +623,29 @@ rose_server_context_initialize(struct rose_server_context* context) {
         }
     }
 
-#define read_arg_list_(type)                                            \
-    for_each_(struct rose_utf8_string, path, context->config.paths) {   \
-        context->config.type##_arg_list = rose_argument_list_read(      \
-            rose_utf8_string_concat(path->data, "system_" #type).data); \
-                                                                        \
-        if(context->config.type##_arg_list != NULL) {                   \
-            break;                                                      \
-        }                                                               \
+#define read_argument_list_(type)                                           \
+    for_each_(struct rose_utf8_string, path, context->config.paths) {       \
+        context->config.argument_lists.type =                               \
+            rose_command_argument_list_initialize(                          \
+                rose_utf8_string_concat(path->data, "system_" #type).data); \
+                                                                            \
+        if(context->config.argument_lists.type.data != NULL) {              \
+            break;                                                          \
+        }                                                                   \
     }
 
     // Read argument lists for system processes.
-    read_arg_list_(background);
-    read_arg_list_(dispatcher);
-    read_arg_list_(notification_daemon);
-    read_arg_list_(panel);
-    read_arg_list_(screen_locker);
-    read_arg_list_(terminal);
+    read_argument_list_(background);
+    read_argument_list_(dispatcher);
+    read_argument_list_(notification_daemon);
+    read_argument_list_(panel);
+    read_argument_list_(screen_locker);
+    read_argument_list_(terminal);
 
-#undef read_arg_list_
+#undef read_argument_list_
 
     // Note: There must always be an argument list to start a terminal emulator.
-    if(context->config.terminal_arg_list == NULL) {
+    if(context->config.argument_lists.terminal.data == NULL) {
         return false;
     }
 
@@ -891,7 +656,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
 
     // Initialize device preference list.
     if(true) {
-        // Construct a full path to a file which contains device preferences.
+        // Construct a full path to the file containing device preferences.
         struct rose_utf8_string_buffer file_path = rose_utf8_string_concat(
             context->config.paths[0].data, "device_preferences");
 
@@ -919,23 +684,12 @@ rose_server_context_initialize(struct rose_server_context* context) {
 
     // Initialize text rendering context.
     for_each_(struct rose_utf8_string, path, context->config.paths) {
-        // Read initialization parameters.
-        struct rose_text_rendering_context_parameters params =
-            rose_text_rendering_context_parameters_read(
+        context->text_rendering_context =
+            rose_text_rendering_context_initialize_from_file(
                 rose_utf8_string_concat(path->data, "fonts").data);
 
-        // Initialize text rendering context, if needed.
-        if(params.n_fonts != 0) {
-            context->text_rendering_context =
-                rose_text_rendering_context_initialize(params);
-
-            // Free memory.
-            free(params.font_names);
-
-            // If initialization succeeded, then break out of the cycle.
-            if(context->text_rendering_context != NULL) {
-                break;
-            }
+        if(context->text_rendering_context != NULL) {
+            break;
         }
     }
 
@@ -973,7 +727,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
         }
     }
 
-    // Create event sources for SIGINT, SIGTERM and SIGCHLD.
+    // Create event sources for SIGINT, SIGTERM, and SIGCHLD.
     try_(context->event_source_sigint = wl_event_loop_add_signal(
              context->event_loop, SIGINT, rose_handle_signal, context));
 
@@ -1130,7 +884,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
         if(!rose_workspace_initialize(workspace, context)) {
             return false;
         } else {
-            rose_workspace_set_panel(workspace, context->config.panel);
+            rose_workspace_set_panel(workspace, context->config.theme.panel);
         }
     }
 
@@ -1166,8 +920,10 @@ rose_server_context_destroy(struct rose_server_context* context) {
     // Destroy event sources.
     if(true) {
         struct wl_event_source* sources[] = //
-            {context->event_source_sigint, context->event_source_sigterm,
-             context->event_source_sigchld, context->event_source_timer};
+            {context->event_source_sigint,  //
+             context->event_source_sigterm, //
+             context->event_source_sigchld, //
+             context->event_source_timer};
 
         for(size_t i = 0; i != array_size_(sources); ++i) {
             if(sources[i] != NULL) {
@@ -1223,14 +979,6 @@ rose_server_context_destroy(struct rose_server_context* context) {
             workspace, _, &(context->workspaces_without_output), link_output) {
             rose_workspace_destroy(workspace);
         }
-
-        struct rose_output* output;
-        wl_list_for_each(output, &(context->outputs), link) {
-            wl_list_for_each_safe(
-                workspace, _, &(output->workspaces), link_output) {
-                rose_workspace_destroy(workspace);
-            }
-        }
     }
 
     // Destroy the display.
@@ -1250,12 +998,12 @@ rose_server_context_destroy(struct rose_server_context* context) {
     }
 
     // Free memory.
-    free(context->config.background_arg_list);
-    free(context->config.dispatcher_arg_list);
-    free(context->config.notification_daemon_arg_list);
-    free(context->config.panel_arg_list);
-    free(context->config.screen_locker_arg_list);
-    free(context->config.terminal_arg_list);
+    free(context->config.argument_lists.background.data);
+    free(context->config.argument_lists.dispatcher.data);
+    free(context->config.argument_lists.notification_daemon.data);
+    free(context->config.argument_lists.panel.data);
+    free(context->config.argument_lists.screen_locker.data);
+    free(context->config.argument_lists.terminal.data);
     free(context->config.keyboard_layouts.data);
 
     for_each_(struct rose_utf8_string, path, context->config.paths) {
@@ -1446,39 +1194,32 @@ rose_server_context_configure(struct rose_server_context* context,
     // Configure the theme, if requested.
     if((flags & rose_server_context_configure_theme) != 0) {
         // Initialize default theme.
-        struct rose_theme theme = rose_default_theme;
+        context->config.theme = rose_theme_initialize_default();
 
         // Try reading the theme from one of the configuration files.
         for_each_(struct rose_utf8_string, path, context->config.paths) {
-            if(rose_theme_read(
-                   rose_utf8_string_concat(path->data, "theme").data, &theme)) {
-                // If the theme has been successfully read, then save it.
-                context->config.font_size = theme.font_size;
-                context->config.panel = theme.panel;
-                context->config.color_scheme = theme.color_scheme;
-
-                // Request redraw operation.
-                struct rose_output* output;
-                wl_list_for_each(output, &(context->outputs), link) {
-                    if(output->focused_workspace != NULL) {
-                        rose_workspace_request_redraw(
-                            output->focused_workspace);
-                    } else {
-                        rose_output_request_redraw(output);
-                    }
-                }
-
-                // Broadcast the change through IPC, if needed.
-                if(context->ipc_server != NULL) {
-                    rose_ipc_server_broadcast_status(
-                        context->ipc_server,
-                        (struct rose_ipc_status){
-                            .type = rose_ipc_status_type_theme});
-                }
-
-                // And break out of the cycle.
+            if(rose_theme_initialize(
+                   rose_utf8_string_concat(path->data, "theme").data,
+                   &(context->config.theme))) {
                 break;
             }
+        }
+
+        // Request redraw operation.
+        struct rose_output* output;
+        wl_list_for_each(output, &(context->outputs), link) {
+            if(output->focused_workspace != NULL) {
+                rose_workspace_request_redraw(output->focused_workspace);
+            } else {
+                rose_output_request_redraw(output);
+            }
+        }
+
+        // Broadcast the change through IPC, if needed.
+        if(context->ipc_server != NULL) {
+            rose_ipc_server_broadcast_status(
+                context->ipc_server,
+                (struct rose_ipc_status){.type = rose_ipc_status_type_theme});
         }
     }
 
@@ -1550,10 +1291,13 @@ rose_server_context_get_cursor_image( //
     // Note: Scaling factor is not used.
     unused_(scale);
 
+    // Make sure the requested cursor type exists.
+    type =
+        ((type < rose_n_output_cursor_types) ? type
+                                             : rose_output_cursor_type_default);
+
     // Return cursor's image.
-    return context->cursor_context
-        .cursors[(ptrdiff_t)(min_(type, (rose_n_output_cursor_types - 1)))]
-        ->images[0];
+    return context->cursor_context.cursors[(ptrdiff_t)(type)]->images[0];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1645,10 +1389,16 @@ rose_server_context_check_ipc_access_rights(
         case rose_ipc_connection_type_configurator:
             // fall-through
         case rose_ipc_connection_type_dispatcher:
-            if((rose_command_list_query_access_rights(
-                    context->command_list, pid) &
-                rose_command_access_ipc) != 0) {
-                return true;
+            for(int i = 0; i != 3; ++i) {
+                if((rose_command_list_query_access_rights(
+                        context->command_list, pid) &
+                    rose_command_access_ipc) != 0) {
+                    return true;
+                }
+
+                if((pid = rose_obtain_parent_pid(pid)) == (pid_t)(-1)) {
+                    return false;
+                }
             }
 
             break;
