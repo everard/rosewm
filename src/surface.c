@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -25,7 +25,7 @@
     wl_signal_add(&((x)->events.f), &(surface->listener_##f))
 
 ////////////////////////////////////////////////////////////////////////////////
-// State-handling-related utility functions.
+// State handling-related utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool
@@ -83,7 +83,7 @@ rose_surface_set_decoration_mode(struct rose_surface* surface) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface snapshot construction-related utility functions and types.
+// Surface snapshot construction utility function and type.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_surface_snapshot_construction_context {
@@ -139,7 +139,7 @@ rose_surface_construct_snapshot(struct wlr_surface* surface, int x, int y,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Initialization-related utility function declaration.
+// Surface initialization utility function declaration.
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_surface*
@@ -495,7 +495,7 @@ rose_handle_event_surface_destroy(struct wl_listener* listener, void* data) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Initialization-related utility function.
+// Surface initialization utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_surface*
@@ -944,10 +944,10 @@ rose_surface_transaction_initialize_snapshot(struct rose_surface* surface) {
     wlr_xdg_surface_for_each_surface(
         surface->xdg_surface, rose_surface_construct_snapshot, &context);
 
-    // If the surface is decorated, then construct a snapshot for the
-    // decoration.
+    // If the surface is decorated, then construct its decoration's snapshot.
     if(!(surface->state.current.is_maximized ||
-         surface->state.current.is_fullscreen)) {
+         surface->state.current.is_fullscreen) &&
+       rose_surface_is_decoration_configured(surface)) {
         // Obtain a pointer to the snapshot.
         struct rose_surface_snapshot* surface_snapshot =
             &(surface->snapshots[rose_surface_snapshot_type_decoration]);

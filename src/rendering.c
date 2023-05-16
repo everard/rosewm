@@ -10,7 +10,9 @@
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output.h>
+
 #include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/render/wlr_renderer.h>
 
@@ -79,16 +81,24 @@ rose_render_rectangle(struct rose_output* output, struct rose_color color,
 static void
 rose_render_rectangle_with_texture( //
     struct rose_output* output, struct wlr_texture* texture,
-    struct rose_rectangle rectangle) {
+    struct wlr_fbox* region, struct rose_rectangle rectangle) {
     // Do nothing if there is no texture.
     if(texture == NULL) {
         return;
     }
 
     // Project the rectangle to the output and render it with the given texture.
-    wlr_render_texture_with_matrix( //
-        output->context->renderer, texture,
-        rose_project_rectangle(output, rectangle).a, 1.0f);
+    if(region != NULL) {
+        // Render only the given region of the texture.
+        wlr_render_subtexture_with_matrix( //
+            output->context->renderer, texture, region,
+            rose_project_rectangle(output, rectangle).a, 1.0f);
+    } else {
+        // Render the entire texture.
+        wlr_render_texture_with_matrix( //
+            output->context->renderer, texture,
+            rose_project_rectangle(output, rectangle).a, 1.0f);
+    }
 }
 
 struct rose_render_surface_context {
@@ -112,9 +122,13 @@ rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
          .h = surface->current.height,
          .transform = surface->current.transform};
 
+    // Obtain the visible region of the surface's buffer.
+    struct wlr_fbox region = {};
+    wlr_surface_get_buffer_source_box(surface, &region);
+
     // Render the rectangle with surface's texture.
     rose_render_rectangle_with_texture(
-        output, wlr_surface_get_texture(surface), rectangle);
+        output, wlr_surface_get_texture(surface), &region, rectangle);
 
     // Send presentation feedback.
     wlr_presentation_surface_sampled_on_output(
@@ -376,8 +390,16 @@ rose_render_content(struct rose_output* output) {
                     ((struct wlr_client_buffer*)(surface_snapshot->buffer))
                         ->texture;
 
+                // Obtain the visible region of the surface's buffer.
+                struct wlr_fbox region = {
+                    .x = surface_snapshot->buffer_region.x,
+                    .y = surface_snapshot->buffer_region.y,
+                    .width = surface_snapshot->buffer_region.w,
+                    .height = surface_snapshot->buffer_region.h};
+
                 // And render it.
-                rose_render_rectangle_with_texture(output, texture, rectangle);
+                rose_render_rectangle_with_texture(
+                    output, texture, &region, rectangle);
             } else if(surface_snapshot->type ==
                       rose_surface_snapshot_type_decoration) {
                 // Otherwise, render the decoration it represents.
@@ -401,7 +423,10 @@ rose_render_content(struct rose_output* output) {
                 .output = output, .dx = state.x, .dy = state.y};
 
             // Render surface's decoration, if needed.
-            if(!(state.is_maximized || state.is_fullscreen)) {
+            if(!(state.is_maximized || state.is_fullscreen) &&
+               ((surface->xdg_decoration == NULL) ||
+                (surface->xdg_decoration->current.mode ==
+                 WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE))) {
                 struct rose_rectangle rectangle = //
                     {.x = context.dx,
                      .y = context.dy,
@@ -490,7 +515,7 @@ rose_render_content(struct rose_output* output) {
 
             // Render the texture.
             rose_render_rectangle_with_texture(
-                output, raster->texture, rectangle);
+                output, raster->texture, NULL, rectangle);
         }
     }
 

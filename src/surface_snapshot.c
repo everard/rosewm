@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -16,6 +16,10 @@ void
 rose_surface_snapshot_initialize(
     struct rose_surface_snapshot* snapshot,
     struct rose_surface_snapshot_parameters params) {
+    // Obtain the visible region of the surface's buffer.
+    struct wlr_fbox box = {};
+    wlr_surface_get_buffer_source_box(params.surface, &box);
+
     // Set snapshot's parameters.
     *snapshot = (struct rose_surface_snapshot){
         .type = params.type,
@@ -26,13 +30,14 @@ rose_surface_snapshot_initialize(
         .x = params.x,
         .y = params.y,
         .w = params.surface->current.width,
-        .h = params.surface->current.height};
+        .h = params.surface->current.height,
+        .buffer_region = {
+            .x = box.x, .y = box.y, .w = box.width, .h = box.height}};
 
     // Initialize list link.
     wl_list_init(&(snapshot->link));
 
-    // If the given surface has a buffer, and the snapshot has normal type, then
-    // lock surface's buffer.
+    // Obtain and lock surface's buffer, if needed.
     if(wlr_surface_has_buffer(params.surface) &&
        (snapshot->type == rose_surface_snapshot_type_normal)) {
         snapshot->buffer = wlr_buffer_lock(&(params.surface->buffer->base));

@@ -27,6 +27,8 @@
 
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_server_decoration.h>
+#include <wlr/types/wlr_viewporter.h>
+
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/interfaces/wlr_keyboard.h>
@@ -842,6 +844,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     // Initialize Wayland protocols: data device, primary selection.
     try_(wlr_data_device_manager_create(context->display));
     try_(wlr_primary_selection_v1_device_manager_create(context->display));
+
+    // Initialize Wayland protocols: viewporter.
+    try_(wlr_viewporter_create(context->display));
 
     // Initialize Wayland protocols: xdg-shell, xdg-decoration-manager.
     if(true) {
