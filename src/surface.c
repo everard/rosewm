@@ -55,7 +55,7 @@ rose_surface_state_sync(struct rose_surface* surface) {
             .w = surface->xdg_surface->surface->current.width,
             .h = surface->xdg_surface->surface->current.height,
             .is_activated = surface->xdg_surface->toplevel->current.activated,
-            .is_maximized = surface->xdg_surface->toplevel->current.maximized,
+            .is_maximized = surface->state.pending.is_maximized,
             .is_fullscreen =
                 surface->xdg_surface->toplevel->current.fullscreen};
 }
@@ -603,6 +603,9 @@ rose_surface_initialize(struct rose_surface_parameters params) {
     // Update surface's pending state.
     surface->state.pending = surface->state.current;
 
+    // Configure the underlying toplevel XDG surface.
+    wlr_xdg_toplevel_set_maximized(xdg_surface->toplevel, true);
+
     // Add the surface to the given workspace.
     rose_workspace_add_surface(params.workspace, surface);
 
@@ -881,8 +884,6 @@ rose_surface_configure(struct rose_surface* surface,
 
     if((params.flags & rose_surface_configure_maximized) != 0) {
         target.is_maximized = params.is_maximized;
-        wlr_xdg_toplevel_set_maximized(
-            surface->xdg_surface->toplevel, params.is_maximized);
     }
 
     if((params.flags & rose_surface_configure_fullscreen) != 0) {
@@ -904,7 +905,11 @@ rose_surface_configure(struct rose_surface* surface,
         }
     }
 
+    // Update pending state.
     surface->state.pending = target;
+
+    // Note: Toplevel XDG surfaces are always maximized.
+    wlr_xdg_toplevel_set_maximized(surface->xdg_surface->toplevel, true);
 
     // If there is no running transaction, then immediately update surface's
     // coordinates.
