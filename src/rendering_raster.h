@@ -34,8 +34,13 @@ struct rose_raster {
 // Initialization/destruction interface.
 ////////////////////////////////////////////////////////////////////////////////
 
+// Note: This function initializes raster's texture.
 struct rose_raster*
 rose_raster_initialize(struct wlr_renderer* renderer, int w, int h);
+
+// Note: This function does not initialize raster's texture.
+struct rose_raster*
+rose_raster_initialize_without_texture(int w, int h);
 
 // Note: This function destroys raster's texture immediately, but might postpone
 // memory freeing (in case the underlying buffer is locked).

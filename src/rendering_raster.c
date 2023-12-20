@@ -63,6 +63,24 @@ static struct wlr_buffer_impl const rose_raster_buffer_implementation = {
 
 struct rose_raster*
 rose_raster_initialize(struct wlr_renderer* renderer, int w, int h) {
+    // Initialize a new raster object.
+    struct rose_raster* raster = rose_raster_initialize_without_texture(w, h);
+    if(raster != NULL) {
+        // Initialize raster's texture.
+        raster->texture = wlr_texture_from_buffer(renderer, &(raster->base));
+
+        // If initialization failed, then free allocated memory.
+        if(raster->texture == NULL) {
+            return rose_raster_destroy(raster), NULL;
+        }
+    }
+
+    // Return initialized raster object.
+    return raster;
+}
+
+struct rose_raster*
+rose_raster_initialize_without_texture(int w, int h) {
     // Clamp the dimensions.
     w = clamp_(w, 1, 32768);
     h = clamp_(h, 1, 32768);
@@ -84,20 +102,16 @@ rose_raster_initialize(struct wlr_renderer* renderer, int w, int h) {
     if(raster == NULL) {
         return NULL;
     } else {
+        // Zero-initialize the raster.
+        *raster = (struct rose_raster){};
+
+        // Initialize raster's buffer interface.
         wlr_buffer_init(
             &(raster->base), &rose_raster_buffer_implementation, w, h);
     }
 
     // Clear the pixels.
     rose_raster_clear(raster);
-
-    // Initialize raster's texture.
-    raster->texture = wlr_texture_from_buffer(renderer, &(raster->base));
-
-    // If initialization failed, then free allocated memory.
-    if(raster->texture == NULL) {
-        return free(raster), NULL;
-    }
 
     // Return initialized raster object.
     return raster;
@@ -106,8 +120,10 @@ rose_raster_initialize(struct wlr_renderer* renderer, int w, int h) {
 void
 rose_raster_destroy(struct rose_raster* raster) {
     if(raster != NULL) {
-        // Destroy raster's texture.
-        raster->texture = (wlr_texture_destroy(raster->texture), NULL);
+        // Destroy raster's texture, if any.
+        if(raster->texture != NULL) {
+            raster->texture = (wlr_texture_destroy(raster->texture), NULL);
+        }
 
         // Drop the buffer.
         wlr_buffer_drop(&(raster->base));
@@ -136,5 +152,9 @@ rose_raster_clear(struct rose_raster* raster) {
 void
 rose_raster_texture_update( //
     struct rose_raster* raster, pixman_region32_t* region) {
-    wlr_texture_update_from_buffer(raster->texture, &(raster->base), region);
+    // Update the texture, if any.
+    if(raster->texture != NULL) {
+        wlr_texture_update_from_buffer(
+            raster->texture, &(raster->base), region);
+    }
 }
