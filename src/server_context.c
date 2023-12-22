@@ -784,15 +784,38 @@ rose_server_context_initialize(struct rose_server_context* context) {
 
         // Obtain images for all output cursor types.
         for(ptrdiff_t i = 0; i < rose_n_output_cursor_types; ++i) {
-            context->cursor_context.cursors[i] =
-                wlr_xcursor_manager_get_xcursor(
+            // Obtain an image from the theme.
+            struct wlr_xcursor_image* image = NULL;
+            if(true) {
+                // Obtain a cursor from the theme.
+                struct wlr_xcursor* cursor = wlr_xcursor_manager_get_xcursor(
                     context->cursor_context.manager, names[i], 1.0f);
 
-            if(context->cursor_context.cursors[i] == NULL) {
-                try_(context->cursor_context.cursors[i] =
-                         wlr_xcursor_manager_get_xcursor(
+                if(cursor == NULL) {
+                    try_(cursor = wlr_xcursor_manager_get_xcursor(
                              context->cursor_context.manager, names[0], 1.0f));
+                }
+
+                // Obtain the first image from the cursor.
+                image = cursor->images[0];
             }
+
+            // Initialize a new raster.
+            struct rose_raster* raster = rose_raster_initialize_without_texture(
+                image->width, image->height);
+
+            // Make sure initialization succeeded.
+            try_(raster);
+
+            // Copy image to the raster.
+            memcpy(raster->pixels, image->buffer,
+                   raster->base.width * raster->base.height * 4U);
+
+            // Save the cursor image to the context.
+            context->cursor_context.images[i] =
+                (struct rose_cursor_image){.raster = raster,
+                                           .hotspot_x = image->hotspot_x,
+                                           .hotspot_y = image->hotspot_y};
         }
     }
 
@@ -800,7 +823,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     wl_signal_add(&((x)->events.f), &(context->listener_##ns##_##f))
 
     // Initialize the backend.
-    try_(context->backend = wlr_backend_autocreate(context->display));
+    try_(context->backend =
+             wlr_backend_autocreate(context->display, &(context->session)));
+
     add_signal_(context->backend, backend, new_input);
     add_signal_(context->backend, backend, new_output);
 
@@ -815,7 +840,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
              wlr_allocator_autocreate(context->backend, context->renderer));
 
     // Initialize the compositor.
-    try_(wlr_compositor_create(context->display, context->renderer));
+    try_(wlr_compositor_create(context->display, 5, context->renderer));
     try_(wlr_subcompositor_create(context->display));
 
     // Initialize the seat.
@@ -1031,9 +1056,14 @@ rose_server_context_destroy(struct rose_server_context* context) {
         rose_keyboard_context_destroy(context->keyboard_context);
     }
 
-    // Destroy cursor context.
+    // Destroy cursor manager.
     if(context->cursor_context.manager != NULL) {
         wlr_xcursor_manager_destroy(context->cursor_context.manager);
+    }
+
+    // Destroy cursor images.
+    for_each_(struct rose_cursor_image, image, context->cursor_context.images) {
+        rose_raster_destroy(image->raster);
     }
 
     // Destroy command list.
@@ -1289,7 +1319,7 @@ rose_server_context_configure(struct rose_server_context* context,
 // Cursor image acquisition interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
-struct wlr_xcursor_image*
+struct rose_cursor_image
 rose_server_context_get_cursor_image( //
     struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale) {
@@ -1302,7 +1332,7 @@ rose_server_context_get_cursor_image( //
                                              : rose_output_cursor_type_default);
 
     // Return cursor's image.
-    return context->cursor_context.cursors[(ptrdiff_t)(type)]->images[0];
+    return context->cursor_context.images[(ptrdiff_t)(type)];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

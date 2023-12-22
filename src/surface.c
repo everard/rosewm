@@ -5,10 +5,10 @@
 //
 #include "server_context.h"
 
-#include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_subcompositor.h>
 
+#include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 
@@ -98,7 +98,7 @@ rose_surface_construct_snapshot(struct wlr_surface* surface, int x, int y,
     struct rose_surface_snapshot_construction_context* context = data;
 
 #define obtain_surface_snapshot_(surface)                          \
-    if(((surface) != NULL) && ((surface)->data != NULL)) {         \
+    if((surface)->data != NULL) {                                  \
         surface_snapshot =                                         \
             &(((struct rose_surface*)((surface)->data))            \
                   ->snapshots[rose_surface_snapshot_type_normal]); \
@@ -106,16 +106,23 @@ rose_surface_construct_snapshot(struct wlr_surface* surface, int x, int y,
 
     // Obtain a pointer to the corresponding snapshot.
     struct rose_surface_snapshot* surface_snapshot = NULL;
-    if(wlr_surface_is_xdg_surface(surface)) {
+    if(true) {
+        // First, try obtaining an XDG surface snapshot.
         struct wlr_xdg_surface* xdg_surface =
-            wlr_xdg_surface_from_wlr_surface(surface);
+            wlr_xdg_surface_try_from_wlr_surface(surface);
 
-        obtain_surface_snapshot_(xdg_surface);
-    } else if(wlr_surface_is_subsurface(surface)) {
-        struct wlr_subsurface* subsurface =
-            wlr_subsurface_from_wlr_surface(surface);
+        if(xdg_surface != NULL) {
+            obtain_surface_snapshot_(xdg_surface);
+        } else {
+            // If the surface is not an XDG surface, then try obtaining a
+            // subsurface snapshot.
+            struct wlr_subsurface* subsurface =
+                wlr_subsurface_try_from_wlr_surface(surface);
 
-        obtain_surface_snapshot_(subsurface);
+            if(subsurface != NULL) {
+                obtain_surface_snapshot_(subsurface);
+            }
+        }
     }
 
 #undef obtain_surface_snapshot_
@@ -422,8 +429,8 @@ rose_handle_event_surface_new_subsurface(struct wl_listener* listener,
     wl_list_insert(&(master->subsurfaces), &(surface->link));
 
     // Register listeners.
-    add_signal_(subsurface, map);
-    add_signal_(subsurface, unmap);
+    add_signal_(subsurface->surface, map);
+    add_signal_(subsurface->surface, unmap);
     add_signal_(subsurface->surface, commit);
 
     add_signal_(subsurface->surface, new_subsurface);
@@ -464,8 +471,8 @@ rose_handle_event_surface_new_popup(struct wl_listener* listener, void* data) {
     wl_list_insert(&(master->temporaries), &(surface->link));
 
     // Register listeners.
-    add_signal_(xdg_surface, map);
-    add_signal_(xdg_surface, unmap);
+    add_signal_(xdg_surface->surface, map);
+    add_signal_(xdg_surface->surface, unmap);
     add_signal_(xdg_surface->surface, commit);
 
     add_signal_(xdg_surface->surface, new_subsurface);
@@ -589,8 +596,8 @@ rose_surface_initialize(struct rose_surface_parameters params) {
     add_signal_(params.toplevel, set_title);
     add_signal_(params.toplevel, set_app_id);
 
-    add_signal_(xdg_surface, map);
-    add_signal_(xdg_surface, unmap);
+    add_signal_(xdg_surface->surface, map);
+    add_signal_(xdg_surface->surface, unmap);
     add_signal_(xdg_surface->surface, commit);
 
     add_signal_(xdg_surface->surface, new_subsurface);
@@ -703,7 +710,7 @@ void
 rose_surface_decoration_initialize(
     struct wlr_xdg_toplevel_decoration_v1* xdg_decoration) {
     // Obtain a pointer to the surface.
-    struct rose_surface* surface = xdg_decoration->surface->data;
+    struct rose_surface* surface = xdg_decoration->toplevel->base->data;
 
     // Do nothing else if there is no top-level surface, or if it already has a
     // decoration.
@@ -726,14 +733,16 @@ rose_surface_decoration_initialize(
 void
 rose_surface_pointer_constraint_initialize(
     struct wlr_pointer_constraint_v1* pointer_constraint) {
-    // Only XDG surfaces are allowed to have pointer constraints.
-    if(!wlr_surface_is_xdg_surface(pointer_constraint->surface)) {
+    // Obtain the target XDG surface.
+    struct wlr_xdg_surface* xdg_surface =
+        wlr_xdg_surface_try_from_wlr_surface(pointer_constraint->surface);
+
+    if(xdg_surface == NULL) {
         return;
     }
 
     // Obtain a pointer to the surface.
-    struct rose_surface* surface =
-        wlr_xdg_surface_from_wlr_surface(pointer_constraint->surface)->data;
+    struct rose_surface* surface = xdg_surface->data;
 
     // Do nothing else if there is no top-level surface, or if it already has a
     // constraint.
@@ -883,6 +892,7 @@ rose_surface_configure(struct rose_surface* surface,
     }
 
     if((params.flags & rose_surface_configure_maximized) != 0) {
+        // Note: The underlying XDG surface is always maximized.
         target.is_maximized = params.is_maximized;
     }
 

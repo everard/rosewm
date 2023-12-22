@@ -1000,7 +1000,7 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
         // Obtain prefix string.
         char* prefix =
             ((rose_ui_menu_has_selection(menu) && (menu->page.mark_idx == i))
-                 ? u8"\xEF\x83\x9A"
+                 ? "\xEF\x83\x9A"
                  : "");
 
 #define write_name_                                                     \
@@ -1029,11 +1029,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 
                 // Format the line.
                 if(name.size != 0) {
-                    char const* format = u8"%s\xEF\x89\x8D %s";
+                    char const* format = "%s\xEF\x89\x8D %s";
                     snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
                              format, prefix, name_buf);
                 } else {
-                    char const* format = u8"%s\xEF\x89\x8D ---";
+                    char const* format = "%s\xEF\x89\x8D ---";
                     snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
                              format, prefix);
                 }
@@ -1064,11 +1064,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 
                 // Format the line.
                 if(name.size != 0) {
-                    char const* format = u8"%s\xEF\x81\x84 %02d %s";
+                    char const* format = "%s\xEF\x81\x84 %02d %s";
                     snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
                              format, prefix, workspace->id, name_buf);
                 } else {
-                    char const* format = u8"%s\xEF\x81\x84 %02d ---";
+                    char const* format = "%s\xEF\x81\x84 %02d ---";
                     snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
                              format, prefix, workspace->id);
                 }
@@ -1088,11 +1088,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 
                 // Format the line.
                 if(name.size != 0) {
-                    char const* format = u8"%s\xEF\x89\xAC %02d %s";
+                    char const* format = "%s\xEF\x89\xAC %02d %s";
                     snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
                              format, prefix, output->id, name_buf);
                 } else {
-                    char const* format = u8"%s\xEF\x89\xAC %02d";
+                    char const* format = "%s\xEF\x89\xAC %02d";
                     snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
                              format, prefix, output->id);
                 }

@@ -301,8 +301,8 @@ rose_handle_event_output_widget_surface_new_subsurface(
     wl_list_insert(&(master->subsurfaces), &(widget->link));
 
     // Register listeners.
-    add_signal_(subsurface, map);
-    add_signal_(subsurface, unmap);
+    add_signal_(subsurface->surface, map);
+    add_signal_(subsurface->surface, unmap);
     add_signal_(subsurface->surface, commit);
 
     add_signal_(subsurface->surface, new_subsurface);
@@ -341,8 +341,8 @@ rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
     wl_list_insert(&(master->temporaries), &(widget->link));
 
     // Register listeners.
-    add_signal_(xdg_surface, map);
-    add_signal_(xdg_surface, unmap);
+    add_signal_(xdg_surface->surface, map);
+    add_signal_(xdg_surface->surface, unmap);
     add_signal_(xdg_surface->surface, commit);
 
     add_signal_(xdg_surface->surface, new_subsurface);
@@ -453,8 +453,8 @@ rose_output_widget_initialize( //
     wlr_surface_send_enter(xdg_surface->surface, ui->output->device);
 
     // Register listeners.
-    add_signal_(xdg_surface, map);
-    add_signal_(xdg_surface, unmap);
+    add_signal_(xdg_surface->surface, map);
+    add_signal_(xdg_surface->surface, unmap);
     add_signal_(xdg_surface->surface, commit);
 
     add_signal_(xdg_surface->surface, new_subsurface);

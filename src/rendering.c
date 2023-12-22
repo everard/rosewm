@@ -131,7 +131,7 @@ rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
         output, wlr_surface_get_texture(surface), &region, rectangle);
 
     // Send presentation feedback.
-    wlr_presentation_surface_sampled_on_output(
+    wlr_presentation_surface_textured_on_output(
         output->context->presentation, surface, output->device);
 }
 
@@ -344,7 +344,7 @@ rose_render_content(struct rose_output* output) {
         }
 
         // Send presentation feedback.
-        wlr_presentation_surface_sampled_on_output(
+        wlr_presentation_surface_scanned_out_on_output(
             output->context->presentation, wlr_surface, output->device);
 
         // Mark the output as scanned-out.

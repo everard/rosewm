@@ -14,6 +14,7 @@
 
 #include "ipc_server.h"
 #include "rendering.h"
+#include "rendering_raster.h"
 #include "rendering_theme.h"
 #include "surface.h"
 #include "workspace.h"
@@ -23,6 +24,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct wlr_backend;
+struct wlr_session;
 struct wlr_renderer;
 struct wlr_allocator;
 
@@ -32,6 +34,16 @@ struct wlr_pointer_constraints_v1;
 struct wlr_tablet_manager_v2;
 struct wlr_presentation;
 struct wlr_seat;
+
+////////////////////////////////////////////////////////////////////////////////
+// Cursor image definition.
+////////////////////////////////////////////////////////////////////////////////
+
+struct rose_cursor_image {
+    struct rose_raster* raster;
+    int32_t hotspot_x;
+    int32_t hotspot_y;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Server context definition.
@@ -44,11 +56,13 @@ struct rose_server_context {
 
     struct {
         struct wlr_xcursor_manager* manager;
-        struct wlr_xcursor* cursors[rose_n_output_cursor_types];
+        struct rose_cursor_image images[rose_n_output_cursor_types];
     } cursor_context;
 
-    // Wayland display and event loop.
+    // Wayland display.
     struct wl_display* display;
+
+    // Wayland event loop.
     struct wl_event_loop* event_loop;
 
     // Event sources.
@@ -59,6 +73,7 @@ struct rose_server_context {
 
     // Backend abstraction.
     struct wlr_backend* backend;
+    struct wlr_session* session;
     struct wlr_renderer* renderer;
     struct wlr_allocator* allocator;
 
@@ -206,7 +221,7 @@ rose_server_context_configure(struct rose_server_context* context,
 // Cursor image acquisition interface.
 ////////////////////////////////////////////////////////////////////////////////
 
-struct wlr_xcursor_image*
+struct rose_cursor_image
 rose_server_context_get_cursor_image( //
     struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale);

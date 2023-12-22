@@ -72,7 +72,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     // or keyboard shortcuts are inhibited.
     if(event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
         // Obtain the session.
-        struct wlr_session* session = wlr_backend_get_session(context->backend);
+        struct wlr_session* session = context->session;
 
         // If there is a session, then perform additional actions.
         if(session != NULL) {

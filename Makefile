@@ -7,7 +7,7 @@ WAYLAND_SCANNER =\
  $(shell pkg-config --variable=wayland_scanner wayland-scanner)
 
 CFLAGS =\
- -Wall -Wextra -O2 -std=c11 -Isrc/ \
+ -Wall -Wextra -O2 -std=c2x -Isrc/ \
  -DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L \
  $(shell pkg-config --cflags wlroots) \
  $(shell pkg-config --cflags wayland-server) \
@@ -17,6 +17,7 @@ CFLAGS =\
  $(shell pkg-config --cflags fribidi)
 
 CLIBS =\
+ -lm\
  $(shell pkg-config --libs wlroots) \
  $(shell pkg-config --libs wayland-server) \
  $(shell pkg-config --libs libinput) \

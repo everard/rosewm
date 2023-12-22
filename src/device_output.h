@@ -18,9 +18,11 @@ struct rose_server_context;
 struct rose_surface;
 struct rose_workspace;
 
+struct wlr_cursor;
 struct wlr_surface;
+
 struct wlr_output;
-struct wlr_output_cursor;
+struct wlr_output_layout;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Output mode definition.
@@ -34,11 +36,20 @@ struct rose_output_mode {
 // Output mode list definition.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_n_output_modes_max = 64 };
+enum { rose_n_output_modes_max = 128 };
 
 struct rose_output_mode_list {
     struct rose_output_mode data[rose_n_output_modes_max];
     size_t size;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Output adaptive sync state definition.
+////////////////////////////////////////////////////////////////////////////////
+
+enum rose_output_adaptive_sync_state {
+    rose_output_adaptive_sync_state_disabled,
+    rose_output_adaptive_sync_state_enabled
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,16 +83,22 @@ struct rose_output {
     // Pointer to the underlying output device.
     struct wlr_output* device;
 
+    // Layout this output device belongs to.
+    // Note: The sole purpose of this object is being a glue between this output
+    // device and its cursor.
+    struct wlr_output_layout* layout;
+
     // List of available modes.
     struct rose_output_mode_list modes;
 
     // Associated cursor.
     struct {
-        // Cursor's abstraction.
-        struct wlr_output_cursor* wlr_cursor;
+        // Cursor's underlying implementation.
+        // Note: Lightweight alternative is no longer usable.
+        struct wlr_cursor* underlying;
 
         // Cursor's client-set surface.
-        struct wlr_surface* client_surface;
+        struct wlr_surface* surface;
 
         // Client-set surface's hotspot coordinates.
         int32_t hotspot_x, hotspot_y;
@@ -90,7 +107,7 @@ struct rose_output {
         enum rose_output_cursor_type type;
 
         // Flags.
-        bool is_client_surface_set, has_moved;
+        bool is_surface_set, has_moved;
     } cursor;
 
     // List of workspaces.
@@ -113,11 +130,12 @@ struct rose_output {
     } rasters;
 
     // Event listeners.
-    struct wl_listener listener_mode;
     struct wl_listener listener_frame;
     struct wl_listener listener_needs_frame;
 
+    struct wl_listener listener_commit;
     struct wl_listener listener_damage;
+
     struct wl_listener listener_destroy;
     struct wl_listener listener_cursor_client_surface_destroy;
 
@@ -138,6 +156,9 @@ struct rose_output {
 struct rose_output_state {
     // Output's ID.
     unsigned id;
+
+    // Adaptive sync state.
+    enum rose_output_adaptive_sync_state adaptive_sync_state;
 
     // Output's transform.
     enum wl_output_transform transform;
@@ -160,9 +181,10 @@ struct rose_output_state {
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_output_configure_type {
-    rose_output_configure_transform = 0x01,
-    rose_output_configure_scale = 0x02,
-    rose_output_configure_mode = 0x04
+    rose_output_configure_adaptive_sync = 0x01,
+    rose_output_configure_transform = 0x02,
+    rose_output_configure_scale = 0x04,
+    rose_output_configure_mode = 0x08
 };
 
 // Output's configuration mask. Is a bitwise OR of zero or more values from the
@@ -172,6 +194,9 @@ typedef unsigned rose_output_configure_mask;
 struct rose_output_configure_parameters {
     // Output's configuration flags.
     rose_output_configure_mask flags;
+
+    // Output's requested adaptive sync state.
+    enum rose_output_adaptive_sync_state adaptive_sync_state;
 
     // Output's requested transform.
     enum wl_output_transform transform;

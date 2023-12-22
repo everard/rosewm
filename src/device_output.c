@@ -8,7 +8,11 @@
 #include "server_context.h"
 
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_cursor.h>
+
 #include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_output_layout.h>
+
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 
@@ -53,7 +57,7 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
     if(workspace->focused_surface == NULL) {
         // If there is no focused surface, then only print output's and
         // workspace's IDs.
-        char const* format = u8"\xEF\x89\xAC %02d / %02d";
+        char const* format = "\xEF\x89\xAC %02d / %02d";
         snprintf(string, rose_output_utf8_string_size_max, format, id_output,
                  id_workspace);
     } else {
@@ -70,7 +74,7 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
         }
 
         // And print all the relevant data.
-        char const* format = u8"\xEF\x89\xAC %02d / %02d \xEF\x89\x8D %s";
+        char const* format = "\xEF\x89\xAC %02d / %02d \xEF\x89\x8D %s";
         snprintf(string, rose_output_utf8_string_size_max, format, id_output,
                  id_workspace, surface_title);
     }
@@ -450,29 +454,6 @@ rose_output_surface_send_frame_done( //
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_handle_event_output_mode(struct wl_listener* listener, void* data) {
-    unused_(data);
-
-    // Obtain a pointer to the output.
-    struct rose_output* output =
-        wl_container_of(listener, output, listener_mode);
-
-    // Update the UI.
-    rose_output_ui_update(&(output->ui));
-
-    // Notify all workspaces which belong to this output.
-    if(true) {
-        struct rose_workspace* workspace;
-        wl_list_for_each(workspace, &(output->workspaces), link_output) {
-            rose_workspace_notify_output_mode(workspace, output);
-        }
-    }
-
-    // Request update of output's rasters.
-    rose_output_request_rasters_update(output);
-}
-
-static void
 rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     unused_(data);
 
@@ -640,6 +621,37 @@ rose_handle_event_output_needs_frame(struct wl_listener* listener, void* data) {
 }
 
 static void
+rose_handle_event_output_commit(struct wl_listener* listener, void* data) {
+    // Obtain a pointer to the event.
+    struct wlr_output_event_commit* event = data;
+
+    // Obtain a pointer to the output.
+    struct rose_output* output =
+        wl_container_of(listener, output, listener_commit);
+
+    // Compute the state mask.
+    uint32_t mask = //
+        WLR_OUTPUT_STATE_SCALE | WLR_OUTPUT_STATE_TRANSFORM |
+        WLR_OUTPUT_STATE_MODE;
+
+    if((event->state->committed & mask) != 0) {
+        // Update the UI.
+        rose_output_ui_update(&(output->ui));
+
+        // Notify all workspaces which belong to this output.
+        if(true) {
+            struct rose_workspace* workspace;
+            wl_list_for_each(workspace, &(output->workspaces), link_output) {
+                rose_workspace_notify_output_mode(workspace, output);
+            }
+        }
+
+        // Request update of output's rasters.
+        rose_output_request_rasters_update(output);
+    }
+}
+
+static void
 rose_handle_event_output_damage(struct wl_listener* listener, void* data) {
     unused_(data);
 
@@ -677,8 +689,8 @@ rose_handle_event_output_cursor_client_surface_destroy(
     wl_list_init(&(output->listener_cursor_client_surface_destroy.link));
 
     // Reset the surface pointer and clear the flag.
-    output->cursor.client_surface = NULL;
-    output->cursor.is_client_surface_set = false;
+    output->cursor.surface = NULL;
+    output->cursor.is_surface_set = false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -699,20 +711,37 @@ rose_output_initialize(struct rose_server_context* context,
     }
 
     // Create and initialize a new cursor.
-    struct wlr_output_cursor* wlr_cursor = wlr_output_cursor_create(device);
-    if(wlr_cursor == NULL) {
+    struct wlr_cursor* cursor = wlr_cursor_create();
+    if(cursor == NULL) {
+        return;
+    }
+
+    // Create and initialize a new layout.
+    struct wlr_output_layout* layout = wlr_output_layout_create();
+    if(layout == NULL) {
+        wlr_cursor_destroy(cursor);
         return;
     }
 
     // Allocate and initialize a new output.
     struct rose_output* output = malloc(sizeof(struct rose_output));
     if(output == NULL) {
+        wlr_output_layout_destroy(layout);
+        wlr_cursor_destroy(cursor);
         return;
     } else {
         *output = (struct rose_output){.context = context,
                                        .device = device,
-                                       .cursor = {.wlr_cursor = wlr_cursor}};
+                                       .layout = layout,
+                                       .cursor = {.underlying = cursor}};
     }
+
+    // Add output to the layout.
+    wlr_output_layout_add_auto(layout, device);
+
+    // Configure the cursor.
+    wlr_cursor_attach_output_layout(cursor, layout);
+    wlr_cursor_map_to_output(cursor, device);
 
     // Enable the device.
     wlr_output_enable(device, true);
@@ -740,9 +769,6 @@ rose_output_initialize(struct rose_server_context* context,
     // Initialize output's UI.
     rose_output_ui_initialize(&(output->ui), output);
 
-    // Create a new global for this output.
-    wlr_output_create_global(output->device);
-
     // Add this output to the list.
     wl_list_insert(&(context->outputs), &(output->link));
 
@@ -751,13 +777,13 @@ rose_output_initialize(struct rose_server_context* context,
         output->id = (wl_container_of(output->link.next, output, link))->id + 1;
     }
 
-    // Broadcast output's initialization event though IPC, if needed.
-    if(output->context->ipc_server != NULL) {
-        rose_ipc_server_broadcast_status(
-            output->context->ipc_server,
-            (struct rose_ipc_status){
-                .type = rose_ipc_status_type_output_initialized,
-                .device_id = output->id});
+    // Broadcast output's initialization event though IPC.
+    if(true) {
+        struct rose_ipc_status status = {
+            .type = rose_ipc_status_type_output_initialized,
+            .device_id = output->id};
+
+        rose_ipc_server_broadcast_status(output->context->ipc_server, status);
     }
 
 #define add_signal_(f)                                               \
@@ -773,11 +799,12 @@ rose_output_initialize(struct rose_server_context* context,
     }
 
     // Register and initialize listeners.
-    add_signal_(mode);
     add_signal_(frame);
     add_signal_(needs_frame);
 
+    add_signal_(commit);
     add_signal_(damage);
+
     add_signal_(destroy);
     initialize_(cursor_client_surface_destroy);
 
@@ -813,13 +840,13 @@ rose_output_destroy(struct rose_output* output) {
     // Hide the menu.
     rose_ui_menu_hide(&(output->ui.menu));
 
-    // Broadcast output's destruction event though IPC, if needed.
-    if(output->context->ipc_server != NULL) {
-        rose_ipc_server_broadcast_status(
-            output->context->ipc_server,
-            (struct rose_ipc_status){
-                .type = rose_ipc_status_type_output_destroyed,
-                .device_id = output->id});
+    // Broadcast output's destruction event though IPC.
+    if(true) {
+        struct rose_ipc_status status = {
+            .type = rose_ipc_status_type_output_destroyed,
+            .device_id = output->id};
+
+        rose_ipc_server_broadcast_status(output->context->ipc_server, status);
     }
 
     // Update IDs of all outputs which precede this one.
@@ -837,16 +864,20 @@ rose_output_destroy(struct rose_output* output) {
     rose_raster_destroy(output->rasters.menu);
 
     // Remove listeners from signals.
-    wl_list_remove(&(output->listener_mode.link));
     wl_list_remove(&(output->listener_frame.link));
     wl_list_remove(&(output->listener_needs_frame.link));
 
+    wl_list_remove(&(output->listener_commit.link));
     wl_list_remove(&(output->listener_damage.link));
+
     wl_list_remove(&(output->listener_destroy.link));
     wl_list_remove(&(output->listener_cursor_client_surface_destroy.link));
 
-    // Destroy the global.
-    wlr_output_destroy_global(output->device);
+    // Destroy the cursor.
+    wlr_cursor_destroy(output->cursor.underlying);
+
+    // Destroy the layout.
+    wlr_output_layout_destroy(output->layout);
 
     // Select output's successor, make sure that the output is not its own
     // successor.
@@ -982,6 +1013,11 @@ rose_output_configure(struct rose_output* output,
 
     // Set specified parameters.
 
+    if((params.flags & rose_output_configure_adaptive_sync) != 0) {
+        wlr_output_enable_adaptive_sync(
+            output->device, params.adaptive_sync_state);
+    }
+
     if((params.flags & rose_output_configure_transform) != 0) {
         wlr_output_set_transform(output->device, params.transform);
     }
@@ -1018,8 +1054,11 @@ rose_output_configure(struct rose_output* output,
         break;
     }
 
+    // Commit output's state.
+    bool result = wlr_output_commit(output->device);
+
     // Update device preference list, if needed.
-    if(output->context->preference_list != NULL) {
+    if(result && (output->context->preference_list != NULL)) {
         // Initialize device preference.
         struct rose_device_preference preference = {
             .device_name = rose_output_name_obtain(output),
@@ -1031,14 +1070,7 @@ rose_output_configure(struct rose_output* output,
             output->context->preference_list, preference);
     }
 
-    // Commit output's state.
-    if(wlr_output_commit(output->device)) {
-        // If commit is successful, then handle related event.
-        rose_handle_event_output_mode(&(output->listener_mode), NULL);
-    }
-
-    // Signal operation's success.
-    return true;
+    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1277,6 +1309,8 @@ rose_output_state_obtain(struct rose_output* output) {
     // Return output's state.
     return (struct rose_output_state){
         .id = output->id,
+        .adaptive_sync_state = (enum rose_output_adaptive_sync_state)(
+            output->device->adaptive_sync_status),
         .transform = output->device->transform,
         .dpi = dpi,
         .rate = output->device->refresh,
@@ -1315,21 +1349,17 @@ rose_output_cursor_set(struct rose_output* output,
 
     // Set cursor's image.
     if((output->cursor.type == rose_output_cursor_type_client) &&
-       (output->cursor.is_client_surface_set)) {
-        // If output's cursor has a client-set surface, and corresponding type
-        // is specified, then use such surface.
-        wlr_output_cursor_set_surface(
-            output->cursor.wlr_cursor, output->cursor.client_surface,
+       (output->cursor.is_surface_set)) {
+        wlr_cursor_set_surface( //
+            output->cursor.underlying, output->cursor.surface,
             output->cursor.hotspot_x, output->cursor.hotspot_y);
     } else {
-        // Otherwise, find corresponding image for the specified type.
-        struct wlr_xcursor_image* image = rose_server_context_get_cursor_image(
+        struct rose_cursor_image image = rose_server_context_get_cursor_image(
             output->context, output->cursor.type, output->device->scale);
 
-        // And set this image.
-        wlr_output_cursor_set_image(
-            output->cursor.wlr_cursor, image->buffer, image->width * 4,
-            image->width, image->height, image->hotspot_x, image->hotspot_y);
+        wlr_cursor_set_buffer( //
+            output->cursor.underlying, &(image.raster->base), image.hotspot_x,
+            image.hotspot_y, 1.0f);
     }
 
     // Set cursor's movement flag.
@@ -1342,7 +1372,7 @@ rose_output_cursor_set(struct rose_output* output,
 void
 rose_output_cursor_warp(struct rose_output* output, double x, double y) {
     // Set cursor's position.
-    wlr_output_cursor_move(output->cursor.wlr_cursor, x, y);
+    wlr_cursor_warp_closest(output->cursor.underlying, NULL, x, y);
 
     // Set cursor's movement flag.
     output->cursor.has_moved = true;
@@ -1360,10 +1390,10 @@ rose_output_cursor_client_surface_set( //
     wl_list_init(&(output->listener_cursor_client_surface_destroy.link));
 
     // Set the flag.
-    output->cursor.is_client_surface_set = true;
+    output->cursor.is_surface_set = true;
 
     // Set the surface and its parameters.
-    output->cursor.client_surface = surface;
+    output->cursor.surface = surface;
     output->cursor.hotspot_x = hotspot_x;
     output->cursor.hotspot_y = hotspot_y;
 
