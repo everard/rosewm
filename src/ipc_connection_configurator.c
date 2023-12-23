@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -78,6 +78,7 @@ enum {
     ,
     rose_ipc_serialized_size_output_configure_parameters =
         sizeof(unsigned)                       // flags,
+        + 1                                    // adaptive_sync_state,
         + 1                                    // transform,
         + sizeof(double)                       // scale,
         + rose_ipc_serialized_size_output_mode // mode
@@ -446,6 +447,9 @@ rose_ipc_connection_dispatch_configuration_request(
             // Write output's descriptor.
             rose_ipc_buffer_write_device_descriptor(&response, descriptor);
 
+            // Write output's adaptive sync state.
+            rose_ipc_buffer_write_byte(&response, state.adaptive_sync_state);
+
             // Write output's transform.
             rose_ipc_buffer_write_byte(&response, state.transform);
 
@@ -531,6 +535,7 @@ rose_ipc_connection_dispatch_configuration_request(
             // Read output's configuration parameters.
             struct rose_output_configure_parameters params = {
                 .flags = rose_ipc_buffer_ref_read_uint(&request),
+                .adaptive_sync_state = rose_ipc_buffer_ref_read_byte(&request),
                 .transform = rose_ipc_buffer_ref_read_byte(&request),
                 .scale = rose_ipc_buffer_ref_read_double(&request),
                 .mode = {.w = rose_ipc_buffer_ref_read_int(&request),

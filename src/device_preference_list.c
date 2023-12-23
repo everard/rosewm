@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2023.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -164,15 +164,48 @@ rose_device_database_insert(struct rose_device_database* database,
         break;
     }
 
-    // Save the preference.
+    // Merge the preference.
     switch(preference.device_type) {
-        case rose_device_type_pointer:
-            entry->preference.params.pointer = preference.params.pointer;
-            break;
+        case rose_device_type_pointer: {
+            // Obtain current flags.
+            unsigned flags = preference.params.pointer.flags;
 
-        case rose_device_type_output:
-            entry->preference.params.output = preference.params.output;
+            // Merge the flags.
+            entry->preference.params.pointer.flags |= flags;
+
+#define merge_(type, x)                                             \
+    if((flags & rose_##type##_configure_##x) != 0) {                \
+        entry->preference.params.type.x = preference.params.type.x; \
+    }
+
+            // Merge the parameters.
+            merge_(pointer, acceleration_type);
+            merge_(pointer, speed);
+
             break;
+        }
+
+        case rose_device_type_output: {
+            // Obtain current flags.
+            unsigned flags = preference.params.output.flags;
+
+            // Merge the flags.
+            entry->preference.params.output.flags |= flags;
+
+            // Merge the parameters.
+            if((flags & rose_output_configure_adaptive_sync) != 0) {
+                entry->preference.params.output.adaptive_sync_state =
+                    preference.params.output.adaptive_sync_state;
+            }
+
+            merge_(output, transform);
+            merge_(output, scale);
+            merge_(output, mode);
+
+#undef merge_
+
+            break;
+        }
 
         default:
             break;
@@ -237,6 +270,7 @@ rose_device_preference_read( //
 
             // Read output's parameters.
             preference->params.output.flags = fgetc(file);
+            preference->params.output.adaptive_sync_state = fgetc(file);
             preference->params.output.transform = fgetc(file);
 
             read_object_(preference->params.output.scale);
@@ -299,6 +333,7 @@ rose_device_preference_write( //
         case rose_device_type_output:
             // Write output's parameters.
             fputc(preference->params.output.flags, file);
+            fputc(preference->params.output.adaptive_sync_state, file);
             fputc(preference->params.output.transform, file);
 
             write_object_(preference->params.output.scale);
