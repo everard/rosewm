@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -31,7 +31,7 @@
 static bool
 rose_surface_state_equal(struct rose_surface_state* x,
                          struct rose_surface_state* y) {
-    return ((x->w == y->w) && (x->h == y->h) &&
+    return ((x->width == y->width) && (x->height == y->height) &&
             (x->is_activated == y->is_activated) &&
             (x->is_maximized == y->is_maximized) &&
             (x->is_fullscreen == y->is_fullscreen));
@@ -52,8 +52,8 @@ rose_surface_state_sync(struct rose_surface* surface) {
         (struct rose_surface_state){
             .x = surface->state.current.x,
             .y = surface->state.current.y,
-            .w = surface->xdg_surface->surface->current.width,
-            .h = surface->xdg_surface->surface->current.height,
+            .width = surface->xdg_surface->surface->current.width,
+            .height = surface->xdg_surface->surface->current.height,
             .is_activated = surface->xdg_surface->toplevel->current.activated,
             .is_maximized = surface->state.pending.is_maximized,
             .is_fullscreen =
@@ -94,7 +94,7 @@ struct rose_surface_snapshot_construction_context {
 static void
 rose_surface_construct_snapshot(struct wlr_surface* surface, int x, int y,
                                 void* data) {
-    // Obtain a pointer to the construction context.
+    // Obtain the construction context.
     struct rose_surface_snapshot_construction_context* context = data;
 
 #define obtain_surface_snapshot_(surface)                          \
@@ -104,7 +104,7 @@ rose_surface_construct_snapshot(struct wlr_surface* surface, int x, int y,
                   ->snapshots[rose_surface_snapshot_type_normal]); \
     }
 
-    // Obtain a pointer to the corresponding snapshot.
+    // Obtain the corresponding snapshot.
     struct rose_surface_snapshot* surface_snapshot = NULL;
     if(true) {
         // First, try obtaining an XDG surface snapshot.
@@ -130,14 +130,14 @@ rose_surface_construct_snapshot(struct wlr_surface* surface, int x, int y,
     // If surface's snapshot exists, then add it to workspace's snapshot.
     if(surface_snapshot != NULL) {
         // Initialize the snapshot.
-        struct rose_surface_snapshot_parameters params = {
+        struct rose_surface_snapshot_parameters parameters = {
             .type = rose_surface_snapshot_type_normal,
             .surface = surface,
             .x = context->dx + x,
             .y = context->dy + y};
 
         rose_surface_snapshot_destroy(surface_snapshot);
-        rose_surface_snapshot_initialize(surface_snapshot, params);
+        rose_surface_snapshot_initialize(surface_snapshot, parameters);
 
         // And add it to workspace's snapshot.
         wl_list_insert(&(context->workspace->transaction.snapshot.surfaces),
@@ -161,7 +161,7 @@ rose_handle_event_surface_decoration_request_mode(struct wl_listener* listener,
                                                   void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_decoration_request_mode);
 
@@ -174,7 +174,7 @@ rose_handle_event_surface_decoration_destroy(struct wl_listener* listener,
                                              void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_decoration_destroy);
 
@@ -194,7 +194,7 @@ rose_handle_event_surface_pointer_constraint_set_region(
     struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface = wl_container_of(
         listener, surface, listener_pointer_constraint_set_region);
 
@@ -213,7 +213,7 @@ rose_handle_event_surface_pointer_constraint_destroy(
     struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_pointer_constraint_destroy);
 
@@ -233,7 +233,7 @@ rose_handle_event_surface_request_maximize(struct wl_listener* listener,
                                            void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_request_maximize);
 
@@ -252,7 +252,7 @@ rose_handle_event_surface_request_fullscreen(struct wl_listener* listener,
                                              void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_request_fullscreen);
 
@@ -270,7 +270,7 @@ static void
 rose_handle_event_surface_set_title(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_set_title);
 
@@ -285,7 +285,7 @@ static void
 rose_handle_event_surface_set_app_id(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_set_app_id);
 
@@ -300,7 +300,7 @@ static void
 rose_handle_event_surface_map(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_map);
 
@@ -331,7 +331,7 @@ static void
 rose_handle_event_surface_unmap(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_unmap);
 
@@ -353,7 +353,7 @@ static void
 rose_handle_event_surface_commit(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_commit);
 
@@ -397,10 +397,10 @@ rose_handle_event_surface_commit(struct wl_listener* listener, void* data) {
 static void
 rose_handle_event_surface_new_subsurface(struct wl_listener* listener,
                                          void* data) {
-    // Obtain a pointer to the underlying subsurface.
+    // Obtain the underlying subsurface.
     struct wlr_subsurface* subsurface = data;
 
-    // Obtain a pointer to the master surface.
+    // Obtain the master surface.
     struct rose_surface* master = NULL;
     if(true) {
         struct rose_surface* surface =
@@ -439,10 +439,10 @@ rose_handle_event_surface_new_subsurface(struct wl_listener* listener,
 
 static void
 rose_handle_event_surface_new_popup(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the base XDG surface.
+    // Obtain the base XDG surface.
     struct wlr_xdg_surface* xdg_surface = ((struct wlr_xdg_popup*)(data))->base;
 
-    // Obtain a pointer to the master surface.
+    // Obtain the master surface.
     struct rose_surface* master = NULL;
     if(true) {
         struct rose_surface* surface =
@@ -483,8 +483,8 @@ rose_handle_event_surface_new_popup(struct wl_listener* listener, void* data) {
     struct wlr_box constraints = //
         {.x = -master->state.current.x,
          .y = -master->state.current.y,
-         .width = master->workspace->w,
-         .height = master->workspace->h};
+         .width = master->workspace->width,
+         .height = master->workspace->height};
 
     wlr_xdg_popup_unconstrain_from_box(xdg_surface->popup, &constraints);
 }
@@ -493,7 +493,7 @@ static void
 rose_handle_event_surface_destroy(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_destroy);
 
@@ -556,7 +556,7 @@ rose_surface_create(enum rose_surface_type type) {
     wl_list_init(&(surface->link_visible));
 
     // Initialize the snapshots.
-    for(ptrdiff_t i = 0; i != rose_n_surface_snapshot_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_surface_snapshot_type_count_; ++i) {
         wl_list_init(&(surface->snapshots[i].link));
     }
 
@@ -568,9 +568,9 @@ rose_surface_create(enum rose_surface_type type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_surface_initialize(struct rose_surface_parameters params) {
-    // Obtain a pointer to the base XDG surface.
-    struct wlr_xdg_surface* xdg_surface = params.toplevel->base;
+rose_surface_initialize(struct rose_surface_parameters parameters) {
+    // Obtain the base XDG surface.
+    struct wlr_xdg_surface* xdg_surface = parameters.toplevel->base;
 
     // Create a new surface and link it with its underlying implementation.
     struct rose_surface* surface =
@@ -590,11 +590,11 @@ rose_surface_initialize(struct rose_surface_parameters params) {
     surface->pointer_constraint = NULL;
 
     // Register listeners.
-    add_signal_(params.toplevel, request_maximize);
-    add_signal_(params.toplevel, request_fullscreen);
+    add_signal_(parameters.toplevel, request_maximize);
+    add_signal_(parameters.toplevel, request_fullscreen);
 
-    add_signal_(params.toplevel, set_title);
-    add_signal_(params.toplevel, set_app_id);
+    add_signal_(parameters.toplevel, set_title);
+    add_signal_(parameters.toplevel, set_app_id);
 
     add_signal_(xdg_surface->surface, map);
     add_signal_(xdg_surface->surface, unmap);
@@ -614,11 +614,12 @@ rose_surface_initialize(struct rose_surface_parameters params) {
     wlr_xdg_toplevel_set_maximized(xdg_surface->toplevel, true);
 
     // Add the surface to the given workspace.
-    rose_workspace_add_surface(params.workspace, surface);
+    rose_workspace_add_surface(parameters.workspace, surface);
 
     // Initialize surface's pointer constraint, if any.
-    if(params.pointer_constraint != NULL) {
-        rose_surface_pointer_constraint_initialize(params.pointer_constraint);
+    if(parameters.pointer_constraint != NULL) {
+        rose_surface_pointer_constraint_initialize(
+            parameters.pointer_constraint);
     }
 }
 
@@ -660,7 +661,7 @@ rose_surface_destroy(struct rose_surface* surface) {
     }
 
     // Destroy surface's snapshots.
-    for(ptrdiff_t i = 0; i != rose_n_surface_snapshot_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_surface_snapshot_type_count_; ++i) {
         rose_surface_snapshot_destroy(&(surface->snapshots[i]));
     }
 
@@ -709,7 +710,7 @@ rose_surface_destroy(struct rose_surface* surface) {
 void
 rose_surface_decoration_initialize(
     struct wlr_xdg_toplevel_decoration_v1* xdg_decoration) {
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface = xdg_decoration->toplevel->base->data;
 
     // Do nothing else if there is no top-level surface, or if it already has a
@@ -741,7 +742,7 @@ rose_surface_pointer_constraint_initialize(
         return;
     }
 
-    // Obtain a pointer to the surface.
+    // Obtain the surface.
     struct rose_surface* surface = xdg_surface->data;
 
     // Do nothing else if there is no top-level surface, or if it already has a
@@ -782,7 +783,6 @@ rose_surface_pointer_constraint_initialize(
 
 void
 rose_surface_request_close(struct rose_surface* surface) {
-    // Note: This request is only meaningful for top-level surfaces.
     if(surface->type == rose_surface_type_toplevel) {
         wlr_xdg_toplevel_send_close(surface->xdg_surface->toplevel);
     }
@@ -863,7 +863,7 @@ rose_surface_make_current(struct rose_surface* surface, struct wlr_seat* seat) {
 
 void
 rose_surface_configure(struct rose_surface* surface,
-                       struct rose_surface_configure_parameters params) {
+                       struct rose_surface_configure_parameters parameters) {
     // Only configure top-level surfaces.
     if(surface->type != rose_surface_type_toplevel) {
         return;
@@ -872,39 +872,39 @@ rose_surface_configure(struct rose_surface* surface,
     // Set surface's parameters.
     struct rose_surface_state target = surface->state.pending;
 
-    if((params.flags & rose_surface_configure_size) != 0) {
-        target.w = params.w;
-        target.h = params.h;
+    if((parameters.flags & rose_surface_configure_size) != 0) {
+        target.width = parameters.width;
+        target.height = parameters.height;
 
-        wlr_xdg_toplevel_set_size(
-            surface->xdg_surface->toplevel, params.w, params.h);
+        wlr_xdg_toplevel_set_size( //
+            surface->xdg_surface->toplevel, parameters.width,
+            parameters.height);
     }
 
-    if((params.flags & rose_surface_configure_position) != 0) {
-        target.x = params.x;
-        target.y = params.y;
+    if((parameters.flags & rose_surface_configure_position) != 0) {
+        target.x = parameters.x;
+        target.y = parameters.y;
     }
 
-    if((params.flags & rose_surface_configure_activated) != 0) {
-        target.is_activated = params.is_activated;
+    if((parameters.flags & rose_surface_configure_activated) != 0) {
+        target.is_activated = parameters.is_activated;
         wlr_xdg_toplevel_set_activated(
-            surface->xdg_surface->toplevel, params.is_activated);
+            surface->xdg_surface->toplevel, parameters.is_activated);
     }
 
-    if((params.flags & rose_surface_configure_maximized) != 0) {
-        // Note: The underlying XDG surface is always maximized.
-        target.is_maximized = params.is_maximized;
+    if((parameters.flags & rose_surface_configure_maximized) != 0) {
+        target.is_maximized = parameters.is_maximized;
     }
 
-    if((params.flags & rose_surface_configure_fullscreen) != 0) {
-        target.is_fullscreen = params.is_fullscreen;
+    if((parameters.flags & rose_surface_configure_fullscreen) != 0) {
+        target.is_fullscreen = parameters.is_fullscreen;
         wlr_xdg_toplevel_set_fullscreen(
-            surface->xdg_surface->toplevel, params.is_fullscreen);
+            surface->xdg_surface->toplevel, parameters.is_fullscreen);
     }
 
     // Update surface's transaction, if needed.
     if(!rose_surface_state_equal(&target, &(surface->state.pending))) {
-        if((params.flags & rose_surface_configure_no_transaction) == 0) {
+        if((parameters.flags & rose_surface_configure_no_transaction) == 0) {
             if(!(surface->is_transaction_running)) {
                 // Set the flag.
                 surface->is_transaction_running = true;
@@ -963,19 +963,19 @@ rose_surface_transaction_initialize_snapshot(struct rose_surface* surface) {
     if(!(surface->state.current.is_maximized ||
          surface->state.current.is_fullscreen) &&
        rose_surface_is_decoration_configured(surface)) {
-        // Obtain a pointer to the snapshot.
+        // Obtain the snapshot.
         struct rose_surface_snapshot* surface_snapshot =
             &(surface->snapshots[rose_surface_snapshot_type_decoration]);
 
         // Initialize the snapshot.
-        struct rose_surface_snapshot_parameters params = {
+        struct rose_surface_snapshot_parameters parameters = {
             .type = rose_surface_snapshot_type_decoration,
             .surface = surface->xdg_surface->surface,
             .x = context.dx,
             .y = context.dy};
 
         rose_surface_snapshot_destroy(surface_snapshot);
-        rose_surface_snapshot_initialize(surface_snapshot, params);
+        rose_surface_snapshot_initialize(surface_snapshot, parameters);
 
         // Add surface's snapshot to workspace's snapshot.
         wl_list_insert(&(surface->workspace->transaction.snapshot.surfaces),
@@ -986,7 +986,7 @@ rose_surface_transaction_initialize_snapshot(struct rose_surface* surface) {
 void
 rose_surface_transaction_destroy_snapshot(struct rose_surface* surface) {
     // Destroy surface's snapshots.
-    for(ptrdiff_t i = 0; i != rose_n_surface_snapshot_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_surface_snapshot_type_count_; ++i) {
         rose_surface_snapshot_destroy(&(surface->snapshots[i]));
     }
 
@@ -995,13 +995,13 @@ rose_surface_transaction_destroy_snapshot(struct rose_surface* surface) {
         struct rose_surface* x = NULL;
 
         wl_list_for_each(x, &(surface->subsurfaces), link) {
-            for(ptrdiff_t i = 0; i != rose_n_surface_snapshot_types; ++i) {
+            for(ptrdiff_t i = 0; i != rose_surface_snapshot_type_count_; ++i) {
                 rose_surface_snapshot_destroy(&(x->snapshots[i]));
             }
         }
 
         wl_list_for_each(x, &(surface->temporaries), link) {
-            for(ptrdiff_t i = 0; i != rose_n_surface_snapshot_types; ++i) {
+            for(ptrdiff_t i = 0; i != rose_surface_snapshot_type_count_; ++i) {
                 rose_surface_snapshot_destroy(&(x->snapshots[i]));
             }
         }

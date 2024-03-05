@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -16,13 +16,11 @@ static struct wlr_surface*
 rose_output_ui_select_surface_at(struct rose_output_ui* ui, double x, double y,
                                  double* x_local, double* y_local) {
     // Iterate through the list of mapped widgets.
-    //
     // Note: Only normal widgets can be selected. Special widgets are treated
-    // separately: screen lock widget will be automatically selected when the
-    // screen is locked; background widget will never be selected.
+    // separately.
     struct rose_output_widget* widget = NULL;
-    for(ptrdiff_t i = rose_output_n_widget_types - 1;
-        i >= rose_output_n_special_widget_types; --i) {
+    for(ptrdiff_t i = rose_output_widget_type_count_ - 1;
+        i >= rose_output_special_widget_type_count_; --i) {
         wl_list_for_each(widget, &(ui->widgets_mapped[i]), link_mapped) {
             // Skip widgets which are not visible.
             if(!rose_output_widget_is_visible(widget)) {
@@ -35,8 +33,8 @@ rose_output_ui_select_surface_at(struct rose_output_ui* ui, double x, double y,
 
             // Find a surface which belongs to the current widget.
             struct wlr_surface* surface = NULL;
-            if((x >= state.x) && (x <= (state.x + state.w)) && //
-               (y >= state.y) && (y <= (state.y + state.h))) {
+            if((x >= state.x) && (x <= (state.x + state.width)) && //
+               (y >= state.y) && (y <= (state.y + state.height))) {
                 // If the point is inside the widget's rectangle, then find any
                 // surface under the given coordinates.
                 surface = wlr_xdg_surface_surface_at( //
@@ -75,7 +73,7 @@ rose_output_ui_initialize(struct rose_output_ui* ui,
     rose_ui_menu_initialize(&(ui->menu), output);
 
     // Initialize lists of widgets.
-    for(ptrdiff_t i = 0; i != rose_output_n_widget_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_output_widget_type_count_; ++i) {
         wl_list_init(&(ui->widgets[i]));
         wl_list_init(&(ui->widgets_mapped[i]));
     }
@@ -87,7 +85,7 @@ rose_output_ui_destroy(struct rose_output_ui* ui) {
     rose_ui_menu_destroy(&(ui->menu));
 
     // Destroy all widgets.
-    for(ptrdiff_t i = 0; i != rose_output_n_widget_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_output_widget_type_count_; ++i) {
         struct rose_output_widget* widget = NULL;
         struct rose_output_widget* _ = NULL;
 
@@ -112,7 +110,7 @@ rose_output_ui_update(struct rose_output_ui* ui) {
 
     // Configure all widgets.
     struct rose_output_widget* widget = NULL;
-    for(ptrdiff_t i = 0; i != rose_output_n_widget_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_output_widget_type_count_; ++i) {
         wl_list_for_each(widget, &(ui->widgets[i]), link) {
             // Note: Each widget configures itself based on its type.
             rose_output_widget_configure(widget);
@@ -131,8 +129,10 @@ rose_output_ui_select(struct rose_output_ui* ui, double x, double y) {
 
     // Find UI component under the given coordinates.
     if(ui->menu.is_visible &&
-       ((x >= ui->menu.area.x) && (x <= (ui->menu.area.x + ui->menu.area.w)) &&
-        (y >= ui->menu.area.y) && (y <= (ui->menu.area.y + ui->menu.area.h)))) {
+       ((x >= (ui->menu.area.x)) &&
+        (x <= (ui->menu.area.x + ui->menu.area.width)) &&
+        (y >= (ui->menu.area.y)) &&
+        (y <= (ui->menu.area.y + ui->menu.area.height)))) {
         // If the given coordinates are inside menu's area, then select the
         // menu.
         result.type = rose_output_ui_selection_type_menu;

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -15,7 +15,7 @@
 struct rose_input;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Parameter definitions.
+// Enumeration definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_pointer_acceleration_type {
@@ -148,7 +148,7 @@ rose_pointer_destroy(struct rose_pointer* pointer);
 
 bool
 rose_pointer_configure(struct rose_pointer* pointer,
-                       struct rose_pointer_configure_parameters params);
+                       struct rose_pointer_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.

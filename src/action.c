@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -27,10 +27,10 @@ rose_execute_core_action(struct rose_server_context* context,
             break;
 
         case rose_core_action_type_switch_keyboard_layout: {
-            if(context->keyboard_context->n_layouts > 1) {
+            if(context->keyboard_context->layout_count > 1) {
                 rose_server_context_set_keyboard_layout(
-                    context, (context->keyboard_context->layout_idx + 1) %
-                                 context->keyboard_context->n_layouts);
+                    context, (context->keyboard_context->layout_index + 1) %
+                                 context->keyboard_context->layout_count);
             }
 
             break;
@@ -41,12 +41,10 @@ rose_execute_core_action(struct rose_server_context* context,
             context->are_keyboard_shortcuts_inhibited =
                 !(context->are_keyboard_shortcuts_inhibited);
 
-            // Broadcast the change through IPC, if needed.
-            if(context->ipc_server != NULL) {
-                rose_ipc_server_broadcast_status(
-                    context->ipc_server,
-                    rose_server_context_obtain_status(context));
-            }
+            // Broadcast the change through IPC.
+            rose_ipc_server_broadcast_status(
+                context->ipc_server,
+                rose_server_context_obtain_status(context));
 
             break;
 
@@ -72,26 +70,26 @@ rose_execute_core_action(struct rose_server_context* context,
 
         case rose_core_action_type_surface_toggle_maximized:
             if(focus.surface != NULL) {
-                struct rose_surface_configure_parameters params = {
+                struct rose_surface_configure_parameters parameters = {
                     .flags = rose_surface_configure_maximized,
                     .is_maximized = !(
                         rose_surface_state_obtain(focus.surface).is_maximized)};
 
                 rose_workspace_surface_configure(
-                    focus.workspace, focus.surface, params);
+                    focus.workspace, focus.surface, parameters);
             }
 
             break;
 
         case rose_core_action_type_surface_toggle_fullscreen:
             if(focus.surface != NULL) {
-                struct rose_surface_configure_parameters params = {
+                struct rose_surface_configure_parameters parameters = {
                     .flags = rose_surface_configure_fullscreen,
                     .is_fullscreen = !(rose_surface_state_obtain(focus.surface)
                                            .is_fullscreen)};
 
                 rose_workspace_surface_configure(
-                    focus.workspace, focus.surface, params);
+                    focus.workspace, focus.surface, parameters);
             }
 
             break;
@@ -234,7 +232,6 @@ void
 rose_execute_menu_action(struct rose_ui_menu* menu,
                          enum rose_menu_action_type action_type) {
     switch(action_type) {
-        // Menu's cursor movement.
         case rose_menu_action_type_move_mark_up:
             rose_ui_menu_move_mark(menu, -1);
             break;
@@ -243,16 +240,14 @@ rose_execute_menu_action(struct rose_ui_menu* menu,
             rose_ui_menu_move_mark(menu, +1);
             break;
 
-        // Menu's page scrolling.
         case rose_menu_action_type_move_page_up:
-            rose_ui_menu_move_head(menu, -(menu->layout.n_lines_max));
+            rose_ui_menu_move_head(menu, -(menu->layout.line_max_count));
             break;
 
         case rose_menu_action_type_move_page_down:
-            rose_ui_menu_move_head(menu, +(menu->layout.n_lines_max));
+            rose_ui_menu_move_head(menu, +(menu->layout.line_max_count));
             break;
 
-        // Menu's actions.
         case rose_menu_action_type_cancel:
             rose_ui_menu_perform_action(menu, rose_ui_menu_action_cancel);
             break;

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -268,6 +268,7 @@ rose_ui_menu_line_move(struct rose_ui_menu_line line,
     // Move the source line depending on its type.
     switch(line.type) {
         case rose_ui_menu_line_type_surface: {
+            // Obtain the surface.
             struct rose_surface* surface = line.data;
 
             // Move the surface depending on the type of its destination.
@@ -304,6 +305,7 @@ rose_ui_menu_line_move(struct rose_ui_menu_line line,
         }
 
         case rose_ui_menu_line_type_workspace: {
+            // Obtain the workspace.
             struct rose_workspace* workspace = line.data;
 
             // A workspace can only be moved to an output.
@@ -343,7 +345,7 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
 
     // Compute menu's area.
     if(true) {
-        // Obtain a pointer to the output's focused workspace.
+        // Obtain output's focused workspace.
         struct rose_workspace* workspace = menu->output->focused_workspace;
 
         // Obtain the panel.
@@ -360,26 +362,26 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
 
         // Compute menu's area depending on panel's position.
         menu->area.x = menu->area.y = 0;
-        menu->area.w = workspace->w / 2;
-        menu->area.h = workspace->h;
+        menu->area.width = workspace->width / 2;
+        menu->area.height = workspace->height;
 
         switch(panel.position) {
             case rose_ui_panel_position_top:
                 menu->area.y += d;
                 // fall-through
             case rose_ui_panel_position_bottom:
-                menu->area.h -= d;
+                menu->area.height -= d;
                 break;
 
             case rose_ui_panel_position_left:
                 menu->area.x += d;
-                menu->area.w -= d;
+                menu->area.width -= d;
 
                 break;
 
             case rose_ui_panel_position_right:
-                menu->area.x += menu->area.w;
-                menu->area.w -= d;
+                menu->area.x += menu->area.width;
+                menu->area.width -= d;
 
                 break;
 
@@ -398,32 +400,34 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
         struct rose_text_rendering_context* text_rendering_context =
             menu->output->context->text_rendering_context;
 
-        struct rose_text_rendering_parameters text_rendering_params = {
+        struct rose_text_rendering_parameters text_rendering_parameters = {
             .font_size = menu->output->context->config.theme.font_size,
             .dpi = output_state.dpi};
 
         // Compute line's height. Use "M" string as a reference.
         struct rose_utf32_string string = {.data = U"M", .size = 1};
-        menu->layout.line_h = (int)((2.0 * rose_compute_string_extents(
-                                               text_rendering_context,
-                                               text_rendering_params, string)
-                                               .h) /
-                                        output_state.scale +
-                                    0.5);
+        menu->layout.line_height =
+            (int)((2.0 * rose_compute_string_extent(text_rendering_context,
+                                                    text_rendering_parameters,
+                                                    string)
+                             .height) /
+                      output_state.scale +
+                  0.5);
 
         // Make sure line's height is positive.
-        menu->layout.line_h = max_(2, menu->layout.line_h);
+        menu->layout.line_height = max_(2, menu->layout.line_height);
     }
 
     // Compute maximum number of lines in the menu.
-    menu->layout.n_lines_max = menu->area.h / menu->layout.line_h;
-    menu->layout.n_lines_max =
-        clamp_(menu->layout.n_lines_max, 1, rose_n_ui_menu_lines_max);
+    menu->layout.line_max_count = menu->area.height / menu->layout.line_height;
+    menu->layout.line_max_count =
+        clamp_(menu->layout.line_max_count, 1, rose_ui_menu_line_max_count);
 
     // Compute menu's margins.
     menu->layout.margin_x = 1;
-    menu->layout.margin_y =
-        (menu->area.h - (menu->layout.n_lines_max * menu->layout.line_h)) / 2;
+    menu->layout.margin_y = (menu->area.height - (menu->layout.line_max_count *
+                                                  menu->layout.line_height)) /
+                            2;
 
     // Mark menu's layout as updated.
     menu->is_layout_updated = true;
@@ -438,14 +442,15 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
     // Precondition: The menu is active.
 
     // Clear the page.
-    menu->page = (struct rose_ui_menu_page){.mark_idx = menu->page.mark_idx};
+    menu->page =
+        (struct rose_ui_menu_page){.mark_index = menu->page.mark_index};
 
     // Initialize an empty line for menu's mark.
     struct rose_ui_menu_line mark = {.type = menu->line_type};
 
     // Set menu's head, if needed.
     if(rose_ui_menu_line_is_empty(menu->head)) {
-        // Obtain pointers to the relevant objects.
+        // Obtain the relevant objects.
         struct rose_workspace* workspace = menu->output->focused_workspace;
         struct rose_surface* surface =
             ((workspace->focused_surface != NULL)
@@ -474,8 +479,8 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
         }
 
         // Set menu's head.
-        menu->head =
-            rose_ui_menu_line_select(mark, skip, -menu->layout.n_lines_max / 2);
+        menu->head = rose_ui_menu_line_select(
+            mark, skip, -menu->layout.line_max_count / 2);
     }
 
     // Adjust menu's head.
@@ -507,14 +512,14 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
     // Populate menu's page.
     if(true) {
         struct rose_ui_menu_line line = menu->head, line_prev = line;
-        for(int i = 0; i != menu->layout.n_lines_max; ++i) {
+        for(int i = 0; i != menu->layout.line_max_count; ++i) {
             // If current line is empty, then stop.
             if(rose_ui_menu_line_is_empty(line)) {
                 break;
             }
 
             // Add current line to the page.
-            menu->page.lines[menu->page.n_lines++] = line_prev = line;
+            menu->page.lines[menu->page.line_count++] = line_prev = line;
 
             // Select the next line.
             line = rose_ui_menu_line_select(line, skip, 1);
@@ -529,13 +534,13 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
     // Update menu's selection index, if needed.
     if(!rose_ui_menu_line_is_empty(menu->selection)) {
         // Find selection on the page.
-        menu->page.selection_idx = -1;
-        for(ptrdiff_t i = 0; i != menu->page.n_lines; ++i) {
+        menu->page.selection_index = -1;
+        for(ptrdiff_t i = 0; i != menu->page.line_count; ++i) {
             // If selection is visible on the page, then save its index, and
             // break out of the cycle.
             if(rose_ui_menu_line_is_equal(
                    menu->selection, menu->page.lines[i])) {
-                menu->page.selection_idx = i;
+                menu->page.selection_index = i;
                 break;
             }
         }
@@ -543,17 +548,17 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
 
     // Update mark's index.
     if(!rose_ui_menu_line_is_empty(mark)) {
-        menu->page.mark_idx = 0;
-        for(ptrdiff_t i = 0; i != menu->page.n_lines; ++i) {
+        menu->page.mark_index = 0;
+        for(ptrdiff_t i = 0; i != menu->page.line_count; ++i) {
             if(rose_ui_menu_line_is_equal(mark, menu->page.lines[i])) {
-                menu->page.mark_idx = i;
+                menu->page.mark_index = i;
                 break;
             }
         }
     } else {
-        menu->page.mark_idx =
-            ((menu->page.n_lines != 0)
-                 ? min_(menu->page.mark_idx, menu->page.n_lines - 1)
+        menu->page.mark_index =
+            ((menu->page.line_count != 0)
+                 ? min_(menu->page.mark_index, menu->page.line_count - 1)
                  : 0);
     }
 }
@@ -740,7 +745,7 @@ rose_ui_menu_switch_line_type(struct rose_ui_menu* menu) {
     enum rose_ui_menu_line_type line_type =
         (is_workspace_selected
              ? rose_ui_menu_line_type_output
-             : ((menu->line_type + 1) % rose_n_ui_menu_line_types));
+             : ((menu->line_type + 1) % rose_ui_menu_line_type_count_));
 
     // Mark the menu as updated.
     menu->is_updated = true;
@@ -762,8 +767,8 @@ rose_ui_menu_move_head(struct rose_ui_menu* menu, int direction) {
     }
 
     // Sanitize direction vector.
-    direction =
-        clamp_(direction, -menu->layout.n_lines_max, menu->layout.n_lines_max);
+    direction = clamp_(
+        direction, -menu->layout.line_max_count, menu->layout.line_max_count);
 
     // Mark the menu as updated.
     menu->is_updated = true;
@@ -792,7 +797,7 @@ rose_ui_menu_move_mark(struct rose_ui_menu* menu, int direction) {
 
     // If menu's page is empty, or direction vector is zero, then update is not
     // needed.
-    if((menu->page.n_lines == 0) || (direction == 0)) {
+    if((menu->page.line_count == 0) || (direction == 0)) {
         return;
     }
 
@@ -800,22 +805,22 @@ rose_ui_menu_move_mark(struct rose_ui_menu* menu, int direction) {
     menu->is_updated = true;
 
     // Update mark's index.
-    menu->page.mark_idx +=
-        clamp_(direction, -menu->layout.n_lines_max, menu->layout.n_lines_max);
+    menu->page.mark_index += clamp_(
+        direction, -menu->layout.line_max_count, menu->layout.line_max_count);
 
     // Compute head's movement direction.
-    if(menu->page.mark_idx < 0) {
-        direction = menu->page.mark_idx;
-    } else if((menu->page.n_lines <= menu->page.mark_idx) &&
-              (menu->page.n_lines == menu->layout.n_lines_max)) {
-        direction = menu->page.mark_idx - menu->page.n_lines + 1;
+    if(menu->page.mark_index < 0) {
+        direction = menu->page.mark_index;
+    } else if((menu->page.line_count <= menu->page.mark_index) &&
+              (menu->page.line_count == menu->layout.line_max_count)) {
+        direction = menu->page.mark_index - menu->page.line_count + 1;
     } else {
         direction = 0;
     }
 
     // Clamp mark's index.
-    menu->page.mark_idx =
-        clamp_(menu->page.mark_idx, 0, menu->page.n_lines - 1);
+    menu->page.mark_index =
+        clamp_(menu->page.mark_index, 0, menu->page.line_count - 1);
 
     // Move the head.
     rose_ui_menu_move_head(menu, direction);
@@ -852,8 +857,8 @@ rose_ui_menu_perform_action(struct rose_ui_menu* menu,
         case rose_ui_menu_action_commit: {
             // Obtain the marked line.
             struct rose_ui_menu_line line = {};
-            if(menu->page.mark_idx < menu->page.n_lines) {
-                line = menu->page.lines[menu->page.mark_idx];
+            if(menu->page.mark_index < menu->page.line_count) {
+                line = menu->page.lines[menu->page.mark_index];
             }
 
             // If the marked line is empty, then hide the menu, and do nothing
@@ -929,10 +934,10 @@ rose_ui_menu_perform_action(struct rose_ui_menu* menu,
 
         case rose_ui_menu_action_select:
             // Select marked line.
-            if(menu->page.mark_idx < menu->page.n_lines) {
-                menu->selection =
-                    menu->page
-                        .lines[menu->page.selection_idx = menu->page.mark_idx];
+            if(menu->page.mark_index < menu->page.line_count) {
+                menu->selection = //
+                    menu->page.lines[menu->page.selection_index =
+                                         menu->page.mark_index];
             } else {
                 menu->selection = (struct rose_ui_menu_line){};
             }
@@ -989,17 +994,17 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
     }
 
     // Initialize string buffers.
-    char line_buf[rose_ui_menu_utf8_buffer_size] = {};
-    char name_buf[rose_ui_menu_utf8_buffer_size] = {};
+    char line_buffer[rose_ui_menu_utf8_buffer_size] = {};
+    char name_buffer[rose_ui_menu_utf8_buffer_size] = {};
 
     // Fill the lines from menu's page.
-    for(ptrdiff_t i = 0; i != menu->page.n_lines; ++i, ++text.n_lines) {
+    for(ptrdiff_t i = 0; i != menu->page.line_count; ++i, ++text.line_count) {
         // Obtain the current line.
         struct rose_ui_menu_line line = menu->page.lines[i];
 
         // Obtain prefix string.
         char* prefix =
-            ((rose_ui_menu_has_selection(menu) && (menu->page.mark_idx == i))
+            ((rose_ui_menu_has_selection(menu) && (menu->page.mark_index == i))
                  ? "\xEF\x83\x9A"
                  : "");
 
@@ -1009,10 +1014,10 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
         name.size = min_(name.size, rose_ui_menu_utf8_string_size_max); \
                                                                         \
         /* Ensure zero-termination. */                                  \
-        name_buf[name.size] = '\0';                                     \
+        name_buffer[name.size] = '\0';                                  \
                                                                         \
         /* Perform write operation. */                                  \
-        memcpy(name_buf, name.data, name.size);                         \
+        memcpy(name_buffer, name.data, name.size);                      \
     }
 
         // Print the line depending on its type.
@@ -1030,11 +1035,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 // Format the line.
                 if(name.size != 0) {
                     char const* format = "%s\xEF\x89\x8D %s";
-                    snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, name_buf);
+                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
+                             format, prefix, name_buffer);
                 } else {
                     char const* format = "%s\xEF\x89\x8D ---";
-                    snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
+                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
                              format, prefix);
                 }
 
@@ -1044,7 +1049,7 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
             case rose_ui_menu_line_type_workspace: {
                 struct rose_workspace* workspace = line.data;
 
-                // Obtain a pointer to workspace's topmost surface.
+                // Obtain workspace's topmost surface.
                 struct rose_surface* surface = workspace->focused_surface;
                 if(surface == NULL) {
                     if(!wl_list_empty(&(workspace->surfaces_mapped))) {
@@ -1065,11 +1070,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 // Format the line.
                 if(name.size != 0) {
                     char const* format = "%s\xEF\x81\x84 %02d %s";
-                    snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, workspace->id, name_buf);
+                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
+                             format, prefix, workspace->id, name_buffer);
                 } else {
                     char const* format = "%s\xEF\x81\x84 %02d ---";
-                    snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
+                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
                              format, prefix, workspace->id);
                 }
 
@@ -1089,11 +1094,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 // Format the line.
                 if(name.size != 0) {
                     char const* format = "%s\xEF\x89\xAC %02d %s";
-                    snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, output->id, name_buf);
+                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
+                             format, prefix, output->id, name_buffer);
                 } else {
                     char const* format = "%s\xEF\x89\xAC %02d";
-                    snprintf(line_buf, rose_ui_menu_utf8_string_size_max,
+                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
                              format, prefix, output->id);
                 }
 
@@ -1107,11 +1112,11 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 #undef write_name_
 
         // Ensure that line buffer is zero-terminated.
-        line_buf[rose_ui_menu_utf8_string_size_max] = '\0';
+        line_buffer[rose_ui_menu_utf8_string_size_max] = '\0';
 
         // Write resulting line.
         text.lines[i] =
-            rose_convert_utf8_to_utf32(rose_convert_ntbs_to_utf8(line_buf));
+            rose_convert_utf8_to_utf32(rose_convert_ntbs_to_utf8(line_buffer));
     }
 
     // Return the text.
@@ -1156,22 +1161,22 @@ rose_ui_menu_notify_pointer_button(struct rose_ui_menu* menu,
     double y = menu->pointer.y;
 
     // Do nothing if the pointer is outside menu's area.
-    if(((x < menu->area.x) || (x > (menu->area.x + menu->area.w))) ||
-       ((y < menu->area.y) || (y > (menu->area.y + menu->area.h)))) {
+    if(((x < menu->area.x) || (x > (menu->area.x + menu->area.width))) ||
+       ((y < menu->area.y) || (y > (menu->area.y + menu->area.height)))) {
         return;
     }
 
     // Compute highlighted line's index.
-    int line_idx =
-        ((y - menu->area.y - menu->layout.margin_y) / menu->layout.line_h);
+    int line_index =
+        ((y - menu->area.y - menu->layout.margin_y) / menu->layout.line_height);
 
     // Perform additional actions depending on which button is pressed.
     if(event.button == BTN_LEFT) {
         // If left mouse button is pressed, and highlighted line is not empty,
         // then commit current operation.
-        if((line_idx >= 0) && (line_idx < menu->page.n_lines)) {
+        if((line_index >= 0) && (line_index < menu->page.line_count)) {
             // Set mark's index.
-            menu->page.mark_idx = line_idx;
+            menu->page.mark_index = line_index;
 
             // Commit current operation.
             rose_ui_menu_perform_action(menu, rose_ui_menu_action_commit);
@@ -1181,9 +1186,9 @@ rose_ui_menu_notify_pointer_button(struct rose_ui_menu* menu,
         if(rose_ui_menu_line_is_empty(menu->selection)) {
             // If menu's selection is empty, then select highlighted line, if
             // any.
-            if((line_idx >= 0) && (line_idx < menu->page.n_lines)) {
+            if((line_index >= 0) && (line_index < menu->page.line_count)) {
                 // Set mark's index.
-                menu->page.mark_idx = line_idx;
+                menu->page.mark_index = line_index;
 
                 // Select marked line.
                 rose_ui_menu_perform_action(menu, rose_ui_menu_action_select);
@@ -1205,8 +1210,8 @@ rose_ui_menu_notify_pointer_warp(struct rose_ui_menu* menu, uint32_t time_msec,
     }
 
     // Do nothing if the pointer is outside menu's area.
-    if(((x < menu->area.x) || (x > (menu->area.x + menu->area.w))) ||
-       ((y < menu->area.y) || (y > (menu->area.y + menu->area.h)))) {
+    if(((x < menu->area.x) || (x > (menu->area.x + menu->area.width))) ||
+       ((y < menu->area.y) || (y > (menu->area.y + menu->area.height)))) {
         return;
     }
 
@@ -1216,17 +1221,17 @@ rose_ui_menu_notify_pointer_warp(struct rose_ui_menu* menu, uint32_t time_msec,
     menu->pointer.movement_time_msec = time_msec;
 
     // Save mark's current index.
-    int mark_idx = menu->page.mark_idx;
+    int mark_index = menu->page.mark_index;
 
     // Compute mark's new index.
-    menu->page.mark_idx =
-        ((y - menu->area.y - menu->layout.margin_y) / menu->layout.line_h);
+    menu->page.mark_index =
+        ((y - menu->area.y - menu->layout.margin_y) / menu->layout.line_height);
 
-    menu->page.mark_idx =
-        clamp_(menu->page.mark_idx, 0, menu->page.n_lines - 1);
+    menu->page.mark_index =
+        clamp_(menu->page.mark_index, 0, menu->page.line_count - 1);
 
     // Request redraw operation, if mark's index has changed.
-    if(mark_idx != menu->page.mark_idx) {
+    if(mark_index != menu->page.mark_index) {
         // Mark the menu as updated.
         menu->is_updated = true;
 
@@ -1254,7 +1259,7 @@ rose_ui_menu_notify_line_add(struct rose_ui_menu* menu,
     }
 
     // Request redraw operation, if needed.
-    for(ptrdiff_t i = 0; i != menu->page.n_lines; ++i) {
+    for(ptrdiff_t i = 0; i != menu->page.line_count; ++i) {
         if(rose_ui_menu_line_is_included(menu->page.lines[i], line)) {
             // If the added line is visible, then mark the menu as updated.
             menu->is_updated = true;
@@ -1277,7 +1282,7 @@ rose_ui_menu_notify_line_remove(struct rose_ui_menu* menu,
     }
 
     // Check if the removed line includes any of the menu's lines.
-    for(ptrdiff_t i = 0; i != menu->page.n_lines; ++i) {
+    for(ptrdiff_t i = 0; i != menu->page.line_count; ++i) {
         if(rose_ui_menu_line_is_included(menu->page.lines[i], line)) {
             // If a removed line is visible, then mark the menu as updated.
             menu->is_updated = true;
@@ -1315,7 +1320,7 @@ rose_ui_menu_notify_line_update(struct rose_ui_menu* menu,
     }
 
     // Request redraw operation, if needed.
-    for(ptrdiff_t i = 0; i != menu->page.n_lines; ++i) {
+    for(ptrdiff_t i = 0; i != menu->page.line_count; ++i) {
         if(rose_ui_menu_line_is_equal(menu->page.lines[i], line)) {
             // If updated line is visible, then mark the menu as updated.
             menu->is_updated = true;

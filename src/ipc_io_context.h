@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -9,7 +9,7 @@
 #include "ipc_types.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-// IPC-IO-related definitions.
+// IPC IO result definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_ipc_io_result {
@@ -17,6 +17,10 @@ enum rose_ipc_io_result {
     rose_ipc_io_result_success,
     rose_ipc_io_result_partial
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// IPC IO callback function type definitions.
+////////////////////////////////////////////////////////////////////////////////
 
 typedef void (*rose_ipc_rx_callback_fn)(void*, enum rose_ipc_io_result,
                                         struct rose_ipc_buffer_ref);
@@ -71,8 +75,9 @@ struct rose_ipc_io_context_parameters {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_ipc_io_context_initialize(struct rose_ipc_io_context* io_context,
-                               struct rose_ipc_io_context_parameters params);
+rose_ipc_io_context_initialize(
+    struct rose_ipc_io_context* io_context,
+    struct rose_ipc_io_context_parameters parameters);
 
 void
 rose_ipc_io_context_destroy(struct rose_ipc_io_context* io_context);

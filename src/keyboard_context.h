@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -56,13 +56,26 @@ struct rose_keyboard_ipc_action {
 // Keyboard control scheme definition.
 ////////////////////////////////////////////////////////////////////////////////
 
+enum { rose_keyboard_control_scheme_ipc_action_max_count = 255 };
+
 struct rose_keyboard_control_scheme {
+    // Keysym used as leader.
     struct rose_keyboard_keysym leader_keysym;
 
-    size_t n_core_actions, n_menu_actions, n_ipc_actions;
-    struct rose_keyboard_core_action core_actions[2 * rose_n_core_action_types];
-    struct rose_keyboard_menu_action menu_actions[2 * rose_n_menu_action_types];
-    struct rose_keyboard_ipc_action* ipc_actions;
+    // Counts of actions of different types.
+    size_t core_action_count, menu_action_count, ipc_action_count;
+
+    // Array of core actions.
+    struct rose_keyboard_core_action
+        core_actions[2 * rose_core_action_type_count_];
+
+    // Array of menu actions.
+    struct rose_keyboard_menu_action
+        menu_actions[2 * rose_menu_action_type_count_];
+
+    // Array of IPC actions.
+    struct rose_keyboard_ipc_action
+        ipc_actions[rose_keyboard_control_scheme_ipc_action_max_count];
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,9 +83,11 @@ struct rose_keyboard_control_scheme {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_keyboard_context {
-    struct xkb_keymap* keymap;
-    struct xkb_keymap* keymap_raw;
-    unsigned layout_idx, n_layouts;
+    // Keymaps (one is main, another one is used for detecting shortcuts).
+    struct xkb_keymap *keymap, *keymap_raw;
+
+    // Current layout index, and total number of layouts in the keymap.
+    unsigned layout_index, layout_count;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

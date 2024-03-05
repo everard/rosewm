@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -18,8 +18,10 @@
 static struct rose_keyboard_control_scheme const
     rose_keyboard_default_control_scheme = {
         .leader_keysym = {XKB_KEY_Super_L},
-        .n_core_actions = rose_n_core_action_types,
-        .n_menu_actions = rose_n_menu_action_types,
+
+        .core_action_count = rose_core_action_type_count_,
+        .menu_action_count = rose_menu_action_type_count_,
+        .ipc_action_count = 5,
 
         .core_actions =
             {{.shortcut = {{{0}, {XKB_KEY_Shift_L}, {XKB_KEY_q}}},
@@ -102,22 +104,35 @@ static struct rose_keyboard_control_scheme const
                           .type = rose_menu_action_type_select},
 
                          {.shortcut = {{{XKB_KEY_Tab}}},
-                          .type = rose_menu_action_type_switch_line_type}}};
+                          .type = rose_menu_action_type_switch_line_type}},
+
+        .ipc_actions = {
+            {.shortcut = {{{0}, {XKB_KEY_r}}}, .ipc_command = {{0x00}}},
+
+            {.shortcut = {{{0}, {XKB_KEY_Shift_L}, {XKB_KEY_r}}},
+             .ipc_command = {{0x01}}},
+
+            {.shortcut = {{{XKB_KEY_XF86AudioLowerVolume}}},
+             .ipc_command = {{'V', 'O', 'L', 'U', 'M', 'E', '-'}}},
+
+            {.shortcut = {{{XKB_KEY_XF86AudioRaiseVolume}}},
+             .ipc_command = {{'V', 'O', 'L', 'U', 'M', 'E', '+'}}},
+
+            {.shortcut = {{{XKB_KEY_XF86AudioMute}}},
+             .ipc_command = {{'V', 'O', 'L', 'U', 'M', 'E', '0'}}}}};
 
 ////////////////////////////////////////////////////////////////////////////////
-// IO-related utility functions and definitions.
+// IO-related utility functions.
 ////////////////////////////////////////////////////////////////////////////////
-
-enum { rose_n_keyboard_ipc_actions_max = 256 };
 
 static uint32_t
 rose_keyboard_control_scheme_unpack_uint32(
-    unsigned char buf[static sizeof(uint32_t)]) {
+    unsigned char buffer[static sizeof(uint32_t)]) {
     // Unpack the value starting from the least significant byte to the most
     // significant byte.
     uint32_t x = 0;
     for(size_t i = 0; i != sizeof(uint32_t); ++i) {
-        x |= ((uint32_t)(buf[i])) << ((uint32_t)(i * CHAR_BIT));
+        x |= ((uint32_t)(buffer[i])) << ((uint32_t)(i * CHAR_BIT));
     }
 
     return x;
@@ -125,15 +140,17 @@ rose_keyboard_control_scheme_unpack_uint32(
 
 static struct rose_keyboard_shortcut
 rose_keyboard_control_scheme_read_shortcut(FILE* file) {
+    unsigned char buffer[rose_keyboard_shortcut_size_max * sizeof(uint32_t)] =
+        {};
+
     // Read the shortcut to a buffer.
-    unsigned char buf[rose_keyboard_shortcut_size_max * sizeof(uint32_t)] = {};
-    fread(buf, sizeof(buf), 1, file);
+    fread(buffer, sizeof(buffer), 1, file);
 
     // Unpack the shortcut keysym-by-keysym.
     struct rose_keyboard_shortcut shortcut = {};
     for(size_t i = 0; i != rose_keyboard_shortcut_size_max; ++i) {
         shortcut.keysyms[i].value = rose_keyboard_control_scheme_unpack_uint32(
-            buf + i * sizeof(uint32_t));
+            buffer + i * sizeof(uint32_t));
     }
 
     return shortcut;
@@ -186,11 +203,11 @@ int
 rose_keyboard_shortcut_compare(struct rose_keyboard_shortcut const* x,
                                struct rose_keyboard_shortcut const* y) {
     for(ptrdiff_t i = 0; i != rose_keyboard_shortcut_size_max; ++i) {
-        int r =
+        int result =
             rose_keyboard_keysym_compare(&(x->keysyms[i]), &(y->keysyms[i]));
 
-        if(r != 0) {
-            return r;
+        if(result != 0) {
+            return result;
         }
     }
 
@@ -229,13 +246,13 @@ rose_keyboard_control_scheme_initialize(char const* file_name) {
                 XKB_KEY_Menu};
 
             // Read the index of the leader keysym.
-            ptrdiff_t leader_idx = fgetc(file);
+            ptrdiff_t leader_index = fgetc(file);
 
 #define array_size_(x) ((ptrdiff_t)(sizeof(x) / sizeof(x[0])))
 
             // Make sure that the index is within the valid interval.
-            if((leader_idx < 0) ||
-               (leader_idx >= array_size_(leader_keysyms))) {
+            if((leader_index < 0) ||
+               (leader_index >= array_size_(leader_keysyms))) {
                 fclose(file);
                 goto error;
             }
@@ -243,138 +260,129 @@ rose_keyboard_control_scheme_initialize(char const* file_name) {
 #undef array_size_
 
             // Set the leader.
-            scheme->leader_keysym.value = leader_keysyms[leader_idx];
+            scheme->leader_keysym.value = leader_keysyms[leader_index];
         }
 
-        // Read the number of different actions.
-        scheme->n_core_actions = (size_t)(fgetc(file));
-        scheme->n_menu_actions = (size_t)(fgetc(file));
-        scheme->n_ipc_actions = (size_t)(fgetc(file));
+        // Read the numbers of different actions.
+        scheme->core_action_count = (size_t)(fgetc(file));
+        scheme->menu_action_count = (size_t)(fgetc(file));
+        scheme->ipc_action_count = (size_t)(fgetc(file));
 
         // Validate the numbers read.
-        if(((scheme->n_core_actions < rose_n_core_action_types) ||
-            (scheme->n_core_actions > 2 * rose_n_core_action_types)) ||
-           ((scheme->n_menu_actions < rose_n_menu_action_types) ||
-            (scheme->n_menu_actions > 2 * rose_n_menu_action_types)) ||
-           (scheme->n_ipc_actions > rose_n_keyboard_ipc_actions_max)) {
+        if(((scheme->core_action_count < rose_core_action_type_count_) ||
+            (scheme->core_action_count > 2 * rose_core_action_type_count_)) ||
+           ((scheme->menu_action_count < rose_menu_action_type_count_) ||
+            (scheme->menu_action_count > 2 * rose_menu_action_type_count_)) ||
+           (scheme->ipc_action_count >
+            rose_keyboard_control_scheme_ipc_action_max_count)) {
             fclose(file);
             goto error;
         }
 
-        // Read core and menu actions from the file.
-#define read_actions_(category)                                  \
-    for(size_t i = 0; i < scheme->n_##category##_actions; ++i) { \
-        /* Read the shortcut. */                                 \
-        scheme->category##_actions[i].shortcut =                 \
-            rose_keyboard_control_scheme_read_shortcut(file);    \
-                                                                 \
-        /* Read the type. */                                     \
-        scheme->category##_actions[i].type =                     \
-            (enum rose_##category##_action_type)(fgetc(file));   \
-                                                                 \
-        /* Validate the type. */                                 \
-        if(scheme->category##_actions[i].type >=                 \
-           rose_n_##category##_action_types) {                   \
-            fclose(file);                                        \
-            goto error;                                          \
-        }                                                        \
+#define read_actions_(category)                                   \
+    for(size_t i = 0; i < scheme->category##_action_count; ++i) { \
+        /* Read the shortcut. */                                  \
+        scheme->category##_actions[i].shortcut =                  \
+            rose_keyboard_control_scheme_read_shortcut(file);     \
+                                                                  \
+        /* Read the type. */                                      \
+        scheme->category##_actions[i].type =                      \
+            (enum rose_##category##_action_type)(fgetc(file));    \
+                                                                  \
+        /* Validate the type. */                                  \
+        if(scheme->category##_actions[i].type >=                  \
+           rose_##category##_action_type_count_) {                \
+            fclose(file);                                         \
+            goto error;                                           \
+        }                                                         \
     }
 
+        // Read core and menu actions from the file.
         read_actions_(core);
         read_actions_(menu);
 
 #undef read_actions_
 
-        // Read IPC actions, if needed.
-        if(scheme->n_ipc_actions != 0) {
-            // Allocate memory for the IPC actions.
-            scheme->ipc_actions =
-                malloc(scheme->n_ipc_actions *
-                       sizeof(struct rose_keyboard_ipc_action));
+        // Read IPC actions.
+        for(size_t i = 0; i != scheme->ipc_action_count; ++i) {
+            // Read the shortcut.
+            scheme->ipc_actions[i].shortcut =
+                rose_keyboard_control_scheme_read_shortcut(file);
 
-            if(scheme->ipc_actions == NULL) {
-                fclose(file);
-                goto error;
-            }
-
-            // Read the actions.
-            for(size_t i = 0; i != scheme->n_ipc_actions; ++i) {
-                // Read IPC command.
-                fread(scheme->ipc_actions[i].ipc_command.data,
-                      sizeof(scheme->ipc_actions[i].ipc_command.data), 1, file);
-
-                // Read the shortcut.
-                scheme->ipc_actions[i].shortcut =
-                    rose_keyboard_control_scheme_read_shortcut(file);
-            }
+            // Read IPC command.
+            fread(scheme->ipc_actions[i].ipc_command.data,
+                  sizeof(scheme->ipc_actions[i].ipc_command.data), 1, file);
         }
 
         // Close the file.
         fclose(file);
     }
 
-    // Update shortcuts for actions.
 #define update_shortcuts_(category)                                        \
-    for(size_t i = 0; i != scheme->n_##category##_actions; ++i) {          \
+    for(size_t i = 0; i != scheme->category##_action_count; ++i) {         \
         if(scheme->category##_actions[i].shortcut.keysyms[0].value == 0) { \
             scheme->category##_actions[i].shortcut.keysyms[0] =            \
                 scheme->leader_keysym;                                     \
         }                                                                  \
     }
 
+    // Update shortcuts for actions.
     update_shortcuts_(core);
     update_shortcuts_(menu);
     update_shortcuts_(ipc);
 
 #undef update_shortcuts_
 
-    // Sort actions by shortcuts.
-#define sort_actions_(category)                                       \
-    qsort(scheme->category##_actions, scheme->n_##category##_actions, \
-          sizeof(*scheme->category##_actions),                        \
+#define sort_actions_(category)                                        \
+    qsort(scheme->category##_actions, scheme->category##_action_count, \
+          sizeof(*scheme->category##_actions),                         \
           rose_keyboard_control_scheme_compare_##category##_actions)
 
+    // Sort actions by shortcuts.
     sort_actions_(core);
     sort_actions_(menu);
     sort_actions_(ipc);
 
 #undef sort_actions_
 
-    // Validate actions. Make sure different actions have different shortcuts.
-#define validate_actions_(category)                                   \
-    for(size_t i = 0; i < scheme->n_##category##_actions - 1; ++i) {  \
-        if(rose_keyboard_control_scheme_compare_##category##_actions( \
-               &(scheme->category##_actions[i + 0]),                  \
-               &(scheme->category##_actions[i + 1])) == 0) {          \
-            goto error;                                               \
-        }                                                             \
+#define validate_actions_(category)                                       \
+    if(scheme->category##_action_count != 0) {                            \
+        for(size_t i = 0; i < scheme->category##_action_count - 1; ++i) { \
+            if(rose_keyboard_control_scheme_compare_##category##_actions( \
+                   &(scheme->category##_actions[i + 0]),                  \
+                   &(scheme->category##_actions[i + 1])) == 0) {          \
+                goto error;                                               \
+            }                                                             \
+        }                                                                 \
     }
 
+    // Validate actions. Make sure different actions have different shortcuts.
     validate_actions_(core);
     validate_actions_(menu);
-
-    if(scheme->n_ipc_actions != 0) {
-        validate_actions_(ipc);
-    }
+    validate_actions_(ipc);
 
 #undef validate_actions_
 
-    // Validate actions. Make sure all action types have a shortcut assigned.
-    int n_core_action_shortcuts[rose_n_core_action_types] = {};
-    int n_menu_action_shortcuts[rose_n_menu_action_types] = {};
-
-#define validate_actions_(category)                                   \
-    for(size_t i = 0; i < scheme->n_##category##_actions; ++i) {      \
-        (n_##category##_action_shortcuts[(                            \
-            ptrdiff_t)(scheme->category##_actions[i].type)])++;       \
-    }                                                                 \
-                                                                      \
-    for(ptrdiff_t i = 0; i < rose_n_##category##_action_types; ++i) { \
-        if(n_##category##_action_shortcuts[i] == 0) {                 \
-            goto error;                                               \
-        }                                                             \
+#define validate_actions_(category)                                           \
+    if(true) {                                                                \
+        /* Initialize an array of shortcut counts for all action types. */    \
+        int shortcut_counts[rose_##category##_action_type_count_] = {};       \
+                                                                              \
+        /* Compute the number of shortcuts for each action type. */           \
+        for(size_t i = 0; i < scheme->category##_action_count; ++i) {         \
+            (shortcut_counts[(                                                \
+                ptrdiff_t)(scheme->category##_actions[i].type)])++;           \
+        }                                                                     \
+                                                                              \
+        /* Make sure all action types have a shortcut assigned. */            \
+        for(ptrdiff_t i = 0; i < rose_##category##_action_type_count_; ++i) { \
+            if(shortcut_counts[i] == 0) {                                     \
+                goto error;                                                   \
+            }                                                                 \
+        }                                                                     \
     }
 
+    // Validate actions. Make sure all action types have a shortcut assigned.
     validate_actions_(core);
     validate_actions_(menu);
 
@@ -391,8 +399,6 @@ error:
 void
 rose_keyboard_control_scheme_destroy(
     struct rose_keyboard_control_scheme* scheme) {
-    // Free memory.
-    free(scheme->ipc_actions);
     free(scheme);
 }
 
@@ -445,15 +451,14 @@ rose_keyboard_context_initialize(char const* keyboard_layouts) {
     xkb_context_unref(xkb_context);
 
     // Obtain the number of keyboard layouts in the main keymap.
-    context->n_layouts = (unsigned)(xkb_keymap_num_layouts(context->keymap));
+    context->layout_count = (unsigned)(xkb_keymap_num_layouts(context->keymap));
 
     // Initialization succeeded.
     return context;
 
 error:
     // On error, destroy the context.
-    rose_keyboard_context_destroy(context);
-    xkb_context_unref(xkb_context);
+    rose_keyboard_context_destroy(context), xkb_context_unref(xkb_context);
 
     // Initialization failed.
     return NULL;

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -24,8 +24,10 @@ enum {
 };
 
 struct rose_ipc_connection {
-    // Pointers to the parent server context and container.
+    // Pointer to the server context.
     struct rose_server_context* context;
+
+    // Pointer to the parent container.
     struct rose_ipc_connection_container* container;
 
     // IO context.
@@ -36,6 +38,7 @@ struct rose_ipc_connection {
 
     // Connection's state.
     union {
+        // Dispatcher's state.
         struct {
             struct {
                 struct rose_ipc_command
@@ -44,6 +47,7 @@ struct rose_ipc_connection {
             } queue;
         } dispatcher;
 
+        // Status notifier's state.
         struct {
             struct rose_ipc_buffer buffer;
             ptrdiff_t server_state_offset;
@@ -65,7 +69,7 @@ struct rose_ipc_connection_parameters {
     // IPC socket's file descriptor.
     int socket_fd;
 
-    // Pointer to the parent server context.
+    // Pointer to the server context.
     struct rose_server_context* context;
 
     // Pointer to the parent container.
@@ -77,7 +81,8 @@ struct rose_ipc_connection_parameters {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_connection_initialize(struct rose_ipc_connection_parameters params);
+rose_ipc_connection_initialize(
+    struct rose_ipc_connection_parameters parameters);
 
 void
 rose_ipc_connection_destroy(struct rose_ipc_connection* connection);

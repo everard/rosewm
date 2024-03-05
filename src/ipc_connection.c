@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -325,7 +325,7 @@ rose_ipc_connection_transmit_status_buffer(
 static void
 rose_ipc_connection_handle_rx(void* context, enum rose_ipc_io_result result,
                               struct rose_ipc_buffer_ref buffer) {
-    // Obtain a pointer to the connection.
+    // Obtain the connection.
     struct rose_ipc_connection* connection = context;
 
     // Handle operation's result.
@@ -357,13 +357,11 @@ rose_ipc_connection_handle_rx(void* context, enum rose_ipc_io_result result,
             return;
 
         case rose_ipc_connection_type_configurator:
-            rose_ipc_connection_dispatch_configuration_request(
+            return rose_ipc_connection_dispatch_configuration_request(
                 connection, buffer);
-            return;
 
         case rose_ipc_connection_type_dispatcher:
-            rose_ipc_connection_execute_command(connection, buffer);
-            return;
+            return rose_ipc_connection_execute_command(connection, buffer);
 
         case rose_ipc_connection_type_status:
             // fall-through
@@ -378,7 +376,7 @@ error:
 
 static void
 rose_ipc_connection_handle_tx(void* context, enum rose_ipc_io_result result) {
-    // Obtain a pointer to the connection.
+    // Obtain the connection.
     struct rose_ipc_connection* connection = context;
 
     // Handle operation's result.
@@ -404,6 +402,7 @@ rose_ipc_connection_handle_tx(void* context, enum rose_ipc_io_result result) {
             break;
     }
 
+    // Operation succeeded.
     return;
 
 error:
@@ -425,17 +424,18 @@ rose_handle_event_ipc_connection_watchdog_timer_expiry(void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_connection_initialize(struct rose_ipc_connection_parameters params) {
+rose_ipc_connection_initialize(
+    struct rose_ipc_connection_parameters parameters) {
     // Allocate memory for a new IPC connection.
     struct rose_ipc_connection* connection =
         malloc(sizeof(struct rose_ipc_connection));
 
     if(connection == NULL) {
-        close(params.socket_fd);
+        close(parameters.socket_fd);
         return;
     } else {
         *connection = (struct rose_ipc_connection){
-            .context = params.context, .container = params.container};
+            .context = parameters.context, .container = parameters.container};
     }
 
     // Add connection to the list.
@@ -445,15 +445,15 @@ rose_ipc_connection_initialize(struct rose_ipc_connection_parameters params) {
 
     // Initialize connection's IO context.
     if(true) {
-        struct rose_ipc_io_context_parameters io_context_params = {
-            .socket_fd = params.socket_fd,
-            .event_loop = params.context->event_loop,
+        struct rose_ipc_io_context_parameters io_context_parameters = {
+            .socket_fd = parameters.socket_fd,
+            .event_loop = parameters.context->event_loop,
             .rx_callback_fn = rose_ipc_connection_handle_rx,
             .tx_callback_fn = rose_ipc_connection_handle_tx,
             .external_context = connection};
 
         if(!rose_ipc_io_context_initialize(
-               &(connection->io_context), io_context_params)) {
+               &(connection->io_context), io_context_parameters)) {
             goto error;
         }
     }

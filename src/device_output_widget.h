@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -14,6 +14,7 @@
 
 struct rose_output;
 struct rose_output_ui;
+
 struct wlr_xdg_surface;
 struct wlr_xdg_toplevel;
 
@@ -22,16 +23,18 @@ struct wlr_xdg_toplevel;
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_output_widget_type {
-    // Special widgets.
+    // Special widget types.
     rose_output_widget_type_screen_lock,
     rose_output_widget_type_background,
-    rose_output_n_special_widget_types,
+    rose_output_special_widget_type_count_,
 
-    // Normal widgets.
-    rose_output_widget_type_notification = rose_output_n_special_widget_types,
+    // Normal widget types.
+    rose_output_widget_type_notification =
+        rose_output_special_widget_type_count_,
+
     rose_output_widget_type_prompt,
     rose_output_widget_type_panel,
-    rose_output_n_widget_types
+    rose_output_widget_type_count_
 };
 
 enum rose_output_widget_surface_type {
@@ -41,12 +44,14 @@ enum rose_output_widget_surface_type {
 };
 
 struct rose_output_widget_state {
-    int x, y, w, h;
+    int x, y, width, height;
 };
 
 struct rose_output_widget {
-    // Type of the widget and type of its underlying surface.
+    // Type of the widget.
     enum rose_output_widget_type type;
+
+    // Type of the widget's underlying surface.
     enum rose_output_widget_surface_type surface_type;
 
     // Position and size.

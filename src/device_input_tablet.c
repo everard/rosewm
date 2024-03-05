@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -48,14 +48,14 @@ struct rose_tablet_tool {
 static void
 rose_handle_event_tablet_tool_set_cursor(struct wl_listener* listener,
                                          void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_tablet_tool* tool =
         wl_container_of(listener, tool, listener_set_cursor);
 
     // Obtain event data.
     struct wlr_tablet_v2_event_cursor* event = data;
 
-    // Obtain a pointer to the current output.
+    // Obtain the current output.
     struct rose_output* output = tool->context->current_workspace->output;
 
     // If such output exists, then set its cursor.
@@ -73,11 +73,11 @@ rose_handle_event_tablet_tool_destroy(struct wl_listener* listener,
                                       void* data) {
     unused_(data);
 
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_tablet_tool* tool =
         wl_container_of(listener, tool, listener_destroy);
 
-    // Remove device from the list.
+    // Remove it from the list.
     wl_list_remove(&(tool->link));
 
     // Remove listeners from signals.
@@ -101,10 +101,10 @@ rose_tablet_tool_obtain(struct rose_tablet* tablet,
         return NULL;
     }
 
-    // Obtain a pointer to the server context.
+    // Obtain the server context.
     struct rose_server_context* context = tablet->parent->context;
 
-    // Obtain a pointer to the tablet tool.
+    // Obtain the tablet tool.
     struct rose_tablet_tool* tool = wlr_tool->data;
 
     if(tool != NULL) {
@@ -112,7 +112,7 @@ rose_tablet_tool_obtain(struct rose_tablet* tablet,
         wl_list_remove(&(tool->link));
         wl_list_insert(&(tablet->tools), &(tool->link));
     } else {
-        // Otherwise, allocate and initialize a new tablet tool object.
+        // Otherwise, allocate and initialize a new tablet tool.
         tool = malloc(sizeof(struct rose_tablet_tool));
 
         if(tool == NULL) {
@@ -147,7 +147,7 @@ rose_tablet_tool_obtain(struct rose_tablet* tablet,
 #undef add_signal_
     }
 
-    // Return a pointer to the tool object.
+    // Return the tool.
     return tool;
 
 error:
@@ -161,7 +161,7 @@ error:
 
 static void
 rose_handle_event_tablet_axis(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_axis);
 
@@ -253,7 +253,7 @@ rose_handle_event_tablet_axis(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_tablet_proximity(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_proximity);
 
@@ -291,7 +291,7 @@ rose_handle_event_tablet_proximity(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_tablet_button(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_button);
 
@@ -315,7 +315,7 @@ rose_handle_event_tablet_button(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_tablet_tip(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_tip);
 
@@ -342,12 +342,11 @@ rose_handle_event_tablet_tip(struct wl_listener* listener, void* data) {
 
 void
 rose_tablet_initialize(struct rose_tablet* tablet, struct rose_input* parent) {
-    // Obtain a pointer to the server context.
+    // Obtain the server context.
     struct rose_server_context* context = parent->context;
 
-    // Obtain a pointer to the underlying device.
-    struct wlr_tablet* dev_tablet =
-        wlr_tablet_from_input_device(parent->device);
+    // Obtain the underlying device.
+    struct wlr_tablet* device = wlr_tablet_from_input_device(parent->device);
 
     // Initialize the tablet object.
     *tablet = (struct rose_tablet){.parent = parent};
@@ -358,10 +357,10 @@ rose_tablet_initialize(struct rose_tablet* tablet, struct rose_input* parent) {
     // Initialize the list of associated tools.
     wl_list_init(&(tablet->tools));
 
-#define add_signal_(f)                                                     \
-    {                                                                      \
-        tablet->listener_##f.notify = rose_handle_event_tablet_##f;        \
-        wl_signal_add(&((dev_tablet)->events.f), &(tablet->listener_##f)); \
+#define add_signal_(f)                                                 \
+    {                                                                  \
+        tablet->listener_##f.notify = rose_handle_event_tablet_##f;    \
+        wl_signal_add(&((device)->events.f), &(tablet->listener_##f)); \
     }
 
     // Register listeners.
@@ -409,6 +408,7 @@ rose_tablet_clear_focus(struct rose_tablet* tablet) {
     struct rose_tablet_tool* tool = NULL;
     struct rose_tablet_tool* _ = NULL;
 
+    // Send proximity events.
     wl_list_for_each_safe(tool, _, &(tablet->tools), link) {
         wlr_send_tablet_v2_tablet_tool_proximity_out(tool->handle);
     }

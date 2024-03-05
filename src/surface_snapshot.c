@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -15,32 +15,32 @@
 void
 rose_surface_snapshot_initialize(
     struct rose_surface_snapshot* snapshot,
-    struct rose_surface_snapshot_parameters params) {
+    struct rose_surface_snapshot_parameters parameters) {
     // Obtain the visible region of the surface's buffer.
     struct wlr_fbox box = {};
-    wlr_surface_get_buffer_source_box(params.surface, &box);
+    wlr_surface_get_buffer_source_box(parameters.surface, &box);
 
     // Set snapshot's parameters.
     *snapshot = (struct rose_surface_snapshot){
-        .type = params.type,
+        .type = parameters.type,
         // Select the transform based on snapshot's type.
-        .transform = ((params.type == rose_surface_snapshot_type_normal)
-                          ? params.surface->current.transform
+        .transform = ((parameters.type == rose_surface_snapshot_type_normal)
+                          ? parameters.surface->current.transform
                           : WL_OUTPUT_TRANSFORM_NORMAL),
-        .x = params.x,
-        .y = params.y,
-        .w = params.surface->current.width,
-        .h = params.surface->current.height,
+        .x = parameters.x,
+        .y = parameters.y,
+        .width = parameters.surface->current.width,
+        .height = parameters.surface->current.height,
         .buffer_region = {
-            .x = box.x, .y = box.y, .w = box.width, .h = box.height}};
+            .x = box.x, .y = box.y, .width = box.width, .height = box.height}};
 
     // Initialize list link.
     wl_list_init(&(snapshot->link));
 
     // Obtain and lock surface's buffer, if needed.
-    if(wlr_surface_has_buffer(params.surface) &&
+    if(wlr_surface_has_buffer(parameters.surface) &&
        (snapshot->type == rose_surface_snapshot_type_normal)) {
-        snapshot->buffer = wlr_buffer_lock(&(params.surface->buffer->base));
+        snapshot->buffer = wlr_buffer_lock(&(parameters.surface->buffer->base));
     }
 }
 

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -29,20 +29,20 @@
 #define pass_(buffer) (buffer).data, (buffer).size
 
 ////////////////////////////////////////////////////////////////////////////////
-// Data-transmission-related utility functions.
+// Data transmission-related utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 size_t
 rose_ipc_packet_unpack_payload_size(
     unsigned char header[static rose_ipc_packet_header_size]) {
-    // Unpack the payload's size which is stored in LE byte order.
-    uint16_t r = 0;
+    // Obtain payload's size which is stored in little-endian byte order.
+    uint16_t result = 0;
     for(ptrdiff_t i = 0; i != rose_ipc_packet_header_size; ++i) {
-        r |= ((uint16_t)(header[i])) << ((uint16_t)(i * CHAR_BIT));
+        result |= ((uint16_t)(header[i])) << ((uint16_t)(i * CHAR_BIT));
     }
 
     // Return the result.
-    return (size_t)(r);
+    return (size_t)(result);
 }
 
 enum rose_ipc_io_result
@@ -159,7 +159,7 @@ rose_ipc_tx_more(struct rose_ipc_io_context* io_context) {
 
 static int
 rose_handle_event_ipc_rx_data(int fd, uint32_t mask, void* data) {
-    // Obtain a pointer to the IO context.
+    // Obtain the IO context.
     struct rose_ipc_io_context* io_context = data;
 
     // Declare a buffer which will contain received data.
@@ -241,7 +241,7 @@ static int
 rose_handle_event_ipc_tx_data(int fd, uint32_t mask, void* data) {
     unused_(fd);
 
-    // Obtain a pointer to the IO context.
+    // Obtain the IO context.
     struct rose_ipc_io_context* io_context = data;
 
     // Check for errors.
@@ -288,23 +288,24 @@ error:
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_ipc_io_context_initialize(struct rose_ipc_io_context* io_context,
-                               struct rose_ipc_io_context_parameters params) {
+rose_ipc_io_context_initialize(
+    struct rose_ipc_io_context* io_context,
+    struct rose_ipc_io_context_parameters parameters) {
     // Initialize the IO context.
     *io_context = (struct rose_ipc_io_context){
-        .socket_fd = params.socket_fd,
-        .rx_callback_fn = params.rx_callback_fn,
-        .tx_callback_fn = params.tx_callback_fn,
-        .external_context = params.external_context};
+        .socket_fd = parameters.socket_fd,
+        .rx_callback_fn = parameters.rx_callback_fn,
+        .tx_callback_fn = parameters.tx_callback_fn,
+        .external_context = parameters.external_context};
 
     // Add event sources for handling IO operations.
     io_context->rx_event_source = wl_event_loop_add_fd(
-        params.event_loop, params.socket_fd, WL_EVENT_READABLE,
+        parameters.event_loop, parameters.socket_fd, WL_EVENT_READABLE,
         rose_handle_event_ipc_rx_data, io_context);
 
-    io_context->tx_event_source =
-        wl_event_loop_add_fd(params.event_loop, params.socket_fd, 0,
-                             rose_handle_event_ipc_tx_data, io_context);
+    io_context->tx_event_source = wl_event_loop_add_fd( //
+        parameters.event_loop, parameters.socket_fd, 0,
+        rose_handle_event_ipc_tx_data, io_context);
 
     if((io_context->rx_event_source == NULL) ||
        (io_context->tx_event_source == NULL)) {
@@ -366,7 +367,7 @@ rose_ipc_tx(struct rose_ipc_io_context* io_context,
 
     // Compose the packet.
     if(true) {
-        // Pack payload's size in LE byte order.
+        // Write payload's size in little-endian byte order.
         for(ptrdiff_t i = 0; i != rose_ipc_packet_header_size; ++i) {
             io_context->tx_packet.data[i] =
                 (unsigned char)(((uint16_t)(buffer.size)) >>
@@ -376,7 +377,7 @@ rose_ipc_tx(struct rose_ipc_io_context* io_context,
         // Compute packet's total size.
         io_context->tx_packet.size = rose_ipc_packet_header_size + buffer.size;
 
-        // Copy the payload.
+        // Write the payload.
         memmove(io_context->tx_packet.data + rose_ipc_packet_header_size,
                 buffer.data, buffer.size);
     }
@@ -390,7 +391,6 @@ rose_ipc_tx(struct rose_ipc_io_context* io_context,
 
             // fall-through
         case rose_ipc_io_result_partial:
-            // Do nothing else.
             return;
 
         case rose_ipc_io_result_failure:

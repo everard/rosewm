@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -24,7 +24,7 @@ enum rose_surface_snapshot_type {
     rose_surface_snapshot_type_normal,
     // Note: Represents surface's decoration.
     rose_surface_snapshot_type_decoration,
-    rose_n_surface_snapshot_types
+    rose_surface_snapshot_type_count_
 };
 
 struct rose_surface_snapshot {
@@ -35,14 +35,14 @@ struct rose_surface_snapshot {
     enum wl_output_transform transform;
 
     // Surface's position and size.
-    int x, y, w, h;
+    int x, y, width, height;
 
     // Surface's buffer.
     struct wlr_buffer* buffer;
 
     // Visible region of the buffer.
     struct {
-        double x, y, w, h;
+        double x, y, width, height;
     } buffer_region;
 
     // List link.
@@ -50,7 +50,7 @@ struct rose_surface_snapshot {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface snapshot initialization-related definitions.
+// Surface snapshot initialization parameters definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_surface_snapshot_parameters {
@@ -71,7 +71,7 @@ struct rose_surface_snapshot_parameters {
 void
 rose_surface_snapshot_initialize(
     struct rose_surface_snapshot* snapshot,
-    struct rose_surface_snapshot_parameters params);
+    struct rose_surface_snapshot_parameters parameters);
 
 // Precondition: The snapshot must be removable from its list.
 void

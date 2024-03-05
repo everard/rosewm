@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -13,7 +13,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // Computes index of the given node relative to its parent.
-#define child_idx_(node)                                                   \
+#define child_index_(node)                                                 \
     ((((node)->parent == NULL) || ((node)->parent->children[0] == (node))) \
          ? 0                                                               \
          : 1)
@@ -39,7 +39,7 @@ rose_map_node_rotate(struct rose_map_node* x) {
     // Precondition: (x != NULL) && (x->balance != 0).
 
     ptrdiff_t const a_i = ((x->balance < 0) ? 0 : 1), b_i = ((a_i + 1) % 2),
-                    c_i = child_idx_(x);
+                    c_i = child_index_(x);
 
     struct rose_map_node* y = x->children[a_i];
     struct rose_map_node* z = y->children[b_i];
@@ -152,7 +152,7 @@ rose_map_rebalance(struct rose_map_node* root, struct rose_map_node* node,
             }
         }
 
-        child_i = child_idx_(node);
+        child_i = child_index_(node);
         node = node->parent;
     }
 
@@ -218,7 +218,7 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node) {
     }
 
     // Obtain the index of the node relative to its parent.
-    ptrdiff_t child_i = child_idx_(node);
+    ptrdiff_t child_i = child_index_(node);
 
     // Perform removal operation depending on how many children the node has.
     if((node->children[0] == NULL) || (node->children[1] == NULL)) {
@@ -258,7 +258,7 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node) {
                         root, next, 1, rose_map_rebalance_type_remove));
         } else {
             struct rose_map_node* parent_next = next->parent;
-            ptrdiff_t child_i_next = child_idx_(next);
+            ptrdiff_t child_i_next = child_index_(next);
 
             rose_map_node_link(parent_next, next->children[1], child_i_next);
             rose_map_node_link(node->parent, next, child_i);
@@ -365,7 +365,7 @@ rose_map_node_obtain_next(struct rose_map_node* node) {
             ptrdiff_t child_i = 0;
 
             do {
-                child_i = child_idx_(node);
+                child_i = child_index_(node);
                 node = node->parent;
             } while((child_i != 0) && (node != NULL));
         }
@@ -385,7 +385,7 @@ rose_map_node_obtain_prev(struct rose_map_node* node) {
             ptrdiff_t child_i = 0;
 
             do {
-                child_i = child_idx_(node);
+                child_i = child_index_(node);
                 node = node->parent;
             } while((child_i != 1) && (node != NULL));
         }

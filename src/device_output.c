@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -89,14 +89,15 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
 
 static struct rose_raster*
 rose_output_raster_initialize( //
-    struct rose_raster* raster, struct wlr_renderer* renderer, int w, int h) {
+    struct rose_raster* raster, struct wlr_renderer* renderer, int width,
+    int height) {
     // Clamp the dimensions.
-    w = clamp_(w, 1, 32768);
-    h = clamp_(h, 1, 32768);
+    width = clamp_(width, 1, 32768);
+    height = clamp_(height, 1, 32768);
 
     // Do nothing else if the raster is already initialized.
-    if((raster != NULL) && (raster->base.width == w) &&
-       (raster->base.height == h)) {
+    if((raster != NULL) && (raster->base.width == width) &&
+       (raster->base.height == height)) {
         return raster;
     }
 
@@ -106,7 +107,7 @@ rose_output_raster_initialize( //
     }
 
     // Initialize a new raster.
-    return rose_raster_initialize(renderer, w, h);
+    return rose_raster_initialize(renderer, width, height);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -121,7 +122,7 @@ enum rose_output_rasters_update_type {
 static void
 rose_output_update_rasters(struct rose_output* output,
                            enum rose_output_rasters_update_type update_type) {
-    // Obtain a pointer to the output's focused workspace.
+    // Obtain output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
 
     // Do nothing else if there is no focused workspace.
@@ -136,7 +137,7 @@ rose_output_update_rasters(struct rose_output* output,
     struct rose_text_rendering_context* text_rendering_context =
         output->context->text_rendering_context;
 
-    struct rose_text_rendering_parameters text_rendering_params = {
+    struct rose_text_rendering_parameters text_rendering_parameters = {
         .font_size = output->context->config.theme.font_size,
         .dpi = output_state.dpi};
 
@@ -172,17 +173,18 @@ rose_output_update_rasters(struct rose_output* output,
         }
 
         // Compute raster's dimensions.
-        int w = ((((panel.position == rose_ui_panel_position_left) ||
-                   (panel.position == rose_ui_panel_position_right))
-                      ? output_state.h
-                      : output_state.w) /
-                 2),
-            h = (int)(panel.size * output_state.scale + 0.5);
+        int width = ((((panel.position == rose_ui_panel_position_left) ||
+                       (panel.position == rose_ui_panel_position_right))
+                          ? output_state.height
+                          : output_state.width) /
+                     2),
+            height = (int)(panel.size * output_state.scale + 0.5);
 
         // Initialize the raster.
         struct rose_raster* raster = output->rasters.title =
-            rose_output_raster_initialize(
-                output->rasters.title, output->context->renderer, w, h);
+            rose_output_raster_initialize(output->rasters.title,
+                                          output->context->renderer, width,
+                                          height);
 
         // Stop the update if the raster is not initialized.
         if(raster == NULL) {
@@ -193,22 +195,23 @@ rose_output_update_rasters(struct rose_output* output,
         rose_raster_clear(raster);
 
         // Set text's color.
-        text_rendering_params.color = color_scheme->panel_foreground;
+        text_rendering_parameters.color = color_scheme->panel_foreground;
 
         // Initialize a pixel buffer for text rendering.
         struct rose_pixel_buffer pixels = //
             {.data = raster->pixels,
-             .w = raster->base.width,
-             .h = raster->base.height};
+             .width = raster->base.width,
+             .height = raster->base.height};
 
         // Compose and render the title.
         rose_render_string( //
-            text_rendering_context, text_rendering_params,
+            text_rendering_context, text_rendering_parameters,
             rose_output_workspace_compose_title_string(workspace), pixels);
 
         // Update raster's texture.
         pixman_region32_t region = {
-            .extents = {.x1 = 0, .y1 = 0, .x2 = pixels.w, .y2 = pixels.h}};
+            .extents = {
+                .x1 = 0, .y1 = 0, .x2 = pixels.width, .y2 = pixels.height}};
 
         rose_raster_texture_update(raster, &region);
 
@@ -222,13 +225,13 @@ rose_output_update_rasters(struct rose_output* output,
         (menu->is_updated ||
          (update_type == rose_output_rasters_update_forced));) {
         // Compute raster's dimensions.
-        int w = (int)(menu->area.w * output_state.scale + 0.5),
-            h = (int)(menu->area.h * output_state.scale + 0.5);
+        int width = (int)(menu->area.width * output_state.scale + 0.5),
+            height = (int)(menu->area.height * output_state.scale + 0.5);
 
         // Initialize the raster.
         struct rose_raster* raster = output->rasters.menu =
             rose_output_raster_initialize(
-                output->rasters.menu, output->context->renderer, w, h);
+                output->rasters.menu, output->context->renderer, width, height);
 
         // Stop the update if the raster is not initialized.
         if(raster == NULL) {
@@ -243,35 +246,36 @@ rose_output_update_rasters(struct rose_output* output,
         output->ui_menu_text = text;
 
         // Set text's color.
-        text_rendering_params.color = color_scheme->menu_foreground;
+        text_rendering_parameters.color = color_scheme->menu_foreground;
 
         // Render the text line-by-line, compute raster's updated area.
         int updated_area[2] = {-1, 0};
         if(true) {
             // Compute menu line's height in raster's space.
-            int line_h = (int)(menu->layout.line_h * output_state.scale + 0.5);
+            int line_height =
+                (int)(menu->layout.line_height * output_state.scale + 0.5);
 
             // Initialize a pixel buffer for a text line.
             struct rose_pixel_buffer line_pixels = {
-                .w = raster->base.width, .h = line_h};
+                .width = raster->base.width, .height = line_height};
 
             // Compute text line's stride.
-            ptrdiff_t line_stride = 4 * line_pixels.w * line_pixels.h;
+            ptrdiff_t line_stride = 4 * line_pixels.width * line_pixels.height;
 
             // Render the lines.
-            int h_space_left = raster->base.height;
-            for(ptrdiff_t i = 0; i < text.n_lines; ++i) {
+            int space_left = raster->base.height;
+            for(ptrdiff_t i = 0; i < text.line_count; ++i) {
                 // Stop rendering if there is no space left in the raster.
-                if(h_space_left <= 0) {
+                if(space_left <= 0) {
                     break;
                 }
 
                 // Compute current line's parameters.
                 line_pixels.data = raster->pixels + i * line_stride;
-                line_pixels.h = min_(line_pixels.h, h_space_left);
+                line_pixels.height = min_(line_pixels.height, space_left);
 
                 // Update raster's available space.
-                h_space_left -= line_h;
+                space_left -= line_height;
 
 #define line_diff_(a, b)   \
     ((a.size != b.size) || \
@@ -279,7 +283,7 @@ rose_output_update_rasters(struct rose_output* output,
 
                 // A flag which shows that current line must be rendered.
                 bool must_render_line =
-                    (menu->is_layout_updated) || (i >= text_prev.n_lines) ||
+                    (menu->is_layout_updated) || (i >= text_prev.line_count) ||
                     (line_diff_(text.lines[i], text_prev.lines[i]));
 
 #undef line_diff_
@@ -287,20 +291,20 @@ rose_output_update_rasters(struct rose_output* output,
                 // Render the line, if needed.
                 if(must_render_line) {
                     // Compute line's offset.
-                    int dy = i * line_h;
+                    int dy = i * line_height;
 
                     // Compute updated area.
                     updated_area[0] =
                         ((updated_area[0] < 0) ? dy : updated_area[0]);
-                    updated_area[1] = dy + line_pixels.h;
+                    updated_area[1] = dy + line_pixels.height;
 
                     // Clear line's pixel buffer.
-                    memset(
-                        line_pixels.data, 0, 4 * line_pixels.w * line_pixels.h);
+                    memset(line_pixels.data, 0,
+                           4 * line_pixels.width * line_pixels.height);
 
                     // Render the current line.
                     rose_render_string( //
-                        text_rendering_context, text_rendering_params,
+                        text_rendering_context, text_rendering_parameters,
                         text.lines[i], line_pixels);
                 }
             }
@@ -457,7 +461,7 @@ static void
 rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the output.
+    // Obtain the output.
     struct rose_output* output =
         wl_container_of(listener, output, listener_frame);
 
@@ -476,13 +480,14 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     // Determine if redraw is required.
     bool is_redraw_required = //
         (output->is_rasters_update_requested) ||
-        (output->n_frames_without_damage < 2);
+        (output->frame_without_damage_count < 2);
 
     // Update output's damage tracking data.
-    output->n_frames_without_damage++;
-    output->n_frames_without_damage = min_(output->n_frames_without_damage, 2);
+    output->frame_without_damage_count++;
+    output->frame_without_damage_count =
+        min_(output->frame_without_damage_count, 2);
 
-    // Obtain a pointer to the output's focused workspace.
+    // Obtain output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
 
     // If there is a focused workspace, then perform additional actions.
@@ -499,12 +504,12 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
 
         // Determine if redraw is required.
         is_redraw_required =
-            is_redraw_required || (workspace->n_frames_without_commits < 2);
+            is_redraw_required || (workspace->frame_without_commits_count < 2);
 
         // Update workspace's damage tracking data.
-        workspace->n_frames_without_commits++;
-        workspace->n_frames_without_commits =
-            min_(workspace->n_frames_without_commits, 2);
+        workspace->frame_without_commits_count++;
+        workspace->frame_without_commits_count =
+            min_(workspace->frame_without_commits_count, 2);
     }
 
     // Update output's rasters, if needed.
@@ -588,7 +593,7 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     // Send frame done events to all visible widgets.
     if(true) {
         struct rose_output_widget* widget = NULL;
-        for(ptrdiff_t i = 0; i != rose_output_n_widget_types; ++i) {
+        for(ptrdiff_t i = 0; i != rose_output_widget_type_count_; ++i) {
             wl_list_for_each(
                 widget, &(output->ui.widgets_mapped[i]), link_mapped) {
                 if(rose_output_widget_is_visible(widget)) {
@@ -611,7 +616,7 @@ static void
 rose_handle_event_output_needs_frame(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the output.
+    // Obtain the output.
     struct rose_output* output =
         wl_container_of(listener, output, listener_needs_frame);
 
@@ -622,10 +627,10 @@ rose_handle_event_output_needs_frame(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_output_commit(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the event.
+    // Obtain the event.
     struct wlr_output_event_commit* event = data;
 
-    // Obtain a pointer to the output.
+    // Obtain the output.
     struct rose_output* output =
         wl_container_of(listener, output, listener_commit);
 
@@ -655,19 +660,19 @@ static void
 rose_handle_event_output_damage(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the output.
+    // Obtain the output.
     struct rose_output* output =
         wl_container_of(listener, output, listener_damage);
 
     // Reset the number of frames without damage taken.
-    output->n_frames_without_damage = 0;
+    output->frame_without_damage_count = 0;
 }
 
 static void
 rose_handle_event_output_destroy(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the output.
+    // Obtain the output.
     struct rose_output* output =
         wl_container_of(listener, output, listener_destroy);
 
@@ -680,7 +685,7 @@ rose_handle_event_output_cursor_client_surface_destroy(
     struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the output.
+    // Obtain the output.
     struct rose_output* output = wl_container_of(
         listener, output, listener_cursor_client_surface_destroy);
 
@@ -752,14 +757,15 @@ rose_output_initialize(struct rose_server_context* context,
         struct wlr_output_mode* mode = NULL;
         wl_list_for_each(mode, &(device->modes), link) {
             // Limit the number of modes.
-            if(output->modes.size == rose_n_output_modes_max) {
+            if(output->modes.size == rose_output_mode_max_count) {
                 break;
             }
 
             // Save the current mode.
             output->modes.data[output->modes.size++] =
-                (struct rose_output_mode){
-                    .w = mode->width, .h = mode->height, .rate = mode->refresh};
+                (struct rose_output_mode){.width = mode->width,
+                                          .height = mode->height,
+                                          .rate = mode->refresh};
         }
     }
 
@@ -976,9 +982,9 @@ rose_output_destroy(struct rose_output* output) {
 
 bool
 rose_output_configure(struct rose_output* output,
-                      struct rose_output_configure_parameters params) {
+                      struct rose_output_configure_parameters parameters) {
     // If requested configuration is a no-op, then return success.
-    if(params.flags == 0) {
+    if(parameters.flags == 0) {
         return true;
     }
 
@@ -989,21 +995,21 @@ rose_output_configure(struct rose_output* output,
 
     // Check the validity of the specified parameters.
 
-    if((params.flags & rose_output_configure_transform) != 0) {
+    if((parameters.flags & rose_output_configure_transform) != 0) {
         // Note: These bounds are determined by the Wayland protocol.
-        if((params.transform < 0) || (params.transform > 7)) {
+        if((parameters.transform < 0) || (parameters.transform > 7)) {
             return false;
         }
     }
 
-    if((params.flags & rose_output_configure_scale) != 0) {
+    if((parameters.flags & rose_output_configure_scale) != 0) {
         // Note: The scaling factor can not be NaN or infinity.
-        if(!isfinite(params.scale)) {
+        if(!isfinite(parameters.scale)) {
             return false;
         }
 
         // Note: The scaling factor must have sane value.
-        if((params.scale < 0.1) || (params.scale > 25.0)) {
+        if((parameters.scale < 0.1) || (parameters.scale > 25.0)) {
             return false;
         }
     }
@@ -1013,25 +1019,25 @@ rose_output_configure(struct rose_output* output,
 
     // Set specified parameters.
 
-    if((params.flags & rose_output_configure_adaptive_sync) != 0) {
+    if((parameters.flags & rose_output_configure_adaptive_sync) != 0) {
         wlr_output_enable_adaptive_sync(
-            output->device, params.adaptive_sync_state);
+            output->device, parameters.adaptive_sync_state);
     }
 
-    if((params.flags & rose_output_configure_transform) != 0) {
-        wlr_output_set_transform(output->device, params.transform);
+    if((parameters.flags & rose_output_configure_transform) != 0) {
+        wlr_output_set_transform(output->device, parameters.transform);
     }
 
-    if((params.flags & rose_output_configure_scale) != 0) {
-        wlr_output_set_scale(output->device, (float)(params.scale));
+    if((parameters.flags & rose_output_configure_scale) != 0) {
+        wlr_output_set_scale(output->device, (float)(parameters.scale));
     }
 
-    while((params.flags & rose_output_configure_mode) != 0) {
+    while((parameters.flags & rose_output_configure_mode) != 0) {
         // If default mode has been requested, and the list of modes is not
         // empty, then set such mode.
-        if(((params.mode.w == 0) && //
-            (params.mode.h == 0) && //
-            (params.mode.rate == 0)) &&
+        if(((parameters.mode.width == 0) &&  //
+            (parameters.mode.height == 0) && //
+            (parameters.mode.rate == 0)) &&
            !wl_list_empty(&(output->device->modes))) {
             wlr_output_set_mode(
                 output->device, wlr_output_preferred_mode(output->device));
@@ -1042,9 +1048,9 @@ rose_output_configure(struct rose_output* output,
         // Set the requested mode if it matches one of the available modes.
         struct wlr_output_mode* mode = NULL;
         wl_list_for_each(mode, &(output->device->modes), link) {
-            if((mode->width == params.mode.w) &&
-               (mode->height == params.mode.h) &&
-               (mode->refresh == params.mode.rate)) {
+            if((mode->width == parameters.mode.width) &&
+               (mode->height == parameters.mode.height) &&
+               (mode->refresh == parameters.mode.rate)) {
                 wlr_output_set_mode(output->device, mode);
                 break;
             }
@@ -1063,7 +1069,7 @@ rose_output_configure(struct rose_output* output,
         struct rose_device_preference preference = {
             .device_name = rose_output_name_obtain(output),
             .device_type = rose_device_type_output,
-            .params = {.output = params}};
+            .parameters = {.output = parameters}};
 
         // Perform update operation.
         rose_device_preference_list_update(
@@ -1116,7 +1122,7 @@ rose_output_focus_workspace(struct rose_output* output,
         rose_workspace_request_redraw(workspace);
     } else {
         // Otherwise, mark the output as damaged.
-        output->n_frames_without_damage = 0;
+        output->frame_without_damage_count = 0;
 
         // And hide the menu.
         rose_ui_menu_hide(&(output->ui.menu));
@@ -1274,7 +1280,7 @@ rose_output_remove_workspace(struct rose_output* output,
 void
 rose_output_request_redraw(struct rose_output* output) {
     // Reset the number of frames without damage taken.
-    output->n_frames_without_damage = 0;
+    output->frame_without_damage_count = 0;
 
     // Schedule a frame.
     rose_output_schedule_frame(output);
@@ -1282,7 +1288,6 @@ rose_output_request_redraw(struct rose_output* output) {
 
 void
 rose_output_schedule_frame(struct rose_output* output) {
-    // Only schedule a frame if it hasn't been already scheduled.
     if(!output->is_frame_scheduled) {
         output->is_frame_scheduled = true;
 
@@ -1297,13 +1302,13 @@ rose_output_schedule_frame(struct rose_output* output) {
 struct rose_output_state
 rose_output_state_obtain(struct rose_output* output) {
     // Compute output's DPI.
-    int dpi = (int)(output->device->scale * 96.0 + 0.5), w = 0, h = 0;
+    int dpi = (int)(output->device->scale * 96.0 + 0.5), width = 0, height = 0;
 
     // Compute output's width and height.
     if(true) {
         bool flip = ((output->device->transform % 2) != 0);
-        w = (flip ? output->device->height : output->device->width);
-        h = (flip ? output->device->width : output->device->height);
+        width = (flip ? output->device->height : output->device->width);
+        height = (flip ? output->device->width : output->device->height);
     }
 
     // Return output's state.
@@ -1314,8 +1319,8 @@ rose_output_state_obtain(struct rose_output* output) {
         .transform = output->device->transform,
         .dpi = dpi,
         .rate = output->device->refresh,
-        .w = w,
-        .h = h,
+        .width = width,
+        .height = height,
         .scale = output->device->scale,
         .is_scanned_out = output->is_scanned_out,
         .is_frame_scheduled = output->is_frame_scheduled,

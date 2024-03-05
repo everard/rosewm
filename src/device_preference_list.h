@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -14,6 +14,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 enum { rose_device_name_size = 64 };
+
 struct rose_device_name {
     char data[rose_device_name_size];
 };
@@ -25,7 +26,7 @@ struct rose_device_name {
 enum rose_device_type {
     rose_device_type_pointer,
     rose_device_type_output,
-    rose_n_device_types
+    rose_device_type_count_
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -33,13 +34,17 @@ enum rose_device_type {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_device_preference {
+    // Target device name.
     struct rose_device_name device_name;
+
+    // Target device type.
     enum rose_device_type device_type;
 
+    // Device configuration parameters.
     union {
         struct rose_pointer_configure_parameters pointer;
         struct rose_output_configure_parameters output;
-    } params;
+    } parameters;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

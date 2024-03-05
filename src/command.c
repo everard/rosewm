@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -92,13 +92,13 @@ rose_command_list_destroy(struct rose_command_list* command_list) {
 
         for(; node != NULL;
             node = next, next = rose_map_node_obtain_next(next)) {
-            // Obtain a pointer to the current command.
+            // Obtain the current command.
             struct rose_command* command = wl_container_of(node, command, node);
 
             // Remove the node from the map.
             command_list->root = rose_map_remove(command_list->root, node);
 
-            // Free command's memory.
+            // Free memory.
             free(command);
         }
     }
@@ -176,10 +176,10 @@ rose_command_list_notify_command_termination(
 
     // Destroy the command.
     if(node != NULL) {
-        // Obtain a pointer to the command.
+        // Obtain the command.
         struct rose_command* command = wl_container_of(node, command, node);
 
-        // Free command's memory.
+        // Free memory.
         free(command);
     }
 }
@@ -209,7 +209,7 @@ rose_command_list_query_access_rights(struct rose_command_list* command_list,
 
     // If such command exists, then return its rights.
     if(node != NULL) {
-        // Obtain a pointer to the command.
+        // Obtain the command.
         struct rose_command* command = wl_container_of(node, command, node);
 
         // Return command's access rights.
@@ -244,7 +244,7 @@ rose_command_argument_list_initialize(char const* file_path) {
 // Command execution interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_n_command_arguments_max = 255 };
+enum { rose_command_argument_max_count = 255 };
 
 pid_t
 rose_execute_command_in_child_process(
@@ -266,19 +266,19 @@ rose_execute_command_in_child_process(
         // Fork: the following code is only executed in the child process.
 
         // Allocate memory for command line arguments.
-        char* arguments[rose_n_command_arguments_max + 1] = {};
+        char* arguments[rose_command_argument_max_count + 1] = {};
 
         // Parse argument list.
-        for(char **arg = arguments,
-                 **sentinel = arguments + rose_n_command_arguments_max;
-            (arg != sentinel) && (argument_list.size != 0); ++arg) {
+        for(char **argument = arguments,
+                 **sentinel = arguments + rose_command_argument_max_count;
+            (argument != sentinel) && (argument_list.size != 0); ++argument) {
             // Save the argument and obtain its size.
-            size_t arg_size = strlen(*arg = argument_list.data) + 1;
+            size_t argument_size = strlen(*argument = argument_list.data) + 1;
 
             // Shrink the argument list. This is safe because the list is always
             // zero-terminated.
-            argument_list.data += arg_size;
-            argument_list.size -= arg_size;
+            argument_list.data += argument_size;
+            argument_list.size -= argument_size;
         }
 
         // Set SID.

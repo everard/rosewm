@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -48,13 +48,14 @@ rose_workspace_point_relate(double x, double y, struct rose_surface* surface) {
     struct rectangle surface_rectangle = //
         {.x0 = state.x,
          .y0 = state.y,
-         .x1 = state.x + state.w,
-         .y1 = state.y + state.h};
+         .x1 = state.x + state.width,
+         .y1 = state.y + state.height};
+
+#define is_inside_(x, y, region)                       \
+    ((((x) >= (region).x0) && ((y) >= (region).y0)) && \
+     (((x) <= (region).x1) && ((y) <= (region).y1)))
 
     // Check if the point is inside the surface's rectangle.
-#define is_inside_(x, y, r) \
-    (((x) >= (r).x0) && ((y) >= (r).y0) && ((x) <= (r).x1) && ((y) <= (r).y1))
-
     if(is_inside_(x, y, surface_rectangle)) {
         return rose_workspace_point_surface_relation_inside;
     }
@@ -129,11 +130,12 @@ rose_workspace_point_relate(double x, double y, struct rose_surface* surface) {
 #undef array_size_
 #undef is_inside_
 
+    // The point is outside the surface.
     return rose_workspace_point_surface_relation_outside;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// UI component selection-related utility functions and types.
+// UI component selecting utility function and types.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_workspace_ui_selection_type {
@@ -156,8 +158,6 @@ rose_workspace_ui_select(struct rose_workspace* workspace, double x, double y) {
     if(true) {
         // Obtain panel's data.
         struct rose_ui_panel panel = workspace->panel;
-
-        // Compute panel's visibility.
         if(panel.is_visible) {
             if((workspace->focused_surface != NULL) &&
                (workspace->focused_surface->state.pending.is_fullscreen)) {
@@ -170,30 +170,30 @@ rose_workspace_ui_select(struct rose_workspace* workspace, double x, double y) {
         if(panel.is_visible) {
             switch(panel.position) {
                 case rose_ui_panel_position_top:
-                    if((y < panel.size) && (x <= (workspace->w / 2))) {
+                    if((y < panel.size) && (x <= (workspace->width / 2))) {
                         result.type = rose_workspace_ui_selection_type_panel;
                     }
 
                     break;
 
                 case rose_ui_panel_position_bottom:
-                    if((y >= (workspace->h - panel.size)) &&
-                       (x <= (workspace->w / 2))) {
+                    if((y >= (workspace->height - panel.size)) &&
+                       (x <= (workspace->width / 2))) {
                         result.type = rose_workspace_ui_selection_type_panel;
                     }
 
                     break;
 
                 case rose_ui_panel_position_left:
-                    if((x < panel.size) && (y >= (workspace->h / 2))) {
+                    if((x < panel.size) && (y >= (workspace->height / 2))) {
                         result.type = rose_workspace_ui_selection_type_panel;
                     }
 
                     break;
 
                 case rose_ui_panel_position_right:
-                    if((x >= (workspace->w - panel.size)) &&
-                       (y <= (workspace->h / 2))) {
+                    if((x >= (workspace->width - panel.size)) &&
+                       (y <= (workspace->height / 2))) {
                         result.type = rose_workspace_ui_selection_type_panel;
                     }
 
@@ -227,7 +227,7 @@ rose_workspace_ui_select(struct rose_workspace* workspace, double x, double y) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Cursor manipulation-related utility functions.
+// Cursor manipulating utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
@@ -302,7 +302,7 @@ rose_workspace_mode_set(struct rose_workspace* workspace, uint32_t time_msec,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface selection utility function.
+// Surface selecting utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_surface*
@@ -333,7 +333,7 @@ rose_workspace_select_surface_at( //
 
 int
 rose_handle_event_workspace_pointer_timer_expiry(void* data) {
-    // Obtain a pointer to the workspace.
+    // Obtain the workspace.
     struct rose_workspace* workspace = data;
 
     // Clear timer's flag.
@@ -400,11 +400,11 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
 #define clamp_(x, a, b) max_((a), min_((x), (b)))
 
     // Update pointer's position.
-    workspace->pointer.x = clamp_(x, 0.0, (double)(workspace->w));
-    workspace->pointer.y = clamp_(y, 0.0, (double)(workspace->h));
+    workspace->pointer.x = clamp_(x, 0.0, (double)(workspace->width));
+    workspace->pointer.y = clamp_(y, 0.0, (double)(workspace->height));
 
-    x = clamp_(x, 0.0, (double)(workspace->w - 1));
-    y = clamp_(y, 0.0, (double)(workspace->h - 1));
+    x = clamp_(x, 0.0, (double)(workspace->width - 1));
+    y = clamp_(y, 0.0, (double)(workspace->height - 1));
 
     // Update pointer's last movement time.
     workspace->pointer.movement_time_msec = time_msec;
@@ -430,13 +430,11 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
         return;
     }
 
-    // Obtain current seat.
-    struct wlr_seat* seat = workspace->context->seat;
-
     // Perform additional actions depending on current mode.
+    struct wlr_seat* seat = workspace->context->seat;
     if(workspace->context->is_screen_locked) {
-        // If the screen is locked, then obtain a pointer to the parent output's
-        // screen lock widget.
+        // If the screen is locked, then obtain parent output's screen lock
+        // widget.
         struct rose_output_widget* screen_lock =
             ((workspace->output != NULL)
                  ? (!wl_list_empty(workspace->output->ui.widgets_mapped +
@@ -535,8 +533,11 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
                 y += workspace->focused_surface->state.current.y;
 
                 // Update pointer's position.
-                workspace->pointer.x = clamp_(x, 0.0, (double)(workspace->w));
-                workspace->pointer.y = clamp_(y, 0.0, (double)(workspace->h));
+                workspace->pointer.x =
+                    clamp_(x, 0.0, (double)(workspace->width));
+
+                workspace->pointer.y =
+                    clamp_(y, 0.0, (double)(workspace->height));
 
                 // Synchronize cursor's position with pointer's position.
                 rose_workspace_output_cursor_sync(workspace);
@@ -573,8 +574,11 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
                 y += workspace->focused_surface->state.current.y;
 
                 // Update pointer's position.
-                workspace->pointer.x = clamp_(x, 0.0, (double)(workspace->w));
-                workspace->pointer.y = clamp_(y, 0.0, (double)(workspace->h));
+                workspace->pointer.x =
+                    clamp_(x, 0.0, (double)(workspace->width));
+
+                workspace->pointer.y =
+                    clamp_(y, 0.0, (double)(workspace->height));
 
                 // Synchronize cursor's position with pointer's position.
                 rose_workspace_output_cursor_sync(workspace);
@@ -1055,6 +1059,7 @@ rose_workspace_notify_pointer_warp(
     struct rose_pointer_event_motion_absolute event) {
     // Compute workspace-local coordinates from normalized coordinates, and warp
     // the pointer.
-    rose_workspace_pointer_warp(workspace, event.time_msec,
-                                event.x * workspace->w, event.y * workspace->h);
+    rose_workspace_pointer_warp( //
+        workspace, event.time_msec, event.x * workspace->width,
+        event.y * workspace->height);
 }

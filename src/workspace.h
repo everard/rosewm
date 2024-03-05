@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -62,8 +62,8 @@ struct rose_workspace {
         bool is_timer_armed;
     } pointer;
 
-    // Extents.
-    int w, h;
+    // Extent.
+    int width, height;
 
     // Focus.
     struct rose_surface* focused_surface;
@@ -94,7 +94,7 @@ struct rose_workspace {
     } transaction;
 
     // Workspace's ID and number of frames rendered without new surface commits.
-    unsigned id, n_frames_without_commits;
+    unsigned id, frame_without_commits_count;
 
     // Current mode.
     enum rose_workspace_mode mode;
@@ -160,7 +160,7 @@ rose_workspace_focus_surface_relative(
 void
 rose_workspace_surface_configure( //
     struct rose_workspace* workspace, struct rose_surface* surface,
-    struct rose_surface_configure_parameters params);
+    struct rose_surface_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Surface addition/removal/reordering interface.

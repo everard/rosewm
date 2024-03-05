@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -29,17 +29,17 @@ struct wlr_output_layout;
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_output_mode {
-    int w, h, rate;
+    int width, height, rate;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Output mode list definition.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_n_output_modes_max = 128 };
+enum { rose_output_mode_max_count = 128 };
 
 struct rose_output_mode_list {
-    struct rose_output_mode data[rose_n_output_modes_max];
+    struct rose_output_mode data[rose_output_mode_max_count];
     size_t size;
 };
 
@@ -69,7 +69,7 @@ enum rose_output_cursor_type {
     rose_output_cursor_type_resizing_south_east,
     rose_output_cursor_type_resizing_south_west,
     rose_output_cursor_type_client,
-    rose_n_output_cursor_types
+    rose_output_cursor_type_count_
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +143,7 @@ struct rose_output {
     struct wl_list link;
 
     // Output's ID and number of frames rendered without damage.
-    unsigned id, n_frames_without_damage;
+    unsigned id, frame_without_damage_count;
 
     // Flags.
     bool is_scanned_out, is_frame_scheduled, is_rasters_update_requested;
@@ -167,7 +167,7 @@ struct rose_output_state {
     int dpi, rate;
 
     // Output's geometry.
-    int w, h;
+    int width, height;
 
     // Output's scaling factor.
     double scale;
@@ -235,7 +235,7 @@ rose_output_destroy(struct rose_output* output);
 
 bool
 rose_output_configure(struct rose_output* output,
-                      struct rose_output_configure_parameters params);
+                      struct rose_output_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Workspace focusing interface.

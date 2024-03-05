@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -22,13 +22,28 @@
     wl_signal_add(&((x)->events.f), &(widget->listener_##f))
 
 ////////////////////////////////////////////////////////////////////////////////
-// Layout-related utility functions.
+// Layout-related utility functions and types.
 ////////////////////////////////////////////////////////////////////////////////
+
+struct rose_screen_extent {
+    int width, height;
+};
+
+static struct rose_screen_extent
+rose_screen_extent_obtain(struct rose_output* output) {
+    // Obtain output's state.
+    struct rose_output_state output_state = rose_output_state_obtain(output);
+
+    // Compute width and height.
+    return (struct rose_screen_extent){
+        .width = (int)(0.5 + (output_state.width / output_state.scale)),
+        .height = (int)(0.5 + (output_state.height / output_state.scale))};
+}
 
 static struct rose_output_widget_state
 rose_output_widget_compute_layout( //
-    struct rose_output* output, enum rose_output_widget_type type, int w,
-    int h) {
+    struct rose_output* output, enum rose_output_widget_type type, int width,
+    int height) {
     // Initialize widget's position.
     int x = 0, y = 0;
 
@@ -45,18 +60,17 @@ rose_output_widget_compute_layout( //
         }
     }
 
-    // Obtain output's state.
-    struct rose_output_state output_state = rose_output_state_obtain(output);
-    int screen_w = (int)(0.5 + (output_state.w / output_state.scale));
-    int screen_h = (int)(0.5 + (output_state.h / output_state.scale));
+    // Obtain screen extent.
+    struct rose_screen_extent screen_extent = rose_screen_extent_obtain(output);
 
     // Perform type-dependent computation.
     switch(type) {
         case rose_output_widget_type_screen_lock:
             // fall-through
         case rose_output_widget_type_background: {
-            x = (screen_w - w) / 2;
-            y = (screen_h - h) / 2;
+            x = (screen_extent.width - width) / 2;
+            y = (screen_extent.height - height) / 2;
+
             break;
         }
 
@@ -66,13 +80,13 @@ rose_output_widget_compute_layout( //
             // Perform computations depending on panel's position.
             switch(panel.position) {
                 case rose_ui_panel_position_bottom:
-                    x = screen_w - w - margin;
+                    x = screen_extent.width - width - margin;
                     y = margin;
 
                     break;
 
                 case rose_ui_panel_position_top:
-                    x = screen_w - w - margin;
+                    x = screen_extent.width - width - margin;
                     y = margin + (panel.is_visible ? panel.size : 0);
 
                     break;
@@ -84,7 +98,7 @@ rose_output_widget_compute_layout( //
                     break;
 
                 case rose_ui_panel_position_left:
-                    x = screen_w - w - margin;
+                    x = screen_extent.width - width - margin;
                     y = margin;
 
                     break;
@@ -124,15 +138,15 @@ rose_output_widget_compute_layout( //
             // Perform computations depending on panel's position.
             switch(panel.position) {
                 case rose_ui_panel_position_bottom:
-                    y = screen_h - panel.size;
+                    y = screen_extent.height - panel.size;
                     // fall-through
                 case rose_ui_panel_position_top:
-                    x = screen_w / 2;
+                    x = screen_extent.width / 2;
                     break;
 
                 case rose_ui_panel_position_right:
-                    x = screen_w - panel.size;
-                    y = screen_h / 2;
+                    x = screen_extent.width - panel.size;
+                    y = screen_extent.height / 2;
 
                     break;
 
@@ -149,7 +163,8 @@ rose_output_widget_compute_layout( //
     }
 
     // Return calculated layout.
-    return (struct rose_output_widget_state){.x = x, .y = y, .w = w, .h = h};
+    return (struct rose_output_widget_state){
+        .x = x, .y = y, .width = width, .height = height};
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -169,11 +184,11 @@ rose_handle_event_output_widget_surface_map(struct wl_listener* listener,
                                             void* data) {
     unused_(data);
 
-    // Obtain a pointer to the widget.
+    // Obtain the widget.
     struct rose_output_widget* widget =
         wl_container_of(listener, widget, listener_map);
 
-    // Obtain a pointer to the parent UI object.
+    // Obtain the parent UI object.
     struct rose_output_ui* ui =
         ((widget->surface_type == rose_output_widget_surface_type_toplevel)
              ? widget->ui
@@ -207,11 +222,11 @@ rose_handle_event_output_widget_surface_unmap(struct wl_listener* listener,
                                               void* data) {
     unused_(data);
 
-    // Obtain a pointer to the widget.
+    // Obtain the widget.
     struct rose_output_widget* widget =
         wl_container_of(listener, widget, listener_unmap);
 
-    // Obtain a pointer to the parent output.
+    // Obtain the parent output.
     struct rose_output* output =
         ((widget->surface_type == rose_output_widget_surface_type_toplevel)
              ? widget->output
@@ -242,11 +257,11 @@ rose_handle_event_output_widget_surface_commit(struct wl_listener* listener,
                                                void* data) {
     unused_(data);
 
-    // Obtain a pointer to the widget.
+    // Obtain the widget.
     struct rose_output_widget* widget =
         wl_container_of(listener, widget, listener_commit);
 
-    // Obtain a pointer to the parent output.
+    // Obtain the parent output.
     struct rose_output* output =
         ((widget->surface_type == rose_output_widget_surface_type_toplevel)
              ? widget->output
@@ -254,7 +269,7 @@ rose_handle_event_output_widget_surface_commit(struct wl_listener* listener,
 
     // Position the widget, if needed.
     if(widget->surface_type == rose_output_widget_surface_type_toplevel) {
-        if((widget->type < rose_output_n_special_widget_types) ||
+        if((widget->type < rose_output_special_widget_type_count_) ||
            (widget->type == rose_output_widget_type_notification)) {
             widget->state = rose_output_widget_compute_layout(
                 output, widget->type,
@@ -272,10 +287,10 @@ rose_handle_event_output_widget_surface_commit(struct wl_listener* listener,
 static void
 rose_handle_event_output_widget_surface_new_subsurface(
     struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the underlying subsurface.
+    // Obtain the underlying subsurface.
     struct wlr_subsurface* subsurface = data;
 
-    // Obtain a pointer to the master widget.
+    // Obtain the master widget.
     struct rose_output_widget* master =
         wl_container_of(listener, master, listener_new_subsurface);
 
@@ -312,10 +327,10 @@ rose_handle_event_output_widget_surface_new_subsurface(
 static void
 rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
                                                   void* data) {
-    // Obtain a pointer to the base XDG surface.
+    // Obtain the base XDG surface.
     struct wlr_xdg_surface* xdg_surface = ((struct wlr_xdg_popup*)(data))->base;
 
-    // Obtain a pointer to the master widget.
+    // Obtain the master widget.
     struct rose_output_widget* master =
         wl_container_of(listener, master, listener_new_popup);
 
@@ -349,16 +364,16 @@ rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
     add_signal_(xdg_surface, new_popup);
     add_signal_(xdg_surface, destroy);
 
-    // Obtain parent output's state.
-    struct rose_output_state output_state =
-        rose_output_state_obtain(master->output);
-
-    int w = (int)(0.5 + ((double)(output_state.w) / output_state.scale));
-    int h = (int)(0.5 + ((double)(output_state.h) / output_state.scale));
+    // Obtain screen extent.
+    struct rose_screen_extent screen_extent =
+        rose_screen_extent_obtain(master->output);
 
     // Set constraining box.
     struct wlr_box constraints = //
-        {.x = -master->state.x, .y = -master->state.y, .width = w, .height = h};
+        {.x = -master->state.x,
+         .y = -master->state.y,
+         .width = screen_extent.width,
+         .height = screen_extent.height};
 
     wlr_xdg_popup_unconstrain_from_box(xdg_surface->popup, &constraints);
 }
@@ -368,7 +383,7 @@ rose_handle_event_output_widget_surface_destroy(struct wl_listener* listener,
                                                 void* data) {
     unused_(data);
 
-    // Obtain a pointer to the widget.
+    // Obtain the widget.
     struct rose_output_widget* widget =
         wl_container_of(listener, widget, listener_destroy);
 
@@ -432,7 +447,7 @@ void
 rose_output_widget_initialize( //
     struct rose_output_ui* ui, struct wlr_xdg_toplevel* toplevel,
     enum rose_output_widget_type type) {
-    // Obtain a pointer to the base XDG surface.
+    // Obtain the base XDG surface.
     struct wlr_xdg_surface* xdg_surface = toplevel->base;
 
     // Create a new widget.
@@ -493,7 +508,7 @@ rose_output_widget_destroy(struct rose_output_widget* widget) {
         }
     }
 
-    // Obtain a pointer to the parent output.
+    // Obtain the parent output.
     struct rose_output* output =
         ((widget->surface_type == rose_output_widget_surface_type_toplevel)
              ? widget->output
@@ -541,7 +556,7 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
         return;
     }
 
-    // Obtain a pointer to the widget's parent output.
+    // Obtain the widget's parent output.
     struct rose_output* output = widget->output;
 
     // Obtain panel's data.
@@ -557,19 +572,17 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
         }
     }
 
-    // Obtain output's state.
-    struct rose_output_state output_state = rose_output_state_obtain(output);
-    int screen_w = (int)(0.5 + (output_state.w / output_state.scale));
-    int screen_h = (int)(0.5 + (output_state.h / output_state.scale));
+    // Obtain screen extent.
+    struct rose_screen_extent screen_extent = rose_screen_extent_obtain(output);
 
     // Compute widget's size.
-    int w = 1, h = 1;
+    int width = 1, height = 1;
     switch(widget->type) {
         case rose_output_widget_type_screen_lock:
             // fall-through
         case rose_output_widget_type_background: {
-            w = screen_w;
-            h = screen_h;
+            width = screen_extent.width;
+            height = screen_extent.height;
 
             break;
         }
@@ -583,16 +596,16 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
                 case rose_ui_panel_position_bottom:
                     // fall-through
                 case rose_ui_panel_position_top:
-                    w = screen_w / 2 - margin;
-                    h = (screen_h - offset) / 2 - margin;
+                    width = screen_extent.width / 2 - margin;
+                    height = (screen_extent.height - offset) / 2 - margin;
 
                     break;
 
                 case rose_ui_panel_position_right:
                     // fall-through
                 case rose_ui_panel_position_left:
-                    w = (screen_w - offset) / 2 - margin;
-                    h = screen_h / 2 - margin;
+                    width = (screen_extent.width - offset) / 2 - margin;
+                    height = screen_extent.height / 2 - margin;
 
                     break;
 
@@ -609,16 +622,18 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
                 case rose_ui_panel_position_bottom:
                     // fall-through
                 case rose_ui_panel_position_top:
-                    w = screen_w;
-                    h = panel.size;
+                    width = screen_extent.width;
+                    height = panel.size;
 
                     break;
 
                 case rose_ui_panel_position_right:
                     // fall-through
                 case rose_ui_panel_position_left:
-                    w = screen_w - (panel.is_visible ? panel.size : 0);
-                    h = panel.size;
+                    width = screen_extent.width -
+                            (panel.is_visible ? panel.size : 0);
+
+                    height = panel.size;
 
                     break;
 
@@ -635,16 +650,16 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
                 case rose_ui_panel_position_bottom:
                     // fall-through
                 case rose_ui_panel_position_top:
-                    w = screen_w / 2;
-                    h = panel.size;
+                    width = screen_extent.width / 2;
+                    height = panel.size;
 
                     break;
 
                 case rose_ui_panel_position_right:
                     // fall-through
                 case rose_ui_panel_position_left:
-                    w = panel.size;
-                    h = screen_h / 2;
+                    width = panel.size;
+                    height = screen_extent.height / 2;
 
                     break;
 
@@ -660,15 +675,15 @@ rose_output_widget_configure(struct rose_output_widget* widget) {
     }
 
     // Clamp widget's size.
-    w = max_(w, 1);
-    h = max_(h, 1);
+    width = max_(width, 1);
+    height = max_(height, 1);
 
     // Set widget surface's size.
-    wlr_xdg_toplevel_set_size(widget->xdg_surface->toplevel, w, h);
+    wlr_xdg_toplevel_set_size(widget->xdg_surface->toplevel, width, height);
 
     // Compute widget's layout.
     widget->state =
-        rose_output_widget_compute_layout(output, widget->type, w, h);
+        rose_output_widget_compute_layout(output, widget->type, width, height);
 
     // Request activated and maximized state for the underlying surface.
     wlr_xdg_toplevel_set_activated(widget->xdg_surface->toplevel, true);
@@ -688,14 +703,14 @@ rose_output_widget_state_obtain(struct rose_output_widget* widget) {
 
 bool
 rose_output_widget_is_visible(struct rose_output_widget* widget) {
-    // A child widget is visible iff its master widget is visible.
+    // A child widget is visible if its master widget is visible.
     if(widget->surface_type != rose_output_widget_surface_type_toplevel) {
         return rose_output_widget_is_visible(widget->master);
     }
 
     // Normal widgets are not visible if the screen is locked.
     if(widget->output->context->is_screen_locked &&
-       (widget->type >= rose_output_n_special_widget_types)) {
+       (widget->type >= rose_output_special_widget_type_count_)) {
         return false;
     }
 
@@ -710,7 +725,7 @@ rose_output_widget_is_visible(struct rose_output_widget* widget) {
         return false;
     }
 
-    // Panel's widget is visible iff the panel is visible.
+    // Panel's widget is visible if the panel is visible.
     if(widget->type == rose_output_widget_type_panel) {
         // Obtain output's focused workspace.
         struct rose_workspace* workspace = widget->output->focused_workspace;

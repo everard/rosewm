@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -31,8 +31,7 @@ rose_handle_event_pointer_axis(struct wl_listener* listener, void* data) {
     // Terminology is a bit confusing, since Wayland uses the word "pointer" to
     // describe pointing device, such as mouse, touch pad, etc.
 
-    // Obtain a pointer to the device.
-    // Note: A C pointer to the pointing device. I'm so terribly sorry.
+    // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_axis);
 
@@ -56,7 +55,7 @@ rose_handle_event_pointer_axis(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_pointer_button(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_button);
 
@@ -79,7 +78,7 @@ rose_handle_event_pointer_button(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_pointer_motion(struct wl_listener* listener, void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_motion);
 
@@ -103,7 +102,7 @@ rose_handle_event_pointer_motion(struct wl_listener* listener, void* data) {
 static void
 rose_handle_event_pointer_motion_absolute(struct wl_listener* listener,
                                           void* data) {
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_motion_absolute);
 
@@ -126,7 +125,7 @@ static void
 rose_handle_event_pointer_frame(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the device.
+    // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_frame);
 
@@ -144,14 +143,14 @@ rose_pointer_initialize(struct rose_pointer* pointer,
     // Initialize the pointer device.
     *pointer = (struct rose_pointer){.parent = parent};
 
-    // Obtain a pointer to the underlying input device.
-    struct wlr_pointer* dev_pointer =
+    // Obtain the underlying input device.
+    struct wlr_pointer* device =
         wlr_pointer_from_input_device(pointer->parent->device);
 
-#define add_signal_(f)                                                     \
-    {                                                                      \
-        pointer->listener_##f.notify = rose_handle_event_pointer_##f;      \
-        wl_signal_add(&(dev_pointer->events.f), &(pointer->listener_##f)); \
+#define add_signal_(f)                                                \
+    {                                                                 \
+        pointer->listener_##f.notify = rose_handle_event_pointer_##f; \
+        wl_signal_add(&(device->events.f), &(pointer->listener_##f)); \
     }
 
     // Register listeners.
@@ -183,9 +182,9 @@ rose_pointer_destroy(struct rose_pointer* pointer) {
 
 bool
 rose_pointer_configure(struct rose_pointer* pointer,
-                       struct rose_pointer_configure_parameters params) {
+                       struct rose_pointer_configure_parameters parameters) {
     // If requested configuration is a no-op, then return success.
-    if(params.flags == 0) {
+    if(parameters.flags == 0) {
         return true;
     }
 
@@ -194,55 +193,56 @@ rose_pointer_configure(struct rose_pointer* pointer,
         return false;
     }
 
-    // Obtain a pointer to the underlying libinput device.
-    struct libinput_device* dev_libinput =
+    // Obtain the underlying libinput device.
+    struct libinput_device* device =
         wlr_libinput_get_device_handle(pointer->parent->device);
 
     // If there is no such device, then configuration fails.
-    if(dev_libinput == NULL) {
+    if(device == NULL) {
         return false;
     }
 
     // If the device does not support acceleration, then configuration fails.
-    if(!libinput_device_config_accel_is_available(dev_libinput)) {
+    if(!libinput_device_config_accel_is_available(device)) {
         return false;
     }
 
     // Check the validity of the specified parameters.
 
-    if((params.flags & rose_pointer_configure_acceleration_type) != 0) {
+    if((parameters.flags & rose_pointer_configure_acceleration_type) != 0) {
         // Note: There are only flat and adaptive acceleration types.
-        if((params.acceleration_type != rose_pointer_acceleration_type_flat) &&
-           (params.acceleration_type !=
+        if((parameters.acceleration_type !=
+            rose_pointer_acceleration_type_flat) &&
+           (parameters.acceleration_type !=
             rose_pointer_acceleration_type_adaptive)) {
             return false;
         }
     }
 
-    if((params.flags & rose_pointer_configure_speed) != 0) {
+    if((parameters.flags & rose_pointer_configure_speed) != 0) {
         // Note: The speed can not be NaN or infinity.
-        if(!isfinite(params.speed)) {
+        if(!isfinite(parameters.speed)) {
             return false;
         }
     }
 
     // Set specified parameters.
 
-    if((params.flags & rose_pointer_configure_acceleration_type) != 0) {
-        // Note: There are only flat and adaptive acceleration types.
-        if(params.acceleration_type == rose_pointer_acceleration_type_flat) {
+    if((parameters.flags & rose_pointer_configure_acceleration_type) != 0) {
+        if(parameters.acceleration_type ==
+           rose_pointer_acceleration_type_flat) {
             libinput_device_config_accel_set_profile(
-                dev_libinput, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT);
+                device, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT);
         } else {
             libinput_device_config_accel_set_profile(
-                dev_libinput, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE);
+                device, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE);
         }
     }
 
-    if((params.flags & rose_pointer_configure_speed) != 0) {
+    if((parameters.flags & rose_pointer_configure_speed) != 0) {
         // Note: The speed is clamped to the [-1; 1] interval.
         libinput_device_config_accel_set_speed(
-            dev_libinput, clamp_(params.speed, -1.0, 1.0));
+            device, clamp_(parameters.speed, -1.0, 1.0));
     }
 
     // Update device preference list, if needed.
@@ -251,7 +251,7 @@ rose_pointer_configure(struct rose_pointer* pointer,
         struct rose_device_preference preference = {
             .device_name = rose_input_name_obtain(pointer->parent),
             .device_type = rose_device_type_pointer,
-            .params = {.pointer = params}};
+            .parameters = {.pointer = parameters}};
 
         // Perform update operation.
         rose_device_preference_list_update(
@@ -273,15 +273,15 @@ rose_pointer_state_obtain(struct rose_pointer* pointer) {
 
     // Obtain underlying device's state.
     if(wlr_input_device_is_libinput(pointer->parent->device)) {
-        // Obtain a pointer to the underlying libinput device.
-        struct libinput_device* dev_libinput =
+        // Obtain the underlying libinput device.
+        struct libinput_device* device =
             wlr_libinput_get_device_handle(pointer->parent->device);
 
         // Obtain acceleration data, if available.
-        if((dev_libinput != NULL) &&
-           libinput_device_config_accel_is_available(dev_libinput)) {
+        if((device != NULL) &&
+           libinput_device_config_accel_is_available(device)) {
             // Obtain acceleration type.
-            switch(libinput_device_config_accel_get_profile(dev_libinput)) {
+            switch(libinput_device_config_accel_get_profile(device)) {
                 case LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT:
                     state.acceleration_type =
                         rose_pointer_acceleration_type_flat;
@@ -299,7 +299,7 @@ rose_pointer_state_obtain(struct rose_pointer* pointer) {
             }
 
             // Obtain the speed.
-            state.speed = libinput_device_config_accel_get_speed(dev_libinput);
+            state.speed = libinput_device_config_accel_get_speed(device);
 
             // And set the flag.
             state.is_acceleration_supported = true;

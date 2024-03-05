@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -48,7 +48,7 @@ enum rose_core_action_type {
     rose_core_action_type_run_terminal_ipc,
 
     // Total number of actions.
-    rose_n_core_action_types
+    rose_core_action_type_count_
 };
 
 enum rose_menu_action_type {
@@ -67,7 +67,7 @@ enum rose_menu_action_type {
     rose_menu_action_type_switch_line_type,
 
     // Total number of actions.
-    rose_n_menu_action_types
+    rose_menu_action_type_count_
 };
 
 ////////////////////////////////////////////////////////////////////////////////

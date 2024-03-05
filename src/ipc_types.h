@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -82,18 +82,18 @@ struct rose_ipc_status {
 // IPC connection-related definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_n_ipc_connections_max = 32 };
+enum { rose_ipc_connection_max_count = 32 };
 
 enum rose_ipc_connection_type {
     rose_ipc_connection_type_none,
     rose_ipc_connection_type_configurator,
     rose_ipc_connection_type_dispatcher,
     rose_ipc_connection_type_status,
-    rose_n_ipc_connection_types
+    rose_ipc_connection_type_count_
 };
 
 struct rose_ipc_connection_container {
-    struct wl_list connections[rose_n_ipc_connection_types];
+    struct wl_list connections[rose_ipc_connection_type_count_];
     size_t size;
 };
 

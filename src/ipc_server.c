@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -28,7 +28,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_ipc_server {
-    // Pointer to the parent server context.
+    // Pointer to the server context.
     struct rose_server_context* context;
 
     // Listening socket's file descriptor and address.
@@ -58,7 +58,7 @@ rose_handle_event_ipc_server_connection(int fd, uint32_t mask, void* data) {
         return 0;
     }
 
-    // Obtain a pointer to the IPC server.
+    // Obtain the IPC server.
     struct rose_ipc_server* server = data;
 
     // Configure connected socket.
@@ -78,12 +78,12 @@ rose_handle_event_ipc_server_connection(int fd, uint32_t mask, void* data) {
     }
 
     // Initialize a new connection.
-    struct rose_ipc_connection_parameters params = {
+    struct rose_ipc_connection_parameters parameters = {
         .socket_fd = fd,
         .context = server->context,
         .container = &(server->container)};
 
-    return rose_ipc_connection_initialize(params), 0;
+    return rose_ipc_connection_initialize(parameters), 0;
 
 error:
     // On error, close client's socket.
@@ -94,7 +94,7 @@ static void
 rose_handle_event_display_destroy(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the IPC server.
+    // Obtain the IPC server.
     struct rose_ipc_server* server =
         wl_container_of(listener, server, listener_display_destroy);
 
@@ -118,7 +118,7 @@ rose_ipc_server_initialize(struct rose_server_context* context) {
     }
 
     // Initialize lists of connections.
-    for(ptrdiff_t i = 0; i != rose_n_ipc_connection_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_ipc_connection_type_count_; ++i) {
         wl_list_init(&(server->container.connections[i]));
     }
 
@@ -200,7 +200,7 @@ rose_ipc_server_destroy(struct rose_ipc_server* server) {
     // Remove event listener.
     wl_list_remove(&(server->listener_display_destroy.link));
 
-    // Remove event source for handling incoming connections.
+    // Remove event source which handles incoming connections.
     if(server->event_source != NULL) {
         wl_event_source_remove(server->event_source);
     }
@@ -220,7 +220,7 @@ rose_ipc_server_destroy(struct rose_ipc_server* server) {
         struct rose_ipc_connection* connection = NULL;
         struct rose_ipc_connection* _ = NULL;
 
-        for(ptrdiff_t i = 0; i != rose_n_ipc_connection_types; ++i) {
+        for(ptrdiff_t i = 0; i != rose_ipc_connection_type_count_; ++i) {
             wl_list_for_each_safe(
                 connection, _, &(server->container.connections[i]), link) {
                 rose_ipc_connection_destroy(connection);

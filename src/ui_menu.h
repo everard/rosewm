@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -27,7 +27,7 @@ enum rose_ui_menu_line_type {
     rose_ui_menu_line_type_surface,
     rose_ui_menu_line_type_workspace,
     rose_ui_menu_line_type_output,
-    rose_n_ui_menu_line_types
+    rose_ui_menu_line_type_count_
 };
 
 struct rose_ui_menu_line {
@@ -36,19 +36,19 @@ struct rose_ui_menu_line {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Menu page and text definition.
+// Menu page and text definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_n_ui_menu_lines_max = 50 };
+enum { rose_ui_menu_line_max_count = 50 };
 
 struct rose_ui_menu_page {
-    struct rose_ui_menu_line lines[rose_n_ui_menu_lines_max];
-    int n_lines, mark_idx, selection_idx;
+    struct rose_ui_menu_line lines[rose_ui_menu_line_max_count];
+    int line_count, mark_index, selection_index;
 };
 
 struct rose_ui_menu_text {
-    struct rose_utf32_string lines[rose_n_ui_menu_lines_max];
-    int n_lines;
+    struct rose_utf32_string lines[rose_ui_menu_line_max_count];
+    int line_count;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,13 +70,13 @@ struct rose_ui_menu {
 
     // Menu's rectangular area.
     struct {
-        int x, y, w, h;
+        int x, y, width, height;
     } area;
 
     // Layout data.
     struct {
         int margin_x, margin_y;
-        int line_h, n_lines_max;
+        int line_height, line_max_count;
     } layout;
 
     // Current state.

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -31,7 +31,7 @@ struct rose_text_rendering_context_parameters {
     struct rose_memory* fonts;
 
     // Size of the array.
-    size_t n_fonts;
+    size_t font_count;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -39,17 +39,17 @@ struct rose_text_rendering_context_parameters {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_text_rendering_parameters {
-    int font_size, dpi, w_max;
+    int font_size, dpi, max_width;
     struct rose_color color;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Text rendering extents definition. This type is used as a return type of
+// Text rendering extent definition. This type is used as a return type of
 // rendering operations.
 ////////////////////////////////////////////////////////////////////////////////
 
-struct rose_text_rendering_extents {
-    int w, h;
+struct rose_text_rendering_extent {
+    int width, height;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ struct rose_pixel_buffer {
     unsigned char* data;
 
     // Width, height, and pitch (pitch is the byte size of the line of pixels).
-    int w, h, pitch;
+    int width, height, pitch;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,7 +74,7 @@ struct rose_pixel_buffer {
 // freed.
 struct rose_text_rendering_context*
 rose_text_rendering_context_initialize(
-    struct rose_text_rendering_context_parameters params);
+    struct rose_text_rendering_context_parameters parameters);
 
 void
 rose_text_rendering_context_destroy(
@@ -84,16 +84,16 @@ rose_text_rendering_context_destroy(
 // Text rendering interface.
 ////////////////////////////////////////////////////////////////////////////////
 
-struct rose_text_rendering_extents
-rose_compute_string_extents( //
+struct rose_text_rendering_extent
+rose_compute_string_extent( //
     struct rose_text_rendering_context* context,
-    struct rose_text_rendering_parameters params,
+    struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string);
 
-struct rose_text_rendering_extents
+struct rose_text_rendering_extent
 rose_render_string( //
     struct rose_text_rendering_context* context,
-    struct rose_text_rendering_parameters params,
+    struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string, //
     struct rose_pixel_buffer pixel_buffer);
 

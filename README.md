@@ -199,12 +199,13 @@ Leader can only take the values specified in the following table.
 | 4     | `XKB_KEY_Menu`    |
 
 Requirements:
- * $N_{core} \in$ `[rose_n_core_action_types, 2 * rose_n_core_action_types]`
- * $N_{menu} \in$ `[rose_n_menu_action_types, 2 * rose_n_menu_action_types]`
+ * $N_{core} \in [N_{0}, 2 * N_{0}]$
+ * $N_{menu} \in [N_{1}, 2 * N_{1}]$
  * $N_{IPC} \in [0, 128]$
 
-The constants `rose_n_core_action_types` and `rose_n_menu_action_types` are
-defined in the [src/action.h](src/action.h) file.
+Where $N_{0}$ = `rose_core_action_type_count_` and $N_{1}$ = `rose_menu_action_type_count_`.
+
+These constants are defined in the [src/action.h](src/action.h) file.
 
 ### CORE/MENU ACTION TYPE
 Both the _core action_ and _menu action_ types have the same format. This format
@@ -229,8 +230,8 @@ _IPC action_ type has the following format.
 
 | FIELD              | TYPE                      |
 |--------------------|---------------------------|
-| IPC command        | array of 64 bytes         |
 | shortcut           | object of _shortcut_ type |
+| IPC command        | array of 64 bytes         |
 
 ### SHORTCUT TYPE
 Shortcut type is an array of 5 keysyms. Each keysym is represented by a 32-bit
@@ -423,7 +424,7 @@ Build system uses `pkg-config` to obtain compiler and linker flags for
 dependencies.
 
 Dependencies:
- * WLRoots version 0.17
+ * wlroots version 0.17
  * wayland-protocols
  * wayland-scanner
  * wayland-server
@@ -434,7 +435,7 @@ Dependencies:
  * fribidi
 
 # LICENSE
-Copyright Nezametdinov E. Ildus 2022.
+Copyright Nezametdinov E. Ildus 2024.
 
 Distributed under the GNU General Public License, Version 3.
 (See accompanying file LICENSE_GPL_3_0.txt or copy at

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -62,14 +62,14 @@ static struct wlr_buffer_impl const rose_raster_buffer_implementation = {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_raster*
-rose_raster_initialize(struct wlr_renderer* renderer, int w, int h) {
+rose_raster_initialize(struct wlr_renderer* renderer, int width, int height) {
     // Initialize a new raster object.
-    struct rose_raster* raster = rose_raster_initialize_without_texture(w, h);
+    struct rose_raster* raster =
+        rose_raster_initialize_without_texture(width, height);
+
     if(raster != NULL) {
         // Initialize raster's texture.
         raster->texture = wlr_texture_from_buffer(renderer, &(raster->base));
-
-        // If initialization failed, then free allocated memory.
         if(raster->texture == NULL) {
             return rose_raster_destroy(raster), NULL;
         }
@@ -80,14 +80,14 @@ rose_raster_initialize(struct wlr_renderer* renderer, int w, int h) {
 }
 
 struct rose_raster*
-rose_raster_initialize_without_texture(int w, int h) {
+rose_raster_initialize_without_texture(int width, int height) {
     // Clamp the dimensions.
-    w = clamp_(w, 1, 32768);
-    h = clamp_(h, 1, 32768);
+    width = clamp_(width, 1, 32768);
+    height = clamp_(height, 1, 32768);
 
     // Compute raster's pixel data size.
     // Note: This computation never wraps around.
-    uint64_t data_size = cast_(uint64_t, w) * cast_(uint64_t, h) * 4U;
+    uint64_t data_size = cast_(uint64_t, width) * cast_(uint64_t, height) * 4U;
 
     // Compute and validate raster object's size.
     size_t object_size = //
@@ -107,7 +107,7 @@ rose_raster_initialize_without_texture(int w, int h) {
 
         // Initialize raster's buffer interface.
         wlr_buffer_init(
-            &(raster->base), &rose_raster_buffer_implementation, w, h);
+            &(raster->base), &rose_raster_buffer_implementation, width, height);
     }
 
     // Clear the pixels.

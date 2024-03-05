@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -36,11 +36,11 @@ struct rose_raster {
 
 // Note: This function initializes raster's texture.
 struct rose_raster*
-rose_raster_initialize(struct wlr_renderer* renderer, int w, int h);
+rose_raster_initialize(struct wlr_renderer* renderer, int width, int height);
 
 // Note: This function does not initialize raster's texture.
 struct rose_raster*
-rose_raster_initialize_without_texture(int w, int h);
+rose_raster_initialize_without_texture(int width, int height);
 
 // Note: This function destroys raster's texture immediately, but might postpone
 // memory freeing (in case the underlying buffer is locked).

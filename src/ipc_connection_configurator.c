@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -119,19 +119,19 @@ rose_output_device_descriptor_obtain(struct rose_output* output) {
 // IO utility functions: Basic Types, Read.
 ////////////////////////////////////////////////////////////////////////////////
 
-#define define_read_(type)                                   \
-    /* Zero-initialize the resulting value. */               \
-    type r = 0;                                              \
-                                                             \
-    /* Read the value from the buffer. */                    \
-    memcpy(&r, buffer->data, min_(sizeof(r), buffer->size)); \
-                                                             \
-    /* Shrink the buffer. */                                 \
-    buffer->data += min_(sizeof(r), buffer->size);           \
-    buffer->size -= min_(sizeof(r), buffer->size);           \
-                                                             \
-    /* Return resulting value. */                            \
-    return r;
+#define define_read_(type)                                             \
+    /* Zero-initialize the resulting value. */                         \
+    type result = 0;                                                   \
+                                                                       \
+    /* Read the value from the buffer. */                              \
+    memcpy(&result, buffer->data, min_(sizeof(result), buffer->size)); \
+                                                                       \
+    /* Shrink the buffer. */                                           \
+    buffer->data += min_(sizeof(result), buffer->size);                \
+    buffer->size -= min_(sizeof(result), buffer->size);                \
+                                                                       \
+    /* Return resulting value. */                                      \
+    return result;
 
 static unsigned char
 rose_ipc_buffer_ref_read_byte(struct rose_ipc_buffer_ref* buffer) {
@@ -289,10 +289,10 @@ rose_ipc_connection_dispatch_configuration_request(
         // rose_ipc_configure_request_type_update_server_state
         1};
 
-    // Obtain a pointer to the server context.
+    // Obtain the server context.
     struct rose_server_context* context = connection->context;
 
-    // Initialize response.
+    // Initialize an empty buffer for response.
     struct rose_ipc_buffer response = {};
 
     // Respond with failure if the given request is not valid.
@@ -336,7 +336,7 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Write the number of keyboard layouts in the keymap.
             rose_ipc_buffer_write_uint(
-                &response, context->keyboard_context->n_layouts);
+                &response, context->keyboard_context->layout_count);
 
             // Write keyboard layouts.
             rose_ipc_buffer_write_string( //
@@ -355,8 +355,8 @@ rose_ipc_connection_dispatch_configuration_request(
                 &response, rose_ipc_configure_result_success);
 
             // Write the number of input and output devices.
-            rose_ipc_buffer_write_uint(&response, state.n_inputs);
-            rose_ipc_buffer_write_uint(&response, state.n_outputs);
+            rose_ipc_buffer_write_uint(&response, state.input_device_count);
+            rose_ipc_buffer_write_uint(&response, state.output_device_count);
 
             break;
         }
@@ -458,8 +458,8 @@ rose_ipc_connection_dispatch_configuration_request(
             rose_ipc_buffer_write_int(&response, state.rate);
 
             // Write output's geometry.
-            rose_ipc_buffer_write_int(&response, state.w);
-            rose_ipc_buffer_write_int(&response, state.h);
+            rose_ipc_buffer_write_int(&response, state.width);
+            rose_ipc_buffer_write_int(&response, state.height);
 
             // Write output's scaling factor.
             rose_ipc_buffer_write_double(&response, state.scale);
@@ -467,8 +467,8 @@ rose_ipc_connection_dispatch_configuration_request(
             // Write the list of output's modes.
             rose_ipc_buffer_write_uint(&response, cast_(unsigned, modes.size));
             for(size_t i = 0; i != modes.size; ++i) {
-                rose_ipc_buffer_write_int(&response, modes.data[i].w);
-                rose_ipc_buffer_write_int(&response, modes.data[i].h);
+                rose_ipc_buffer_write_int(&response, modes.data[i].width);
+                rose_ipc_buffer_write_int(&response, modes.data[i].height);
                 rose_ipc_buffer_write_int(&response, modes.data[i].rate);
             }
 
@@ -495,7 +495,7 @@ rose_ipc_connection_dispatch_configuration_request(
                 rose_ipc_buffer_ref_read_device_descriptor(&request);
 
             // Read pointer's configuration parameters.
-            struct rose_pointer_configure_parameters params = {
+            struct rose_pointer_configure_parameters parameters = {
                 .flags = rose_ipc_buffer_ref_read_uint(&request),
                 .acceleration_type = rose_ipc_buffer_ref_read_byte(&request),
                 .speed = rose_ipc_buffer_ref_read_float(&request)};
@@ -516,7 +516,7 @@ rose_ipc_connection_dispatch_configuration_request(
             }
 
             // Configure the pointer and write operation's result.
-            if(rose_pointer_configure(&(input->pointer), params)) {
+            if(rose_pointer_configure(&(input->pointer), parameters)) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_success);
             } else {
@@ -533,13 +533,13 @@ rose_ipc_connection_dispatch_configuration_request(
                 rose_ipc_buffer_ref_read_device_descriptor(&request);
 
             // Read output's configuration parameters.
-            struct rose_output_configure_parameters params = {
+            struct rose_output_configure_parameters parameters = {
                 .flags = rose_ipc_buffer_ref_read_uint(&request),
                 .adaptive_sync_state = rose_ipc_buffer_ref_read_byte(&request),
                 .transform = rose_ipc_buffer_ref_read_byte(&request),
                 .scale = rose_ipc_buffer_ref_read_double(&request),
-                .mode = {.w = rose_ipc_buffer_ref_read_int(&request),
-                         .h = rose_ipc_buffer_ref_read_int(&request),
+                .mode = {.width = rose_ipc_buffer_ref_read_int(&request),
+                         .height = rose_ipc_buffer_ref_read_int(&request),
                          .rate = rose_ipc_buffer_ref_read_int(&request)}};
 
             // Obtain an output device with the requested descriptor.
@@ -557,7 +557,7 @@ rose_ipc_connection_dispatch_configuration_request(
             }
 
             // Configure the output and write operation's result.
-            if(rose_output_configure(output, params)) {
+            if(rose_output_configure(output, parameters)) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_success);
             } else {

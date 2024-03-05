@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -27,8 +27,8 @@ struct rose_output_ui {
     struct rose_ui_menu menu;
 
     // Lists of widgets.
-    struct wl_list widgets[rose_output_n_widget_types];
-    struct wl_list widgets_mapped[rose_output_n_widget_types];
+    struct wl_list widgets[rose_output_widget_type_count_];
+    struct wl_list widgets_mapped[rose_output_widget_type_count_];
 };
 
 ////////////////////////////////////////////////////////////////////////////////

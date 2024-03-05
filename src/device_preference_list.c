@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -54,7 +54,7 @@ struct rose_device_database {
 
 struct rose_device_preference_list {
     char* file_name;
-    struct rose_device_database db[rose_n_device_types];
+    struct rose_device_database db[rose_device_type_count_];
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,13 +136,13 @@ rose_device_database_insert(struct rose_device_database* database,
         // Initialize entry's data.
         switch(preference.device_type) {
             case rose_device_type_pointer:
-                entry->preference.params.pointer =
+                entry->preference.parameters.pointer =
                     (struct rose_pointer_configure_parameters){};
 
                 break;
 
             case rose_device_type_output:
-                entry->preference.params.output =
+                entry->preference.parameters.output =
                     (struct rose_output_configure_parameters){};
 
                 break;
@@ -160,7 +160,6 @@ rose_device_database_insert(struct rose_device_database* database,
                             rose_device_database_node_compare)
                 .root;
 
-        // Break out of the cycle.
         break;
     }
 
@@ -168,14 +167,14 @@ rose_device_database_insert(struct rose_device_database* database,
     switch(preference.device_type) {
         case rose_device_type_pointer: {
             // Obtain current flags.
-            unsigned flags = preference.params.pointer.flags;
+            unsigned flags = preference.parameters.pointer.flags;
 
             // Merge the flags.
-            entry->preference.params.pointer.flags |= flags;
+            entry->preference.parameters.pointer.flags |= flags;
 
-#define merge_(type, x)                                             \
-    if((flags & rose_##type##_configure_##x) != 0) {                \
-        entry->preference.params.type.x = preference.params.type.x; \
+#define merge_(type, x)                                                     \
+    if((flags & rose_##type##_configure_##x) != 0) {                        \
+        entry->preference.parameters.type.x = preference.parameters.type.x; \
     }
 
             // Merge the parameters.
@@ -187,15 +186,15 @@ rose_device_database_insert(struct rose_device_database* database,
 
         case rose_device_type_output: {
             // Obtain current flags.
-            unsigned flags = preference.params.output.flags;
+            unsigned flags = preference.parameters.output.flags;
 
             // Merge the flags.
-            entry->preference.params.output.flags |= flags;
+            entry->preference.parameters.output.flags |= flags;
 
             // Merge the parameters.
             if((flags & rose_output_configure_adaptive_sync) != 0) {
-                entry->preference.params.output.adaptive_sync_state =
-                    preference.params.output.adaptive_sync_state;
+                entry->preference.parameters.output.adaptive_sync_state =
+                    preference.parameters.output.adaptive_sync_state;
             }
 
             merge_(output, transform);
@@ -252,31 +251,31 @@ rose_device_preference_read( //
         case rose_device_type_pointer:
             // Zero-initialize pointer's parameters.
             preference->device_type = rose_device_type_pointer;
-            preference->params.pointer =
+            preference->parameters.pointer =
                 (struct rose_pointer_configure_parameters){};
 
             // Read pointer's parameters.
-            preference->params.pointer.flags = fgetc(file);
-            preference->params.pointer.acceleration_type = fgetc(file);
-            read_object_(preference->params.pointer.speed);
+            preference->parameters.pointer.flags = fgetc(file);
+            preference->parameters.pointer.acceleration_type = fgetc(file);
+            read_object_(preference->parameters.pointer.speed);
 
             break;
 
         case rose_device_type_output:
             // Zero-initialize output's parameters.
             preference->device_type = rose_device_type_output;
-            preference->params.output =
+            preference->parameters.output =
                 (struct rose_output_configure_parameters){};
 
             // Read output's parameters.
-            preference->params.output.flags = fgetc(file);
-            preference->params.output.adaptive_sync_state = fgetc(file);
-            preference->params.output.transform = fgetc(file);
+            preference->parameters.output.flags = fgetc(file);
+            preference->parameters.output.adaptive_sync_state = fgetc(file);
+            preference->parameters.output.transform = fgetc(file);
 
-            read_object_(preference->params.output.scale);
-            read_integer_(preference->params.output.mode.w);
-            read_integer_(preference->params.output.mode.h);
-            read_integer_(preference->params.output.mode.rate);
+            read_object_(preference->parameters.output.scale);
+            read_integer_(preference->parameters.output.mode.width);
+            read_integer_(preference->parameters.output.mode.height);
+            read_integer_(preference->parameters.output.mode.rate);
 
             break;
 
@@ -324,22 +323,22 @@ rose_device_preference_write( //
     switch(preference->device_type) {
         case rose_device_type_pointer:
             // Write pointer's parameters.
-            fputc(preference->params.pointer.flags, file);
-            fputc(preference->params.pointer.acceleration_type, file);
-            write_object_(preference->params.pointer.speed);
+            fputc(preference->parameters.pointer.flags, file);
+            fputc(preference->parameters.pointer.acceleration_type, file);
+            write_object_(preference->parameters.pointer.speed);
 
             break;
 
         case rose_device_type_output:
             // Write output's parameters.
-            fputc(preference->params.output.flags, file);
-            fputc(preference->params.output.adaptive_sync_state, file);
-            fputc(preference->params.output.transform, file);
+            fputc(preference->parameters.output.flags, file);
+            fputc(preference->parameters.output.adaptive_sync_state, file);
+            fputc(preference->parameters.output.transform, file);
 
-            write_object_(preference->params.output.scale);
-            write_integer_(preference->params.output.mode.w);
-            write_integer_(preference->params.output.mode.h);
-            write_integer_(preference->params.output.mode.rate);
+            write_object_(preference->parameters.output.scale);
+            write_integer_(preference->parameters.output.mode.width);
+            write_integer_(preference->parameters.output.mode.height);
+            write_integer_(preference->parameters.output.mode.rate);
 
             break;
 
@@ -376,7 +375,7 @@ rose_device_preference_list_initialize(char const* file_name) {
     }
 
     // Initialize the database objects.
-    for(ptrdiff_t i = 0; i != rose_n_device_types; ++i) {
+    for(ptrdiff_t i = 0; i != rose_device_type_count_; ++i) {
         wl_list_init(&(preference_list->db[i].order));
     }
 
@@ -399,7 +398,8 @@ rose_device_preference_list_initialize(char const* file_name) {
 
         // Read preferences from the file.
         for(int i = 0;
-            i < (rose_n_device_types * rose_device_database_size_max); ++i) {
+            i < (rose_device_type_count_ * rose_device_database_size_max);
+            i++) {
             // Read the next preference.
             struct rose_device_preference preference;
             if(!rose_device_preference_read(&preference, file)) {
@@ -437,7 +437,7 @@ rose_device_preference_list_destroy(
         }
 
         // Write preferences to the file.
-        for(ptrdiff_t i = 0; i != rose_n_device_types; ++i) {
+        for(ptrdiff_t i = 0; i != rose_device_type_count_; ++i) {
             struct rose_device_database_entry* entry = NULL;
             wl_list_for_each_reverse(
                 entry, &(preference_list->db[i].order), link) {
@@ -466,7 +466,7 @@ rose_device_preference_list_update(
     struct rose_device_preference_list* preference_list,
     struct rose_device_preference preference) {
     if((preference.device_type >= 0) &&
-       (preference.device_type < rose_n_device_types)) {
+       (preference.device_type < rose_device_type_count_)) {
         rose_device_database_insert(
             preference_list->db + cast_(ptrdiff_t, preference.device_type),
             preference);
@@ -488,7 +488,7 @@ rose_device_preference_list_update(
         struct rose_device_database_entry* entry =                           \
             wl_container_of(node, entry, node);                              \
                                                                              \
-        rose_##type##_configure(type, entry->preference.params.type);        \
+        rose_##type##_configure(type, entry->preference.parameters.type);    \
     }
 
 void

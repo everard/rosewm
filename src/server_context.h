@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -56,7 +56,7 @@ struct rose_server_context {
 
     struct {
         struct wlr_xcursor_manager* manager;
-        struct rose_cursor_image images[rose_n_output_cursor_types];
+        struct rose_cursor_image images[rose_output_cursor_type_count_];
     } cursor_context;
 
     // Wayland display.
@@ -173,7 +173,7 @@ struct rose_server_context {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_server_context_state {
-    unsigned n_inputs, n_outputs;
+    unsigned input_device_count, output_device_count;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -211,7 +211,7 @@ rose_server_context_destroy(struct rose_server_context* context);
 
 bool
 rose_server_context_set_keyboard_layout(struct rose_server_context* context,
-                                        unsigned layout_idx);
+                                        unsigned layout_index);
 
 void
 rose_server_context_configure(struct rose_server_context* context,

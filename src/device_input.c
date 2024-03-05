@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2022.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -36,7 +36,7 @@ static void
 rose_handle_event_input_destroy(struct wl_listener* listener, void* data) {
     unused_(data);
 
-    // Obtain a pointer to the input device.
+    // Obtain the input device.
     struct rose_input* input =
         wl_container_of(listener, input, listener_destroy);
 
@@ -68,13 +68,13 @@ rose_input_initialize(struct rose_server_context* context,
         input->id = (wl_container_of(input->link.next, input, link))->id + 1;
     }
 
-    // Broadcast input's initialization event though IPC, if needed.
-    if(input->context->ipc_server != NULL) {
-        rose_ipc_server_broadcast_status(
-            input->context->ipc_server,
-            (struct rose_ipc_status){
-                .type = rose_ipc_status_type_input_initialized,
-                .device_id = input->id});
+    // Broadcast input's initialization event though IPC.
+    if(true) {
+        struct rose_ipc_status status = {
+            .type = rose_ipc_status_type_input_initialized,
+            .device_id = input->id};
+
+        rose_ipc_server_broadcast_status(input->context->ipc_server, status);
     }
 
     // Register listeners.
@@ -108,13 +108,13 @@ rose_input_initialize(struct rose_server_context* context,
 
 void
 rose_input_destroy(struct rose_input* input) {
-    // Broadcast input's destruction event though IPC, if needed.
-    if(input->context->ipc_server != NULL) {
-        rose_ipc_server_broadcast_status(
-            input->context->ipc_server,
-            (struct rose_ipc_status){
-                .type = rose_ipc_status_type_input_destroyed,
-                .device_id = input->id});
+    // Broadcast input's destruction event though IPC.
+    if(true) {
+        struct rose_ipc_status status = {
+            .type = rose_ipc_status_type_input_destroyed,
+            .device_id = input->id};
+
+        rose_ipc_server_broadcast_status(input->context->ipc_server, status);
     }
 
     // Update IDs of all inputs which precede this one.

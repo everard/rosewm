@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -30,7 +30,7 @@ struct wlr_pointer_constraint_v1;
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_surface_state {
-    int x, y, w, h;
+    int x, y, width, height;
     bool is_activated, is_maximized, is_fullscreen;
 };
 
@@ -110,7 +110,7 @@ struct rose_surface {
     struct wl_list link_visible;
 
     // Storage for surface's snapshots.
-    struct rose_surface_snapshot snapshots[rose_n_surface_snapshot_types];
+    struct rose_surface_snapshot snapshots[rose_surface_snapshot_type_count_];
 
     // Flags.
     bool is_mapped, is_visible, is_name_updated;
@@ -118,7 +118,7 @@ struct rose_surface {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface initialization-related definitions.
+// Surface initialization parameters definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_surface_parameters {
@@ -154,7 +154,7 @@ struct rose_surface_configure_parameters {
     rose_surface_configure_mask flags;
 
     // Surface's requested position and size.
-    int x, y, w, h;
+    int x, y, width, height;
 
     // Surface's requested state.
     bool is_activated, is_maximized, is_fullscreen;
@@ -165,7 +165,7 @@ struct rose_surface_configure_parameters {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_surface_initialize(struct rose_surface_parameters params);
+rose_surface_initialize(struct rose_surface_parameters parameters);
 
 void
 rose_surface_destroy(struct rose_surface* surface);
@@ -210,7 +210,7 @@ rose_surface_make_current(struct rose_surface* surface, struct wlr_seat* seat);
 
 void
 rose_surface_configure(struct rose_surface* surface,
-                       struct rose_surface_configure_parameters params);
+                       struct rose_surface_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.

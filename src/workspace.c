@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2023.
+// Copyright Nezametdinov E. Ildus 2024.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -10,17 +10,22 @@
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 
 ////////////////////////////////////////////////////////////////////////////////
-// Geometric-computation-related utility functions and types.
+// Rectangle definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_workspace_rectangle {
-    int x, y, w, h;
+    int x, y, width, height;
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// Area computing utility function.
+////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_workspace_rectangle
 rose_workspace_compute_main_area(struct rose_workspace* workspace) {
+    // Initialize workspace area.
     struct rose_workspace_rectangle area = {
-        .w = workspace->w, .h = workspace->h};
+        .width = workspace->width, .height = workspace->height};
 
     if(workspace->panel.is_visible) {
         // If the panel is visible, then subtract its area.
@@ -30,7 +35,7 @@ rose_workspace_compute_main_area(struct rose_workspace* workspace) {
                 // fall-through
 
             case rose_ui_panel_position_bottom:
-                area.h -= workspace->panel.size;
+                area.height -= workspace->panel.size;
                 break;
 
             case rose_ui_panel_position_left:
@@ -38,7 +43,7 @@ rose_workspace_compute_main_area(struct rose_workspace* workspace) {
                 // fall-through
 
             case rose_ui_panel_position_right:
-                area.w -= workspace->panel.size;
+                area.width -= workspace->panel.size;
                 break;
 
             default:
@@ -46,11 +51,12 @@ rose_workspace_compute_main_area(struct rose_workspace* workspace) {
         }
     }
 
+    // Return computed area.
     return area;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface selection utility function.
+// Surface selecting utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_surface*
@@ -98,7 +104,7 @@ rose_workspace_select_next_surface(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Layout manipulation-related utility functions and types.
+// Layout manipulating utility functions and types.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
@@ -106,7 +112,7 @@ rose_workspace_layout_compute(struct rose_workspace* workspace) {
     struct rose_surface* surface = NULL;
     struct rose_surface* _ = NULL;
 
-    // Obtain a pointer to the focused surface.
+    // Obtain the focused surface.
     surface = workspace->focused_surface;
 
     // If there is a focused surface, and it is mapped, then move it to the top
@@ -126,11 +132,13 @@ rose_workspace_layout_compute(struct rose_workspace* workspace) {
         // configure it, and do nothing else.
         if(surface->state.pending.is_maximized ||
            surface->state.pending.is_fullscreen) {
-            // Obtain its extents from the workspace.
-            struct rose_workspace_rectangle extents =
+            // Obtain its extent from the workspace.
+            struct rose_workspace_rectangle extent =
                 (surface->state.pending.is_fullscreen
-                     ? (struct rose_workspace_rectangle){.w = workspace->w,
-                                                         .h = workspace->h}
+                     ? (struct rose_workspace_rectangle){.width =
+                                                             workspace->width,
+                                                         .height =
+                                                             workspace->height}
                      : main_area);
 
             // Configure it.
@@ -138,10 +146,10 @@ rose_workspace_layout_compute(struct rose_workspace* workspace) {
                 surface, (struct rose_surface_configure_parameters){
                              .flags = rose_surface_configure_size |
                                       rose_surface_configure_position,
-                             .w = extents.w,
-                             .h = extents.h,
-                             .x = extents.x,
-                             .y = extents.y});
+                             .width = extent.width,
+                             .height = extent.height,
+                             .x = extent.x,
+                             .y = extent.y});
 
             // Break out of the cycle.
             break;
@@ -288,8 +296,8 @@ bool
 rose_workspace_initialize(struct rose_workspace* workspace,
                           struct rose_server_context* context) {
     // Initialize workspace object.
-    *workspace =
-        (struct rose_workspace){.context = context, .w = 640, .h = 480};
+    *workspace = (struct rose_workspace){
+        .context = context, .width = 640, .height = 480};
 
     // Set workspace's ID.
     workspace->id = (unsigned)(workspace - context->storage.workspace);
@@ -404,7 +412,7 @@ rose_workspace_find_position_in_list( //
 
 void
 rose_workspace_make_current(struct rose_workspace* workspace) {
-    // Obtain a pointer to the parent output's prompt.
+    // Obtain parent output's prompt.
     struct rose_output_widget* prompt =
         ((workspace->output != NULL)
              ? (!wl_list_empty(workspace->output->ui.widgets_mapped +
@@ -434,8 +442,8 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
 
     // Handle input focus.
     if(workspace->context->is_screen_locked) {
-        // If the screen is locked, then obtain a pointer to the parent output's
-        // screen lock widget.
+        // If the screen is locked, then obtain parent output's screen lock
+        // widget.
         struct rose_output_widget* screen_lock =
             ((workspace->output != NULL)
                  ? (!wl_list_empty(workspace->output->ui.widgets_mapped +
@@ -605,7 +613,7 @@ rose_workspace_focus_surface_relative(
 void
 rose_workspace_surface_configure( //
     struct rose_workspace* workspace, struct rose_surface* surface,
-    struct rose_surface_configure_parameters params) {
+    struct rose_surface_configure_parameters parameters) {
     // Do nothing if the given workspace doesn't contain the surface.
     if(workspace != surface->workspace) {
         return;
@@ -615,12 +623,12 @@ rose_workspace_surface_configure( //
     struct rose_surface_state state_prev = rose_surface_state_obtain(surface),
                               state_next = state_prev;
 
-    if((params.flags & rose_surface_configure_maximized) != 0) {
-        state_next.is_maximized = params.is_maximized;
+    if((parameters.flags & rose_surface_configure_maximized) != 0) {
+        state_next.is_maximized = parameters.is_maximized;
     }
 
-    if((params.flags & rose_surface_configure_fullscreen) != 0) {
-        state_next.is_fullscreen = params.is_fullscreen;
+    if((parameters.flags & rose_surface_configure_fullscreen) != 0) {
+        state_next.is_fullscreen = parameters.is_fullscreen;
     }
 
     // Update configuration.
@@ -629,19 +637,19 @@ rose_workspace_surface_configure( //
        !(state_next.is_maximized || state_next.is_fullscreen)) {
         // If the surface is returned to its original state, then request update
         // of its size and coordinates.
-        if((params.flags & rose_surface_configure_size) == 0) {
+        if((parameters.flags & rose_surface_configure_size) == 0) {
             // Configure required flags.
-            params.flags &=
+            parameters.flags &=
                 ~((unsigned)(rose_surface_configure_no_transaction));
-            params.flags |=
+            parameters.flags |=
                 rose_surface_configure_size | rose_surface_configure_position;
 
             // Specify saved width, height, and coordinates.
-            params.x = surface->state.saved.x;
-            params.y = surface->state.saved.y;
+            parameters.x = surface->state.saved.x;
+            parameters.y = surface->state.saved.y;
 
-            params.w = surface->state.saved.w;
-            params.h = surface->state.saved.h;
+            parameters.width = surface->state.saved.width;
+            parameters.height = surface->state.saved.height;
         }
     } else if(!(state_prev.is_maximized || state_prev.is_fullscreen) &&
               (state_next.is_maximized || state_next.is_fullscreen)) {
@@ -653,7 +661,7 @@ rose_workspace_surface_configure( //
     if(state_next.is_maximized || state_next.is_fullscreen) {
         // If the surface will be maximized or set to fullscreen mode, then
         // don't configure its position or size.
-        params.flags &=
+        parameters.flags &=
             ~((rose_surface_configure_mask)(rose_surface_configure_size |
                                             rose_surface_configure_position));
     }
@@ -663,22 +671,24 @@ rose_workspace_surface_configure( //
 #define clamp_(x, a, b) max_((a), min_((x), (b)))
 
     // Constrain configuration parameters.
-    if((params.flags &
+    if((parameters.flags &
         (rose_surface_configure_size | rose_surface_configure_position)) != 0) {
-        params.w = clamp_(params.w, 1, workspace->w);
-        params.h = clamp_(params.h, 1, workspace->h);
+        parameters.width = clamp_(parameters.width, 1, workspace->width);
+        parameters.height = clamp_(parameters.height, 1, workspace->height);
 
         struct rose_workspace_rectangle bounds =
             rose_workspace_compute_main_area(workspace);
 
         bool is_size_configured =
-            ((params.flags & rose_surface_configure_size) != 0);
+            ((parameters.flags & rose_surface_configure_size) != 0);
 
-        int x_min = bounds.x + (is_size_configured ? -params.w : -state_prev.w);
-        int y_min = bounds.y + (is_size_configured ? -params.h : -state_prev.h);
+        int x_min = bounds.x + (is_size_configured ? -parameters.width
+                                                   : -state_prev.width);
+        int y_min = bounds.y + (is_size_configured ? -parameters.height
+                                                   : -state_prev.height);
 
-        params.x = clamp_(params.x, x_min, workspace->w);
-        params.y = clamp_(params.y, y_min, workspace->h);
+        parameters.x = clamp_(parameters.x, x_min, workspace->width);
+        parameters.y = clamp_(parameters.y, y_min, workspace->height);
     }
 
 #undef min_
@@ -686,7 +696,7 @@ rose_workspace_surface_configure( //
 #undef clamp_
 
     // Configure the surface.
-    rose_surface_configure(surface, params);
+    rose_surface_configure(surface, parameters);
 
     // Recompute workspace's layout.
     rose_workspace_layout_compute(workspace);
@@ -744,7 +754,7 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
     // to the first available output.
     if(workspace->output == NULL) {
         if(!wl_list_empty(&(workspace->context->outputs))) {
-            // Obtain a pointer to the first available output.
+            // Obtain the first available output.
             struct rose_output* output =
                 wl_container_of(workspace->context->outputs.prev, output, link);
 
@@ -914,7 +924,7 @@ rose_workspace_set_panel(struct rose_workspace* workspace,
 void
 rose_workspace_request_redraw(struct rose_workspace* workspace) {
     // Reset the number of frames without surface commits.
-    workspace->n_frames_without_commits = 0;
+    workspace->frame_without_commits_count = 0;
 
     // Schedule a frame, if needed.
     if((workspace->output != NULL) &&
@@ -939,25 +949,25 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
        !(workspace->focused_surface->state.pending.is_maximized ||
          workspace->focused_surface->state.pending.is_fullscreen)) {
         // If there is a focused surface, then compute its parameters.
-        struct rose_surface_configure_parameters params = {
+        struct rose_surface_configure_parameters parameters = {
             .flags = rose_surface_configure_position,
             .x = workspace->focused_surface->state.saved.x,
             .y = workspace->focused_surface->state.saved.y,
-            .w = workspace->focused_surface->state.pending.w,
-            .h = workspace->focused_surface->state.pending.h};
+            .width = workspace->focused_surface->state.pending.width,
+            .height = workspace->focused_surface->state.pending.height};
 
         if(workspace->mode == rose_workspace_mode_interactive_move) {
             // If the workspace is in interactive move mode, then compute a new
             // position for the focused surface based on pointer's shift.
-            params.x +=
+            parameters.x +=
                 (int)(workspace->pointer.x - workspace->pointer.x_saved);
 
-            params.y +=
+            parameters.y +=
                 (int)(workspace->pointer.y - workspace->pointer.y_saved);
         } else {
             // Otherwise, the workspace is in interactive resize mode, so both
             // surface's size and position need to be configured.
-            params.flags |= rose_surface_configure_size;
+            parameters.flags |= rose_surface_configure_size;
 
             // Compute pointer's shift.
             int dx = (int)(workspace->pointer.x - workspace->pointer.x_saved);
@@ -973,14 +983,14 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
                (workspace->mode ==
                 rose_workspace_mode_interactive_resize_south_east)) {
                 if(dx >= 0) {
-                    params.w += dx;
+                    parameters.width += dx;
                 } else {
-                    if(-dx <= params.w) {
-                        params.w -= -dx;
+                    if(-dx <= parameters.width) {
+                        parameters.width -= -dx;
                     } else {
-                        dx += params.w;
-                        params.x += dx;
-                        params.w = -dx;
+                        dx += parameters.width;
+                        parameters.x += dx;
+                        parameters.width = -dx;
                     }
                 }
             }
@@ -993,16 +1003,16 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
                (workspace->mode ==
                 rose_workspace_mode_interactive_resize_south_west)) {
                 if(dx > 0) {
-                    if(dx <= params.w) {
-                        params.w -= dx;
-                        params.x += dx;
+                    if(dx <= parameters.width) {
+                        parameters.width -= dx;
+                        parameters.x += dx;
                     } else {
-                        params.x += params.w;
-                        params.w = dx - params.w;
+                        parameters.x += parameters.width;
+                        parameters.width = dx - parameters.width;
                     }
                 } else {
-                    params.x += dx;
-                    params.w -= dx;
+                    parameters.x += dx;
+                    parameters.width -= dx;
                 }
             }
 
@@ -1014,16 +1024,16 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
                (workspace->mode ==
                 rose_workspace_mode_interactive_resize_north_west)) {
                 if(dy > 0) {
-                    if(dy <= params.h) {
-                        params.h -= dy;
-                        params.y += dy;
+                    if(dy <= parameters.height) {
+                        parameters.height -= dy;
+                        parameters.y += dy;
                     } else {
-                        params.y += params.h;
-                        params.h = dy - params.h;
+                        parameters.y += parameters.height;
+                        parameters.height = dy - parameters.height;
                     }
                 } else {
-                    params.y += dy;
-                    params.h -= dy;
+                    parameters.y += dy;
+                    parameters.height -= dy;
                 }
             }
 
@@ -1035,14 +1045,14 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
                (workspace->mode ==
                 rose_workspace_mode_interactive_resize_south_west)) {
                 if(dy >= 0) {
-                    params.h += dy;
+                    parameters.height += dy;
                 } else {
-                    if(-dy <= params.h) {
-                        params.h -= -dy;
+                    if(-dy <= parameters.height) {
+                        parameters.height -= -dy;
                     } else {
-                        dy += params.h;
-                        params.y += dy;
-                        params.h = -dy;
+                        dy += parameters.height;
+                        parameters.y += dy;
+                        parameters.height = -dy;
                     }
                 }
             }
@@ -1050,7 +1060,7 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
 
         // Configure the surface.
         rose_workspace_surface_configure(
-            workspace, workspace->focused_surface, params);
+            workspace, workspace->focused_surface, parameters);
     }
 
     // Return the workspace to the normal mode.
@@ -1071,15 +1081,15 @@ rose_workspace_notify_output_mode(struct rose_workspace* workspace,
 
     // Change the size of the workspace.
     struct rose_output_state output_state = rose_output_state_obtain(output);
-    workspace->w = (int)(0.5 + (output_state.w / output_state.scale));
-    workspace->h = (int)(0.5 + (output_state.h / output_state.scale));
+    workspace->width = (int)(0.5 + (output_state.width / output_state.scale));
+    workspace->height = (int)(0.5 + (output_state.height / output_state.scale));
 
     // Recompute workspace's layout.
     rose_workspace_layout_compute(workspace);
 
     // Update pointer's position, if needed.
-    if((workspace->pointer.x > workspace->w) ||
-       (workspace->pointer.y > workspace->h)) {
+    if((workspace->pointer.x > workspace->width) ||
+       (workspace->pointer.y > workspace->height)) {
         rose_workspace_pointer_warp( //
             workspace, workspace->pointer.movement_time_msec,
             workspace->pointer.x, workspace->pointer.y);
@@ -1133,8 +1143,8 @@ rose_workspace_notify_surface_map(struct rose_workspace* workspace,
                  ? ((main_area.d - surface->state.saved.d) / 2) \
                  : 0))
 
-    shift_(surface->state.saved.x, w);
-    shift_(surface->state.saved.y, h);
+    shift_(surface->state.saved.x, width);
+    shift_(surface->state.saved.y, height);
 
 #undef shift_
 
@@ -1152,8 +1162,8 @@ rose_workspace_notify_surface_map(struct rose_workspace* workspace,
             .flags = rose_surface_configure_size |
                      rose_surface_configure_maximized |
                      rose_surface_configure_fullscreen,
-            .w = surface->state.saved.w,
-            .h = surface->state.saved.h,
+            .width = surface->state.saved.width,
+            .height = surface->state.saved.height,
             .is_maximized = surface->xdg_surface->toplevel->requested.maximized,
             .is_fullscreen =
                 surface->xdg_surface->toplevel->requested.fullscreen});
