@@ -23,6 +23,7 @@
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
+#include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_data_device.h>
 
 #include <wlr/types/wlr_presentation_time.h>
@@ -383,6 +384,49 @@ rose_handle_event_seat_request_set_selection(struct wl_listener* listener,
     wlr_seat_set_selection(context->seat, event->source, event->serial);
 }
 
+static void
+rose_handle_event_seat_request_set_primary_selection(
+    struct wl_listener* listener, void* data) {
+    // Obtain the server context.
+    struct rose_server_context* context = wl_container_of(
+        listener, context, listener_seat_request_set_primary_selection);
+
+    // Obtain the event.
+    struct wlr_seat_request_set_primary_selection_event* event = data;
+
+    // Satisfy the request.
+    wlr_seat_set_primary_selection(context->seat, event->source, event->serial);
+}
+
+static void
+rose_handle_event_seat_request_start_drag(struct wl_listener* listener,
+                                          void* data) {
+    // Obtain the server context.
+    struct rose_server_context* context =
+        wl_container_of(listener, context, listener_seat_request_start_drag);
+
+    // Obtain the event.
+    struct wlr_seat_request_start_drag_event* event = data;
+
+    // Satisfy the request.
+    if(wlr_seat_validate_pointer_grab_serial(
+           context->seat, event->origin, event->serial)) {
+        wlr_seat_start_pointer_drag(context->seat, event->drag, event->serial);
+    } else {
+        wlr_data_source_destroy(event->drag->source);
+    }
+}
+
+static void
+rose_handle_event_seat_start_drag(struct wl_listener* listener, void* data) {
+    // Obtain the server context.
+    struct rose_server_context* context =
+        wl_container_of(listener, context, listener_seat_start_drag);
+
+    // Start the drag and drop action.
+    rose_drag_and_drop_start(context, data);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Event handlers: Wayland protocols.
 ////////////////////////////////////////////////////////////////////////////////
@@ -570,6 +614,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
 
     initialize_(seat_request_set_cursor);
     initialize_(seat_request_set_selection);
+    initialize_(seat_request_set_primary_selection);
+    initialize_(seat_request_start_drag);
+    initialize_(seat_start_drag);
 
     initialize_(xdg_new_surface);
     initialize_(xdg_new_toplevel_decoration);
@@ -845,6 +892,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     try_(context->seat = wlr_seat_create(context->display, "seat0"));
     add_signal_(context->seat, seat, request_set_cursor);
     add_signal_(context->seat, seat, request_set_selection);
+    add_signal_(context->seat, seat, request_set_primary_selection);
+    add_signal_(context->seat, seat, request_start_drag);
+    add_signal_(context->seat, seat, start_drag);
 
     // Initialize Wayland protocols: relative-pointer.
     try_(context->relative_pointer_manager =

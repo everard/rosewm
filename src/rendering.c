@@ -271,7 +271,7 @@ rose_render_content(struct rose_output* output) {
     struct rose_ui_menu* menu = &(output->ui.menu);
 
     // Try using direct scan-out.
-    while(true) {
+    while(output->cursor.drag_and_drop_surface == NULL) {
         // Obtain workspace's focused surface.
         struct rose_surface* surface = workspace->focused_surface;
 
@@ -564,6 +564,7 @@ rose_render_content(struct rose_output* output) {
 
         // Render the text.
         if(raster != NULL) {
+            // Adjust the rectangle.
             rectangle.x = menu->area.x + menu->layout.margin_x;
             rectangle.y = menu->area.y + menu->layout.margin_y;
             rectangle.height = menu->page.line_count * menu->layout.line_height;
@@ -578,6 +579,20 @@ rose_render_content(struct rose_output* output) {
                 renderer, raster->texture, &box,
                 rose_project_rectangle(output, rectangle).a, 1.0f);
         }
+    }
+
+    // Render drag and drop surface, if needed.
+    if(output->cursor.drag_and_drop_surface != NULL) {
+        // Initialize surface rendering context.
+        struct rose_surface_rendering_context context = {
+            .output = output,
+            .dx = workspace->pointer.x,
+            .dy = workspace->pointer.y};
+
+        // Render the surface and all its subsurfaces.
+        wlr_surface_for_each_surface( //
+            output->cursor.drag_and_drop_surface, rose_render_surface,
+            &context);
     }
 
     // Render additional rectangle for the surface which is currently being
@@ -740,6 +755,6 @@ rose_render_content(struct rose_output* output) {
     wlr_output_render_software_cursors(output->device, NULL);
     wlr_renderer_end(renderer);
 
-    // Commit the rendering operation.
+    // Commit rendering operation.
     wlr_output_commit(output->device);
 }

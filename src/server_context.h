@@ -10,6 +10,7 @@
 #include "device_input.h"
 #include "device_output.h"
 #include "device_preference_list.h"
+#include "drag_and_drop.h"
 #include "keyboard_context.h"
 
 #include "ipc_server.h"
@@ -25,6 +26,7 @@
 
 struct wlr_backend;
 struct wlr_session;
+
 struct wlr_renderer;
 struct wlr_allocator;
 
@@ -145,6 +147,9 @@ struct rose_server_context {
 
     struct wl_listener listener_seat_request_set_cursor;
     struct wl_listener listener_seat_request_set_selection;
+    struct wl_listener listener_seat_request_set_primary_selection;
+    struct wl_listener listener_seat_request_start_drag;
+    struct wl_listener listener_seat_start_drag;
 
     struct wl_listener listener_xdg_new_surface;
     struct wl_listener listener_xdg_new_toplevel_decoration;

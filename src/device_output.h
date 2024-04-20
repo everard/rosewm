@@ -84,8 +84,6 @@ struct rose_output {
     struct wlr_output* device;
 
     // Layout this output device belongs to.
-    // Note: The sole purpose of this object is being a glue between this output
-    // device and its cursor.
     struct wlr_output_layout* layout;
 
     // List of available modes.
@@ -94,11 +92,13 @@ struct rose_output {
     // Associated cursor.
     struct {
         // Cursor's underlying implementation.
-        // Note: Lightweight alternative is no longer usable.
         struct wlr_cursor* underlying;
 
         // Cursor's client-set surface.
         struct wlr_surface* surface;
+
+        // Cursor's drag and drop surface.
+        struct wlr_surface* drag_and_drop_surface;
 
         // Client-set surface's hotspot coordinates.
         int32_t hotspot_x, hotspot_y;
@@ -137,7 +137,8 @@ struct rose_output {
     struct wl_listener listener_damage;
 
     struct wl_listener listener_destroy;
-    struct wl_listener listener_cursor_client_surface_destroy;
+    struct wl_listener listener_cursor_surface_destroy;
+    struct wl_listener listener_cursor_drag_and_drop_surface_destroy;
 
     // List links.
     struct wl_list link;
@@ -296,5 +297,9 @@ void
 rose_output_cursor_client_surface_set( //
     struct rose_output* output, struct wlr_surface* surface, int32_t hotspot_x,
     int32_t hotspot_y);
+
+void
+rose_output_cursor_drag_and_drop_surface_set( //
+    struct rose_output* output, struct wlr_surface* surface);
 
 #endif // H_0DF3C518ADEA43DB9AA264FB4CF22816

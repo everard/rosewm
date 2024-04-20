@@ -26,6 +26,12 @@
 
 #define unused_(x) ((void)(x))
 
+#define remove_signal_(f)                             \
+    {                                                 \
+        wl_list_remove(&(output->listener_##f.link)); \
+        wl_list_init(&(output->listener_##f.link));   \
+    }
+
 #define min_(a, b) ((a) < (b) ? (a) : (b))
 #define max_(a, b) ((a) > (b) ? (a) : (b))
 #define clamp_(x, a, b) max_((a), min_((x), (b)))
@@ -531,7 +537,8 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     // depending on whether or not the cursor has moved, and whether or not the
     // output was in direct scan-out mode.
     if(!is_redraw_required) {
-        if(output->cursor.has_moved) {
+        if(output->cursor.has_moved &&
+           (output->cursor.drag_and_drop_surface == NULL)) {
             if(output->is_scanned_out) {
                 // If the output was in direct scan-out mode, then try using
                 // this mode again by rendering output's content.
@@ -547,6 +554,9 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
 
             // Go to the end of the routine to update the flags.
             goto end;
+        } else if(output->cursor.has_moved &&
+                  (output->cursor.drag_and_drop_surface != NULL)) {
+            // Proceed with rendering.
         } else {
             // Do nothing else.
             return;
@@ -681,21 +691,36 @@ rose_handle_event_output_destroy(struct wl_listener* listener, void* data) {
 }
 
 static void
-rose_handle_event_output_cursor_client_surface_destroy(
+rose_handle_event_output_cursor_surface_destroy(struct wl_listener* listener,
+                                                void* data) {
+    unused_(data);
+
+    // Obtain the output.
+    struct rose_output* output =
+        wl_container_of(listener, output, listener_cursor_surface_destroy);
+
+    // Remove listener from the signal.
+    remove_signal_(cursor_surface_destroy);
+
+    // Reset the surface pointer and clear the flag.
+    output->cursor.surface = NULL;
+    output->cursor.is_surface_set = false;
+}
+
+static void
+rose_handle_event_output_cursor_drag_and_drop_surface_destroy(
     struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the output.
     struct rose_output* output = wl_container_of(
-        listener, output, listener_cursor_client_surface_destroy);
+        listener, output, listener_cursor_drag_and_drop_surface_destroy);
 
     // Remove listener from the signal.
-    wl_list_remove(&(output->listener_cursor_client_surface_destroy.link));
-    wl_list_init(&(output->listener_cursor_client_surface_destroy.link));
+    remove_signal_(cursor_drag_and_drop_surface_destroy);
 
-    // Reset the surface pointer and clear the flag.
-    output->cursor.surface = NULL;
-    output->cursor.is_surface_set = false;
+    // Reset the surface pointer.
+    output->cursor.drag_and_drop_surface = NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -812,7 +837,8 @@ rose_output_initialize(struct rose_server_context* context,
     add_signal_(damage);
 
     add_signal_(destroy);
-    initialize_(cursor_client_surface_destroy);
+    initialize_(cursor_surface_destroy);
+    initialize_(cursor_drag_and_drop_surface_destroy);
 
 #undef initialize_
 #undef add_signal_
@@ -870,14 +896,15 @@ rose_output_destroy(struct rose_output* output) {
     rose_raster_destroy(output->rasters.menu);
 
     // Remove listeners from signals.
-    wl_list_remove(&(output->listener_frame.link));
-    wl_list_remove(&(output->listener_needs_frame.link));
+    remove_signal_(frame);
+    remove_signal_(needs_frame);
 
-    wl_list_remove(&(output->listener_commit.link));
-    wl_list_remove(&(output->listener_damage.link));
+    remove_signal_(commit);
+    remove_signal_(damage);
 
-    wl_list_remove(&(output->listener_destroy.link));
-    wl_list_remove(&(output->listener_cursor_client_surface_destroy.link));
+    remove_signal_(destroy);
+    remove_signal_(cursor_surface_destroy);
+    remove_signal_(cursor_drag_and_drop_surface_destroy);
 
     // Destroy the cursor.
     wlr_cursor_destroy(output->cursor.underlying);
@@ -1391,8 +1418,7 @@ rose_output_cursor_client_surface_set( //
     struct rose_output* output, struct wlr_surface* surface, int32_t hotspot_x,
     int32_t hotspot_y) {
     // Remove listener from the signal.
-    wl_list_remove(&(output->listener_cursor_client_surface_destroy.link));
-    wl_list_init(&(output->listener_cursor_client_surface_destroy.link));
+    remove_signal_(cursor_surface_destroy);
 
     // Set the flag.
     output->cursor.is_surface_set = true;
@@ -1405,6 +1431,25 @@ rose_output_cursor_client_surface_set( //
     // Register listener, if needed.
     if(surface != NULL) {
         wl_signal_add(&(surface->events.destroy),
-                      &(output->listener_cursor_client_surface_destroy));
+                      &(output->listener_cursor_surface_destroy));
     }
+}
+
+void
+rose_output_cursor_drag_and_drop_surface_set( //
+    struct rose_output* output, struct wlr_surface* surface) {
+    // Remove listener from the signal.
+    remove_signal_(cursor_drag_and_drop_surface_destroy);
+
+    // Set the surface.
+    output->cursor.drag_and_drop_surface = surface;
+
+    // Register listener, if needed.
+    if(surface != NULL) {
+        wl_signal_add(&(surface->events.destroy),
+                      &(output->listener_cursor_drag_and_drop_surface_destroy));
+    }
+
+    // Request redraw.
+    rose_output_request_redraw(output);
 }

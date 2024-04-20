@@ -430,8 +430,10 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
         return;
     }
 
-    // Perform additional actions depending on current mode.
+    // Obtain current seat.
     struct wlr_seat* seat = workspace->context->seat;
+
+    // Perform additional actions depending on current mode.
     if(workspace->context->is_screen_locked) {
         // If the screen is locked, then obtain parent output's screen lock
         // widget.
@@ -627,10 +629,8 @@ rose_workspace_pointer_warp(struct rose_workspace* workspace,
                 wlr_seat_pointer_notify_enter(seat, surface, x_local, y_local);
 
                 // Send motion event.
-                if(surface == seat->pointer_state.focused_surface) {
-                    wlr_seat_pointer_notify_motion(
-                        seat, time_msec, x_local, y_local);
-                }
+                wlr_seat_pointer_notify_motion(
+                    seat, time_msec, x_local, y_local);
             }
         } else if(relation_surface ==
                   rose_workspace_point_surface_relation_outside) {
