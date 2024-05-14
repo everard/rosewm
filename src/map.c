@@ -23,8 +23,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_map_node_link(struct rose_map_node* parent, struct rose_map_node* child,
-                   ptrdiff_t child_i) {
+rose_map_node_link(
+    struct rose_map_node* parent, struct rose_map_node* child,
+    ptrdiff_t child_i) {
     if(child != NULL) {
         child->parent = parent;
     }
@@ -123,8 +124,9 @@ enum rose_map_rebalance_type {
 };
 
 static struct rose_map_node*
-rose_map_rebalance(struct rose_map_node* root, struct rose_map_node* node,
-                   ptrdiff_t child_i, enum rose_map_rebalance_type type) {
+rose_map_rebalance(
+    struct rose_map_node* root, struct rose_map_node* node, ptrdiff_t child_i,
+    enum rose_map_rebalance_type type) {
     struct rose_map_node* moved_node = NULL;
 
     while(node != NULL) {
@@ -164,8 +166,9 @@ rose_map_rebalance(struct rose_map_node* root, struct rose_map_node* node,
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_map_insertion_result
-rose_map_insert(struct rose_map_node* root, struct rose_map_node* node,
-                rose_map_node_comparison_fn compare) {
+rose_map_insert(
+    struct rose_map_node* root, struct rose_map_node* node,
+    rose_map_node_comparison_fn compare) {
     // Initialize insert operation's result.
     struct rose_map_insertion_result result = {.root = root, .node = node};
 
@@ -203,9 +206,10 @@ rose_map_insert(struct rose_map_node* root, struct rose_map_node* node,
 #undef node_gt_
 
     // Perform insert operation, obtain map's new root.
-    result.root = (rose_map_node_link(position, node, child_i),
-                   rose_map_rebalance(root, position, child_i,
-                                      rose_map_rebalance_type_insert));
+    result.root =
+        (rose_map_node_link(position, node, child_i),
+         rose_map_rebalance(
+             root, position, child_i, rose_map_rebalance_type_insert));
 
     return result;
 }
@@ -233,9 +237,11 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node) {
                 next->parent = NULL;
             }
         } else {
-            root = (rose_map_node_link(node->parent, next, child_i),
-                    rose_map_rebalance(root, node->parent, child_i,
-                                       rose_map_rebalance_type_remove));
+            root =
+                (rose_map_node_link(node->parent, next, child_i),
+                 rose_map_rebalance(
+                     root, node->parent, child_i,
+                     rose_map_rebalance_type_remove));
         }
     } else {
         // Node has two children.
@@ -253,9 +259,10 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node) {
         next->balance = node->balance;
 
         if(next->parent == node) {
-            root = (rose_map_node_link(node->parent, next, child_i),
-                    rose_map_rebalance(
-                        root, next, 1, rose_map_rebalance_type_remove));
+            root =
+                (rose_map_node_link(node->parent, next, child_i),
+                 rose_map_rebalance(
+                     root, next, 1, rose_map_rebalance_type_remove));
         } else {
             struct rose_map_node* parent_next = next->parent;
             ptrdiff_t child_i_next = child_index_(next);
@@ -264,8 +271,9 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node) {
             rose_map_node_link(node->parent, next, child_i);
             rose_map_node_link(next, node->children[1], 1);
 
-            root = rose_map_rebalance(root, parent_next, child_i_next,
-                                      rose_map_rebalance_type_remove);
+            root = rose_map_rebalance(
+                root, parent_next, child_i_next,
+                rose_map_rebalance_type_remove);
         }
     }
 
@@ -281,8 +289,9 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node) {
 #define key_gt_(k, node) (compare((k), (node)) > 0)
 
 struct rose_map_node*
-rose_map_find(struct rose_map_node* root, void const* k,
-              rose_map_key_comparison_fn compare) {
+rose_map_find(
+    struct rose_map_node* root, void const* k,
+    rose_map_key_comparison_fn compare) {
     struct rose_map_node* node = root;
 
     while(node != NULL) {
@@ -297,8 +306,9 @@ rose_map_find(struct rose_map_node* root, void const* k,
 }
 
 struct rose_map_node*
-rose_map_lower_bound(struct rose_map_node* root, void const* k,
-                     rose_map_key_comparison_fn compare) {
+rose_map_lower_bound(
+    struct rose_map_node* root, void const* k,
+    rose_map_key_comparison_fn compare) {
     struct rose_map_node* node = root;
     struct rose_map_node* prev = node;
 

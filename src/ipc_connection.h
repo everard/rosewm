@@ -92,12 +92,12 @@ rose_ipc_connection_destroy(struct rose_ipc_connection* connection);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_connection_dispatch_command(struct rose_ipc_connection* connection,
-                                     struct rose_ipc_command command);
+rose_ipc_connection_dispatch_command(
+    struct rose_ipc_connection* connection, struct rose_ipc_command command);
 
 void
-rose_ipc_connection_send_status(struct rose_ipc_connection* connection,
-                                struct rose_ipc_status status);
+rose_ipc_connection_send_status(
+    struct rose_ipc_connection* connection, struct rose_ipc_status status);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Server configuration interface.

@@ -41,7 +41,7 @@ rose_screen_extent_obtain(struct rose_output* output) {
 }
 
 static struct rose_output_widget_state
-rose_output_widget_compute_layout( //
+rose_output_widget_compute_layout(
     struct rose_output* output, enum rose_output_widget_type type, int width,
     int height) {
     // Initialize widget's position.
@@ -172,16 +172,17 @@ rose_output_widget_compute_layout( //
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_output_widget*
-rose_output_widget_create(enum rose_output_widget_type type,
-                          enum rose_output_widget_surface_type surface_type);
+rose_output_widget_create(
+    enum rose_output_widget_type type,
+    enum rose_output_widget_surface_type surface_type);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event handlers.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_handle_event_output_widget_surface_map(struct wl_listener* listener,
-                                            void* data) {
+rose_handle_event_output_widget_surface_map(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the widget.
@@ -218,8 +219,8 @@ rose_handle_event_output_widget_surface_map(struct wl_listener* listener,
 }
 
 static void
-rose_handle_event_output_widget_surface_unmap(struct wl_listener* listener,
-                                              void* data) {
+rose_handle_event_output_widget_surface_unmap(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the widget.
@@ -253,8 +254,8 @@ rose_handle_event_output_widget_surface_unmap(struct wl_listener* listener,
 }
 
 static void
-rose_handle_event_output_widget_surface_commit(struct wl_listener* listener,
-                                               void* data) {
+rose_handle_event_output_widget_surface_commit(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the widget.
@@ -294,9 +295,10 @@ rose_handle_event_output_widget_surface_new_subsurface(
     struct rose_output_widget* master =
         wl_container_of(listener, master, listener_new_subsurface);
 
-    master = ((master->surface_type == rose_output_widget_surface_type_toplevel)
-                  ? master
-                  : master->master);
+    master =
+        ((master->surface_type == rose_output_widget_surface_type_toplevel)
+             ? master
+             : master->master);
 
     // Create and initialize a new subsurface.
     struct rose_output_widget* widget = rose_output_widget_create(
@@ -325,8 +327,8 @@ rose_handle_event_output_widget_surface_new_subsurface(
 }
 
 static void
-rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
-                                                  void* data) {
+rose_handle_event_output_widget_surface_new_popup(
+    struct wl_listener* listener, void* data) {
     // Obtain the base XDG surface.
     struct wlr_xdg_surface* xdg_surface = ((struct wlr_xdg_popup*)(data))->base;
 
@@ -334,9 +336,10 @@ rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
     struct rose_output_widget* master =
         wl_container_of(listener, master, listener_new_popup);
 
-    master = ((master->surface_type == rose_output_widget_surface_type_toplevel)
-                  ? master
-                  : master->master);
+    master =
+        ((master->surface_type == rose_output_widget_surface_type_toplevel)
+             ? master
+             : master->master);
 
     // Create and initialize a new temporary widget.
     struct rose_output_widget* widget = rose_output_widget_create(
@@ -369,18 +372,18 @@ rose_handle_event_output_widget_surface_new_popup(struct wl_listener* listener,
         rose_screen_extent_obtain(master->output);
 
     // Set constraining box.
-    struct wlr_box constraints = //
-        {.x = -master->state.x,
-         .y = -master->state.y,
-         .width = screen_extent.width,
-         .height = screen_extent.height};
+    struct wlr_box constraints = {
+        .x = -master->state.x,
+        .y = -master->state.y,
+        .width = screen_extent.width,
+        .height = screen_extent.height};
 
     wlr_xdg_popup_unconstrain_from_box(xdg_surface->popup, &constraints);
 }
 
 static void
-rose_handle_event_output_widget_surface_destroy(struct wl_listener* listener,
-                                                void* data) {
+rose_handle_event_output_widget_surface_destroy(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the widget.
@@ -396,8 +399,9 @@ rose_handle_event_output_widget_surface_destroy(struct wl_listener* listener,
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_output_widget*
-rose_output_widget_create(enum rose_output_widget_type type,
-                          enum rose_output_widget_surface_type surface_type) {
+rose_output_widget_create(
+    enum rose_output_widget_type type,
+    enum rose_output_widget_surface_type surface_type) {
     // Allocate memory for a new widget.
     struct rose_output_widget* widget =
         malloc(sizeof(struct rose_output_widget));
@@ -444,7 +448,7 @@ rose_output_widget_create(enum rose_output_widget_type type,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_widget_initialize( //
+rose_output_widget_initialize(
     struct rose_output_ui* ui, struct wlr_xdg_toplevel* toplevel,
     enum rose_output_widget_type type) {
     // Obtain the base XDG surface.

@@ -95,16 +95,17 @@ struct rose_keyboard_context {
 ////////////////////////////////////////////////////////////////////////////////
 
 int
-rose_keyboard_keysym_compare(struct rose_keyboard_keysym const* x,
-                             struct rose_keyboard_keysym const* y);
+rose_keyboard_keysym_compare(
+    struct rose_keyboard_keysym const* x, struct rose_keyboard_keysym const* y);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Keyboard shortcut comparison interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 int
-rose_keyboard_shortcut_compare(struct rose_keyboard_shortcut const* x,
-                               struct rose_keyboard_shortcut const* y);
+rose_keyboard_shortcut_compare(
+    struct rose_keyboard_shortcut const* x,
+    struct rose_keyboard_shortcut const* y);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Keyboard control scheme initialization/destruction interface.

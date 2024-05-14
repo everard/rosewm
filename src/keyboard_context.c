@@ -82,29 +82,30 @@ static struct rose_keyboard_control_scheme const
              {.shortcut = {{{0}, {XKB_KEY_Shift_L}, {XKB_KEY_Return}}},
               .type = rose_core_action_type_run_terminal_ipc}},
 
-        .menu_actions = {{.shortcut = {{{XKB_KEY_Up}}},
-                          .type = rose_menu_action_type_move_mark_up},
+        .menu_actions =
+            {{.shortcut = {{{XKB_KEY_Up}}},
+              .type = rose_menu_action_type_move_mark_up},
 
-                         {.shortcut = {{{XKB_KEY_Down}}},
-                          .type = rose_menu_action_type_move_mark_down},
+             {.shortcut = {{{XKB_KEY_Down}}},
+              .type = rose_menu_action_type_move_mark_down},
 
-                         {.shortcut = {{{XKB_KEY_Page_Up}}},
-                          .type = rose_menu_action_type_move_page_up},
+             {.shortcut = {{{XKB_KEY_Page_Up}}},
+              .type = rose_menu_action_type_move_page_up},
 
-                         {.shortcut = {{{XKB_KEY_Page_Down}}},
-                          .type = rose_menu_action_type_move_page_down},
+             {.shortcut = {{{XKB_KEY_Page_Down}}},
+              .type = rose_menu_action_type_move_page_down},
 
-                         {.shortcut = {{{XKB_KEY_Escape}}},
-                          .type = rose_menu_action_type_cancel},
+             {.shortcut = {{{XKB_KEY_Escape}}},
+              .type = rose_menu_action_type_cancel},
 
-                         {.shortcut = {{{XKB_KEY_Return}}},
-                          .type = rose_menu_action_type_commit},
+             {.shortcut = {{{XKB_KEY_Return}}},
+              .type = rose_menu_action_type_commit},
 
-                         {.shortcut = {{{XKB_KEY_space}}},
-                          .type = rose_menu_action_type_select},
+             {.shortcut = {{{XKB_KEY_space}}},
+              .type = rose_menu_action_type_select},
 
-                         {.shortcut = {{{XKB_KEY_Tab}}},
-                          .type = rose_menu_action_type_switch_line_type}},
+             {.shortcut = {{{XKB_KEY_Tab}}},
+              .type = rose_menu_action_type_switch_line_type}},
 
         .ipc_actions = {
             {.shortcut = {{{0}, {XKB_KEY_r}}}, .ipc_command = {{0x00}}},
@@ -164,15 +165,15 @@ rose_keyboard_control_scheme_read_shortcut(FILE* file) {
     &(((struct rose_keyboard_##type##_action const*)(var))->shortcut)
 
 static int
-rose_keyboard_control_scheme_compare_core_actions(void const* x,
-                                                  void const* y) {
+rose_keyboard_control_scheme_compare_core_actions(
+    void const* x, void const* y) {
     return rose_keyboard_shortcut_compare(
         action_shortcut_(x, core), action_shortcut_(y, core));
 }
 
 static int
-rose_keyboard_control_scheme_compare_menu_actions(void const* x,
-                                                  void const* y) {
+rose_keyboard_control_scheme_compare_menu_actions(
+    void const* x, void const* y) {
     return rose_keyboard_shortcut_compare(
         action_shortcut_(x, menu), action_shortcut_(y, menu));
 }
@@ -190,8 +191,9 @@ rose_keyboard_control_scheme_compare_ipc_actions(void const* x, void const* y) {
 ////////////////////////////////////////////////////////////////////////////////
 
 int
-rose_keyboard_keysym_compare(struct rose_keyboard_keysym const* x,
-                             struct rose_keyboard_keysym const* y) {
+rose_keyboard_keysym_compare(
+    struct rose_keyboard_keysym const* x,
+    struct rose_keyboard_keysym const* y) {
     return ((x->value == y->value) ? 0 : ((x->value < y->value) ? -1 : 1));
 }
 
@@ -200,8 +202,9 @@ rose_keyboard_keysym_compare(struct rose_keyboard_keysym const* x,
 ////////////////////////////////////////////////////////////////////////////////
 
 int
-rose_keyboard_shortcut_compare(struct rose_keyboard_shortcut const* x,
-                               struct rose_keyboard_shortcut const* y) {
+rose_keyboard_shortcut_compare(
+    struct rose_keyboard_shortcut const* x,
+    struct rose_keyboard_shortcut const* y) {
     for(ptrdiff_t i = 0; i != rose_keyboard_shortcut_size_max; ++i) {
         int result =
             rose_keyboard_keysym_compare(&(x->keysyms[i]), &(y->keysyms[i]));
@@ -310,8 +313,9 @@ rose_keyboard_control_scheme_initialize(char const* file_name) {
                 rose_keyboard_control_scheme_read_shortcut(file);
 
             // Read IPC command.
-            fread(scheme->ipc_actions[i].ipc_command.data,
-                  sizeof(scheme->ipc_actions[i].ipc_command.data), 1, file);
+            fread(
+                scheme->ipc_actions[i].ipc_command.data,
+                sizeof(scheme->ipc_actions[i].ipc_command.data), 1, file);
         }
 
         // Close the file.
@@ -333,10 +337,11 @@ rose_keyboard_control_scheme_initialize(char const* file_name) {
 
 #undef update_shortcuts_
 
-#define sort_actions_(category)                                        \
-    qsort(scheme->category##_actions, scheme->category##_action_count, \
-          sizeof(*scheme->category##_actions),                         \
-          rose_keyboard_control_scheme_compare_##category##_actions)
+#define sort_actions_(category)                                      \
+    qsort(                                                           \
+        scheme->category##_actions, scheme->category##_action_count, \
+        sizeof(*scheme->category##_actions),                         \
+        rose_keyboard_control_scheme_compare_##category##_actions)
 
     // Sort actions by shortcuts.
     sort_actions_(core);

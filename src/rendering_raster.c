@@ -33,7 +33,7 @@ rose_raster_buffer_destroy(struct wlr_buffer* buffer) {
 }
 
 static bool
-rose_raster_buffer_begin_data_ptr_access( //
+rose_raster_buffer_begin_data_ptr_access(
     struct wlr_buffer* buffer, uint32_t flags, void** data, uint32_t* format,
     size_t* stride) {
     unused_(flags);
@@ -90,8 +90,7 @@ rose_raster_initialize_without_texture(int width, int height) {
     uint64_t data_size = cast_(uint64_t, width) * cast_(uint64_t, height) * 4U;
 
     // Compute and validate raster object's size.
-    size_t object_size = //
-        sizeof(struct rose_raster) + cast_(size_t, data_size);
+    size_t object_size = sizeof(struct rose_raster) + cast_(size_t, data_size);
 
     if(object_size < data_size) {
         return NULL;
@@ -137,9 +136,8 @@ rose_raster_destroy(struct rose_raster* raster) {
 void
 rose_raster_clear(struct rose_raster* raster) {
     // Compute pixel data size.
-    size_t data_size = //
-        cast_(size_t, raster->base.width) * cast_(size_t, raster->base.height) *
-        4U;
+    size_t data_size = cast_(size_t, raster->base.width) *
+                       cast_(size_t, raster->base.height) * 4U;
 
     // Clear pixel data.
     memset(raster->pixels, 0, data_size);
@@ -150,7 +148,7 @@ rose_raster_clear(struct rose_raster* raster) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_raster_texture_update( //
+rose_raster_texture_update(
     struct rose_raster* raster, pixman_region32_t* region) {
     // Update the texture, if any.
     if(raster->texture != NULL) {

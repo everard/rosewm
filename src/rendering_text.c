@@ -53,7 +53,7 @@ rose_font_initialize(FT_Library ft, struct rose_memory memory) {
     }
 
     // Create a new font face.
-    if(FT_New_Memory_Face( //
+    if(FT_New_Memory_Face(
            ft, font.memory.data, font.memory.size, 0, &(font.ft_face)) !=
        FT_Err_Ok) {
         rose_font_destroy(&font);
@@ -88,18 +88,20 @@ rose_compute_bounding_box(FT_GlyphSlot glyph) {
         return (FT_BBox){};
     }
 
-    return (FT_BBox){.xMin = glyph->bitmap_left,
-                     .yMin = glyph->bitmap_top - glyph->bitmap.rows,
-                     .xMax = glyph->bitmap_left + glyph->bitmap.width,
-                     .yMax = glyph->bitmap_top};
+    return (FT_BBox){
+        .xMin = glyph->bitmap_left,
+        .yMin = glyph->bitmap_top - glyph->bitmap.rows,
+        .xMax = glyph->bitmap_left + glyph->bitmap.width,
+        .yMax = glyph->bitmap_top};
 }
 
 static FT_BBox
 rose_stretch_bounding_box(FT_BBox a, FT_BBox b, FT_Pos offset_x) {
-    return (FT_BBox){.xMin = min_(a.xMin, b.xMin + offset_x),
-                     .yMin = min_(a.yMin, b.yMin),
-                     .xMax = max_(a.xMax, b.xMax + offset_x),
-                     .yMax = max_(a.yMax, b.yMax)};
+    return (FT_BBox){
+        .xMin = min_(a.xMin, b.xMin + offset_x),
+        .yMin = min_(a.yMin, b.yMin),
+        .xMax = max_(a.xMax, b.xMax + offset_x),
+        .yMax = max_(a.yMax, b.yMax)};
 }
 
 static struct rose_text_rendering_extent
@@ -154,7 +156,7 @@ struct rose_string_metrics {
 };
 
 static struct rose_string_metrics
-rose_render_string_glyphs( //
+rose_render_string_glyphs(
     struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string, //
@@ -172,7 +174,7 @@ rose_render_string_glyphs( //
 
     // Set font size.
     for(size_t i = 0; i < context->font_count; ++i) {
-        FT_Set_Char_Size( //
+        FT_Set_Char_Size(
             context->fonts[i].ft_face, 0, parameters.font_size * 64,
             parameters.dpi, parameters.dpi);
     }
@@ -275,7 +277,7 @@ rose_render_string_glyphs( //
 
             // Add rendered ellipsis glyph to the glyph buffer.
             if(ellipsis_character.glyph != NULL) {
-                if(FT_Glyph_Copy( //
+                if(FT_Glyph_Copy(
                        ellipsis_character.glyph, &(glyph_buffer->data[j])) ==
                    FT_Err_Ok) {
                     // Compute glyph's offset.
@@ -335,9 +337,9 @@ rose_text_rendering_context_initialize(
     }
 
     // Allocate and initialize a new text rendering context.
-    struct rose_text_rendering_context* context =
-        malloc(sizeof(struct rose_text_rendering_context) +
-               sizeof(struct rose_font) * parameters.font_count);
+    struct rose_text_rendering_context* context = malloc(
+        sizeof(struct rose_text_rendering_context) +
+        sizeof(struct rose_font) * parameters.font_count);
 
     if(context != NULL) {
         *context = (struct rose_text_rendering_context){
@@ -396,7 +398,7 @@ rose_text_rendering_context_destroy(
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_text_rendering_extent
-rose_compute_string_extent( //
+rose_compute_string_extent(
     struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string) {
@@ -415,7 +417,7 @@ rose_compute_string_extent( //
 }
 
 struct rose_text_rendering_extent
-rose_render_string( //
+rose_render_string(
     struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string, //
@@ -423,13 +425,15 @@ rose_render_string( //
     struct rose_text_rendering_extent result = {};
 
     // Obtain color.
-    unsigned color[] = {parameters.color.rgba8[2], parameters.color.rgba8[1],
-                        parameters.color.rgba8[0]};
+    unsigned color[] = {
+        parameters.color.rgba8[2], parameters.color.rgba8[1],
+        parameters.color.rgba8[0]};
 
     // Compute horizontal bound.
-    parameters.max_width = ((parameters.max_width > 0)
-                                ? min_(pixel_buffer.width, parameters.max_width)
-                                : pixel_buffer.width);
+    parameters.max_width =
+        ((parameters.max_width > 0)
+             ? min_(pixel_buffer.width, parameters.max_width)
+             : pixel_buffer.width);
 
     // Compute pixel buffer's pitch, if needed.
     if(pixel_buffer.pitch <= 0) {

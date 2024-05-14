@@ -64,8 +64,9 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
         // If there is no focused surface, then only print output's and
         // workspace's IDs.
         char const* format = "\xEF\x89\xAC %02d / %02d";
-        snprintf(string, rose_output_utf8_string_size_max, format, id_output,
-                 id_workspace);
+        snprintf(
+            string, rose_output_utf8_string_size_max, format, id_output,
+            id_workspace);
     } else {
         // Otherwise, initialize a buffer for focused surface's title.
         char surface_title[rose_output_utf8_buffer_size] = {};
@@ -75,14 +76,16 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
             struct rose_utf8_string title = rose_convert_ntbs_to_utf8(
                 workspace->focused_surface->xdg_surface->toplevel->title);
 
-            memcpy(surface_title, title.data,
-                   min_(title.size, rose_output_utf8_string_size_max));
+            memcpy(
+                surface_title, title.data,
+                min_(title.size, rose_output_utf8_string_size_max));
         }
 
         // And print all the relevant data.
         char const* format = "\xEF\x89\xAC %02d / %02d \xEF\x89\x8D %s";
-        snprintf(string, rose_output_utf8_string_size_max, format, id_output,
-                 id_workspace, surface_title);
+        snprintf(
+            string, rose_output_utf8_string_size_max, format, id_output,
+            id_workspace, surface_title);
     }
 
     // Convert resulting UTF-8 string to UTF-32 string.
@@ -94,7 +97,7 @@ rose_output_workspace_compose_title_string(struct rose_workspace* workspace) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_raster*
-rose_output_raster_initialize( //
+rose_output_raster_initialize(
     struct rose_raster* raster, struct wlr_renderer* renderer, int width,
     int height) {
     // Clamp the dimensions.
@@ -126,8 +129,9 @@ enum rose_output_rasters_update_type {
 };
 
 static void
-rose_output_update_rasters(struct rose_output* output,
-                           enum rose_output_rasters_update_type update_type) {
+rose_output_update_rasters(
+    struct rose_output* output,
+    enum rose_output_rasters_update_type update_type) {
     // Obtain output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
 
@@ -179,18 +183,19 @@ rose_output_update_rasters(struct rose_output* output,
         }
 
         // Compute raster's dimensions.
-        int width = ((((panel.position == rose_ui_panel_position_left) ||
-                       (panel.position == rose_ui_panel_position_right))
-                          ? output_state.height
-                          : output_state.width) /
-                     2),
+        int width =
+                ((((panel.position == rose_ui_panel_position_left) ||
+                   (panel.position == rose_ui_panel_position_right))
+                      ? output_state.height
+                      : output_state.width) /
+                 2),
             height = (int)(panel.size * output_state.scale + 0.5);
 
         // Initialize the raster.
         struct rose_raster* raster = output->rasters.title =
-            rose_output_raster_initialize(output->rasters.title,
-                                          output->context->renderer, width,
-                                          height);
+            rose_output_raster_initialize(
+                output->rasters.title, output->context->renderer, width,
+                height);
 
         // Stop the update if the raster is not initialized.
         if(raster == NULL) {
@@ -204,13 +209,13 @@ rose_output_update_rasters(struct rose_output* output,
         text_rendering_parameters.color = color_scheme->panel_foreground;
 
         // Initialize a pixel buffer for text rendering.
-        struct rose_pixel_buffer pixels = //
-            {.data = raster->pixels,
-             .width = raster->base.width,
-             .height = raster->base.height};
+        struct rose_pixel_buffer pixels = {
+            .data = raster->pixels,
+            .width = raster->base.width,
+            .height = raster->base.height};
 
         // Compose and render the title.
-        rose_render_string( //
+        rose_render_string(
             text_rendering_context, text_rendering_parameters,
             rose_output_workspace_compose_title_string(workspace), pixels);
 
@@ -305,11 +310,12 @@ rose_output_update_rasters(struct rose_output* output,
                     updated_area[1] = dy + line_pixels.height;
 
                     // Clear line's pixel buffer.
-                    memset(line_pixels.data, 0,
-                           4 * line_pixels.width * line_pixels.height);
+                    memset(
+                        line_pixels.data, 0,
+                        4 * line_pixels.width * line_pixels.height);
 
                     // Render the current line.
-                    rose_render_string( //
+                    rose_render_string(
                         text_rendering_context, text_rendering_parameters,
                         text.lines[i], line_pixels);
                 }
@@ -318,11 +324,12 @@ rose_output_update_rasters(struct rose_output* output,
 
         // Update raster's texture, if needed.
         if(updated_area[0] >= 0) {
-            pixman_region32_t region = //
-                {.extents = {.x1 = 0,
-                             .y1 = updated_area[0],
-                             .x2 = raster->base.width,
-                             .y2 = updated_area[1]}};
+            pixman_region32_t region = {
+                .extents = {
+                    .x1 = 0,
+                    .y1 = updated_area[0],
+                    .x2 = raster->base.width,
+                    .y2 = updated_area[1]}};
 
             rose_raster_texture_update(raster, &region);
         }
@@ -349,7 +356,7 @@ rose_output_request_rasters_update(struct rose_output* output) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_workspace*
-rose_output_select_next_workspace( //
+rose_output_select_next_workspace(
     struct rose_output* output, struct rose_workspace* workspace,
     enum rose_output_focus_direction direction) {
     // If there is no workspace, or the workspace does not belong to the given
@@ -394,8 +401,9 @@ rose_output_add_workspaces(struct rose_output* output) {
 
             // Add it to the list of workspaces without output.
             wl_list_remove(&(workspace->link_output));
-            wl_list_insert(&(workspace->context->workspaces_without_output),
-                           &(workspace->link_output));
+            wl_list_insert(
+                &(workspace->context->workspaces_without_output),
+                &(workspace->link_output));
         }
     }
 
@@ -404,7 +412,7 @@ rose_output_add_workspaces(struct rose_output* output) {
         struct rose_workspace* workspace = NULL;
         struct rose_workspace* _ = NULL;
 
-        wl_list_for_each_safe( //
+        wl_list_for_each_safe(
             workspace, _, &(output->context->workspaces_without_output),
             link_output) {
             // Remove the workspace from the list of available workspaces.
@@ -413,10 +421,11 @@ rose_output_add_workspaces(struct rose_output* output) {
 
             // Link the workspace with the output.
             wl_list_remove(&(workspace->link_output));
-            wl_list_insert(rose_workspace_find_position_in_list(
-                               &(output->workspaces), workspace,
-                               offsetof(struct rose_workspace, link_output)),
-                           &(workspace->link_output));
+            wl_list_insert(
+                rose_workspace_find_position_in_list(
+                    &(output->workspaces), workspace,
+                    offsetof(struct rose_workspace, link_output)),
+                &(workspace->link_output));
 
             workspace->output = output;
 
@@ -451,7 +460,7 @@ rose_output_add_workspaces(struct rose_output* output) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_output_surface_send_frame_done( //
+rose_output_surface_send_frame_done(
     struct wlr_surface* surface, int x, int y, void* data) {
     unused_(x), unused_(y);
 
@@ -484,9 +493,8 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     clock_gettime(CLOCK_MONOTONIC, &timestamp);
 
     // Determine if redraw is required.
-    bool is_redraw_required = //
-        (output->is_rasters_update_requested) ||
-        (output->frame_without_damage_count < 2);
+    bool is_redraw_required = (output->is_rasters_update_requested) ||
+                              (output->frame_without_damage_count < 2);
 
     // Update output's damage tracking data.
     output->frame_without_damage_count++;
@@ -501,9 +509,9 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
         // Force workspace's running transaction to stop if too much time has
         // passed since it started.
         if(workspace->transaction.sentinel > 0) {
-            if(fabs(difftime(timestamp.tv_sec,
-                             workspace->transaction.start_time.tv_sec)) >=
-               1.0) {
+            if(fabs(difftime(
+                   timestamp.tv_sec,
+                   workspace->transaction.start_time.tv_sec)) >= 1.0) {
                 rose_workspace_transaction_commit(workspace);
             }
         }
@@ -554,8 +562,9 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
 
             // Go to the end of the routine to update the flags.
             goto end;
-        } else if(output->cursor.has_moved &&
-                  (output->cursor.drag_and_drop_surface != NULL)) {
+        } else if(
+            output->cursor.has_moved &&
+            (output->cursor.drag_and_drop_surface != NULL)) {
             // Proceed with rendering.
         } else {
             // Do nothing else.
@@ -592,7 +601,7 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
                 // Otherwise, send frame done events to all visible surfaces.
                 wl_list_for_each(
                     surface, &(workspace->surfaces_visible), link_visible) {
-                    wlr_xdg_surface_for_each_surface( //
+                    wlr_xdg_surface_for_each_surface(
                         surface->xdg_surface,
                         rose_output_surface_send_frame_done, &timestamp);
                 }
@@ -645,9 +654,8 @@ rose_handle_event_output_commit(struct wl_listener* listener, void* data) {
         wl_container_of(listener, output, listener_commit);
 
     // Compute the state mask.
-    uint32_t mask = //
-        WLR_OUTPUT_STATE_SCALE | WLR_OUTPUT_STATE_TRANSFORM |
-        WLR_OUTPUT_STATE_MODE;
+    uint32_t mask = WLR_OUTPUT_STATE_SCALE | WLR_OUTPUT_STATE_TRANSFORM |
+                    WLR_OUTPUT_STATE_MODE;
 
     if((event->state->committed & mask) != 0) {
         // Update the UI.
@@ -691,8 +699,8 @@ rose_handle_event_output_destroy(struct wl_listener* listener, void* data) {
 }
 
 static void
-rose_handle_event_output_cursor_surface_destroy(struct wl_listener* listener,
-                                                void* data) {
+rose_handle_event_output_cursor_surface_destroy(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the output.
@@ -728,8 +736,8 @@ rose_handle_event_output_cursor_drag_and_drop_surface_destroy(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_initialize(struct rose_server_context* context,
-                       struct wlr_output* device) {
+rose_output_initialize(
+    struct rose_server_context* context, struct wlr_output* device) {
     // Initialize output's rendering subsystem.
     if(!wlr_output_init_render(device, context->allocator, context->renderer)) {
         return;
@@ -760,10 +768,11 @@ rose_output_initialize(struct rose_server_context* context,
         wlr_cursor_destroy(cursor);
         return;
     } else {
-        *output = (struct rose_output){.context = context,
-                                       .device = device,
-                                       .layout = layout,
-                                       .cursor = {.underlying = cursor}};
+        *output = (struct rose_output){
+            .context = context,
+            .device = device,
+            .layout = layout,
+            .cursor = {.underlying = cursor}};
     }
 
     // Add output to the layout.
@@ -788,9 +797,10 @@ rose_output_initialize(struct rose_server_context* context,
 
             // Save the current mode.
             output->modes.data[output->modes.size++] =
-                (struct rose_output_mode){.width = mode->width,
-                                          .height = mode->height,
-                                          .rate = mode->refresh};
+                (struct rose_output_mode){
+                    .width = mode->width,
+                    .height = mode->height,
+                    .rate = mode->refresh};
         }
     }
 
@@ -970,18 +980,20 @@ rose_output_destroy(struct rose_output* output) {
                 // If the workspace is empty and not current, then add it to the
                 // list of available workspaces.
                 wl_list_remove(&(workspace->link));
-                wl_list_insert(rose_workspace_find_position_in_list(
-                                   &(workspace->context->workspaces), workspace,
-                                   offsetof(struct rose_workspace, link)),
-                               &(workspace->link));
+                wl_list_insert(
+                    rose_workspace_find_position_in_list(
+                        &(workspace->context->workspaces), workspace,
+                        offsetof(struct rose_workspace, link)),
+                    &(workspace->link));
 
                 // And reset its panel.
                 workspace->panel = workspace->panel_saved =
                     output->context->config.theme.panel;
             } else {
                 // Otherwise, add it to the list of workspaces without output.
-                wl_list_insert(&(workspace->context->workspaces_without_output),
-                               &(workspace->link_output));
+                wl_list_insert(
+                    &(workspace->context->workspaces_without_output),
+                    &(workspace->link_output));
             }
         }
 
@@ -1008,8 +1020,9 @@ rose_output_destroy(struct rose_output* output) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_output_configure(struct rose_output* output,
-                      struct rose_output_configure_parameters parameters) {
+rose_output_configure(
+    struct rose_output* output,
+    struct rose_output_configure_parameters parameters) {
     // If requested configuration is a no-op, then return success.
     if(parameters.flags == 0) {
         return true;
@@ -1111,8 +1124,8 @@ rose_output_configure(struct rose_output* output,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_focus_workspace(struct rose_output* output,
-                            struct rose_workspace* workspace) {
+rose_output_focus_workspace(
+    struct rose_output* output, struct rose_workspace* workspace) {
     // Do nothing if the given output does not change its focus, or if the given
     // output does not contain the workspace.
     if((workspace == output->focused_workspace) ||
@@ -1184,8 +1197,8 @@ rose_output_focus_workspace_relative(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_add_workspace(struct rose_output* output,
-                          struct rose_workspace* workspace) {
+rose_output_add_workspace(
+    struct rose_output* output, struct rose_workspace* workspace) {
     // Do nothing if the workspace doesn't change its output.
     if(output == workspace->output) {
         return;
@@ -1202,10 +1215,11 @@ rose_output_add_workspace(struct rose_output* output,
 
     // Link the workspace with its new output.
     wl_list_remove(&(workspace->link_output));
-    wl_list_insert(rose_workspace_find_position_in_list(
-                       &(output->workspaces), workspace,
-                       offsetof(struct rose_workspace, link_output)),
-                   &(workspace->link_output));
+    wl_list_insert(
+        rose_workspace_find_position_in_list(
+            &(output->workspaces), workspace,
+            offsetof(struct rose_workspace, link_output)),
+        &(workspace->link_output));
 
     workspace->output = output;
 
@@ -1234,8 +1248,8 @@ rose_output_add_workspace(struct rose_output* output,
 }
 
 void
-rose_output_remove_workspace(struct rose_output* output,
-                             struct rose_workspace* workspace) {
+rose_output_remove_workspace(
+    struct rose_output* output, struct rose_workspace* workspace) {
     // Do nothing if the given output does not contain the workspace.
     if(output != workspace->output) {
         return;
@@ -1263,9 +1277,8 @@ rose_output_remove_workspace(struct rose_output* output,
     // Update output's focus, if needed.
     if(output->focused_workspace == workspace) {
         // Select workspace's successor.
-        struct rose_workspace* successor = //
-            rose_output_select_next_workspace(
-                output, workspace, rose_output_focus_direction_forward);
+        struct rose_workspace* successor = rose_output_select_next_workspace(
+            output, workspace, rose_output_focus_direction_forward);
 
         // Focus the successor, but make sure that the workspace is not its
         // own successor.
@@ -1285,18 +1298,20 @@ rose_output_remove_workspace(struct rose_output* output,
         // If the workspace is empty and not current, then add it to the list of
         // available workspaces.
         wl_list_remove(&(workspace->link));
-        wl_list_insert(rose_workspace_find_position_in_list(
-                           &(workspace->context->workspaces), workspace,
-                           offsetof(struct rose_workspace, link)),
-                       &(workspace->link));
+        wl_list_insert(
+            rose_workspace_find_position_in_list(
+                &(workspace->context->workspaces), workspace,
+                offsetof(struct rose_workspace, link)),
+            &(workspace->link));
 
         // And reset its panel.
         workspace->panel = workspace->panel_saved =
             output->context->config.theme.panel;
     } else {
         // Otherwise, add it to the list of workspaces without output.
-        wl_list_insert(&(workspace->context->workspaces_without_output),
-                       &(workspace->link_output));
+        wl_list_insert(
+            &(workspace->context->workspaces_without_output),
+            &(workspace->link_output));
     }
 }
 
@@ -1364,8 +1379,8 @@ rose_output_mode_list_obtain(struct rose_output* output) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_cursor_set(struct rose_output* output,
-                       enum rose_output_cursor_type type) {
+rose_output_cursor_set(
+    struct rose_output* output, enum rose_output_cursor_type type) {
     // Do nothing if output's cursor doesn't change its type.
     if(output->cursor.type == type) {
         return;
@@ -1382,14 +1397,14 @@ rose_output_cursor_set(struct rose_output* output,
     // Set cursor's image.
     if((output->cursor.type == rose_output_cursor_type_client) &&
        (output->cursor.is_surface_set)) {
-        wlr_cursor_set_surface( //
+        wlr_cursor_set_surface(
             output->cursor.underlying, output->cursor.surface,
             output->cursor.hotspot_x, output->cursor.hotspot_y);
     } else {
         struct rose_cursor_image image = rose_server_context_get_cursor_image(
             output->context, output->cursor.type, output->device->scale);
 
-        wlr_cursor_set_buffer( //
+        wlr_cursor_set_buffer(
             output->cursor.underlying, &(image.raster->base), image.hotspot_x,
             image.hotspot_y, 1.0f);
     }
@@ -1414,7 +1429,7 @@ rose_output_cursor_warp(struct rose_output* output, double x, double y) {
 }
 
 void
-rose_output_cursor_client_surface_set( //
+rose_output_cursor_client_surface_set(
     struct rose_output* output, struct wlr_surface* surface, int32_t hotspot_x,
     int32_t hotspot_y) {
     // Remove listener from the signal.
@@ -1430,13 +1445,14 @@ rose_output_cursor_client_surface_set( //
 
     // Register listener, if needed.
     if(surface != NULL) {
-        wl_signal_add(&(surface->events.destroy),
-                      &(output->listener_cursor_surface_destroy));
+        wl_signal_add(
+            &(surface->events.destroy),
+            &(output->listener_cursor_surface_destroy));
     }
 }
 
 void
-rose_output_cursor_drag_and_drop_surface_set( //
+rose_output_cursor_drag_and_drop_surface_set(
     struct rose_output* output, struct wlr_surface* surface) {
     // Remove listener from the signal.
     remove_signal_(cursor_drag_and_drop_surface_destroy);
@@ -1446,8 +1462,9 @@ rose_output_cursor_drag_and_drop_surface_set( //
 
     // Register listener, if needed.
     if(surface != NULL) {
-        wl_signal_add(&(surface->events.destroy),
-                      &(output->listener_cursor_drag_and_drop_surface_destroy));
+        wl_signal_add(
+            &(surface->events.destroy),
+            &(output->listener_cursor_drag_and_drop_surface_destroy));
     }
 
     // Request redraw.

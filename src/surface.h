@@ -194,11 +194,11 @@ rose_surface_request_close(struct rose_surface* surface);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_surface_output_enter( //
+rose_surface_output_enter(
     struct rose_surface* surface, struct rose_output* output);
 
 void
-rose_surface_output_leave( //
+rose_surface_output_leave(
     struct rose_surface* surface, struct rose_output* output);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -209,8 +209,9 @@ void
 rose_surface_make_current(struct rose_surface* surface, struct wlr_seat* seat);
 
 void
-rose_surface_configure(struct rose_surface* surface,
-                       struct rose_surface_configure_parameters parameters);
+rose_surface_configure(
+    struct rose_surface* surface,
+    struct rose_surface_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.

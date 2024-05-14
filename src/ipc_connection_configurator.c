@@ -96,8 +96,9 @@ enum {
     if(object->device->name != NULL) {                                 \
         size_t name_size = strlen(object->device->name);               \
                                                                        \
-        memcpy(descriptor.name, object->device->name,                  \
-               min_(name_size, sizeof(descriptor.name)));              \
+        memcpy(                                                        \
+            descriptor.name, object->device->name,                     \
+            min_(name_size, sizeof(descriptor.name)));                 \
     }                                                                  \
                                                                        \
     /* Return constructed descriptor. */                               \
@@ -207,8 +208,8 @@ rose_ipc_buffer_write_double(struct rose_ipc_buffer* buffer, double x) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_ipc_buffer_ref_read_string(struct rose_ipc_buffer_ref* buffer,
-                                char* string, size_t string_size) {
+rose_ipc_buffer_ref_read_string(
+    struct rose_ipc_buffer_ref* buffer, char* string, size_t string_size) {
     // Read the string.
     memcpy(string, buffer->data, min_(string_size, buffer->size));
 
@@ -236,14 +237,15 @@ rose_ipc_buffer_ref_read_device_descriptor(struct rose_ipc_buffer_ref* buffer) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_ipc_buffer_write_string(struct rose_ipc_buffer* buffer, char* string,
-                             size_t string_size) {
+rose_ipc_buffer_write_string(
+    struct rose_ipc_buffer* buffer, char* string, size_t string_size) {
     // Compute the amount of space left in the buffer.
     size_t buffer_size_left = rose_ipc_buffer_size_max - buffer->size;
 
     // Write the string to the buffer.
-    memcpy(buffer->data + buffer->size, string,
-           min_(buffer_size_left, string_size));
+    memcpy(
+        buffer->data + buffer->size, string,
+        min_(buffer_size_left, string_size));
 
     // Increase buffer's size by the amount of bytes written.
     buffer->size += min_(buffer_size_left, string_size);
@@ -339,7 +341,7 @@ rose_ipc_connection_dispatch_configuration_request(
                 &response, context->keyboard_context->layout_count);
 
             // Write keyboard layouts.
-            rose_ipc_buffer_write_string( //
+            rose_ipc_buffer_write_string(
                 &response, context->config.keyboard_layouts.data,
                 context->config.keyboard_layouts.size);
 
@@ -507,8 +509,9 @@ rose_ipc_connection_dispatch_configuration_request(
             // Respond with failure if there is no such device.
             if((input == NULL) ||
                (input->type != rose_input_device_type_pointer) ||
-               (memcmp(rose_input_device_descriptor_obtain(input).name,
-                       descriptor.name, sizeof(descriptor.name)) != 0)) {
+               (memcmp(
+                    rose_input_device_descriptor_obtain(input).name,
+                    descriptor.name, sizeof(descriptor.name)) != 0)) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_device_not_found);
 
@@ -538,9 +541,10 @@ rose_ipc_connection_dispatch_configuration_request(
                 .adaptive_sync_state = rose_ipc_buffer_ref_read_byte(&request),
                 .transform = rose_ipc_buffer_ref_read_byte(&request),
                 .scale = rose_ipc_buffer_ref_read_double(&request),
-                .mode = {.width = rose_ipc_buffer_ref_read_int(&request),
-                         .height = rose_ipc_buffer_ref_read_int(&request),
-                         .rate = rose_ipc_buffer_ref_read_int(&request)}};
+                .mode = {
+                    .width = rose_ipc_buffer_ref_read_int(&request),
+                    .height = rose_ipc_buffer_ref_read_int(&request),
+                    .rate = rose_ipc_buffer_ref_read_int(&request)}};
 
             // Obtain an output device with the requested descriptor.
             struct rose_output* output =
@@ -548,8 +552,9 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Respond with failure if there is no such device.
             if((output == NULL) ||
-               (memcmp(rose_output_device_descriptor_obtain(output).name,
-                       descriptor.name, sizeof(descriptor.name)) != 0)) {
+               (memcmp(
+                    rose_output_device_descriptor_obtain(output).name,
+                    descriptor.name, sizeof(descriptor.name)) != 0)) {
                 rose_ipc_buffer_write_byte(
                     &response, rose_ipc_configure_result_device_not_found);
 

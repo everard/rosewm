@@ -41,8 +41,8 @@ struct rose_keyboard {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_keyboard_initialize(struct rose_keyboard* keyboard,
-                         struct rose_input* parent);
+rose_keyboard_initialize(
+    struct rose_keyboard* keyboard, struct rose_input* parent);
 
 void
 rose_keyboard_destroy(struct rose_keyboard* keyboard);

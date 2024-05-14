@@ -223,8 +223,8 @@ enum rose_output_focus_direction {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_initialize(struct rose_server_context* context,
-                       struct wlr_output* device);
+rose_output_initialize(
+    struct rose_server_context* context, struct wlr_output* device);
 
 // Note: This function is called automatically upon output device's destruction.
 void
@@ -235,16 +235,17 @@ rose_output_destroy(struct rose_output* output);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_output_configure(struct rose_output* output,
-                      struct rose_output_configure_parameters parameters);
+rose_output_configure(
+    struct rose_output* output,
+    struct rose_output_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Workspace focusing interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_focus_workspace(struct rose_output* output,
-                            struct rose_workspace* workspace);
+rose_output_focus_workspace(
+    struct rose_output* output, struct rose_workspace* workspace);
 
 void
 rose_output_focus_workspace_relative(
@@ -255,12 +256,12 @@ rose_output_focus_workspace_relative(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_add_workspace(struct rose_output* output,
-                          struct rose_workspace* workspace);
+rose_output_add_workspace(
+    struct rose_output* output, struct rose_workspace* workspace);
 
 void
-rose_output_remove_workspace(struct rose_output* output,
-                             struct rose_workspace* workspace);
+rose_output_remove_workspace(
+    struct rose_output* output, struct rose_workspace* workspace);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State manipulation interface.
@@ -287,19 +288,19 @@ rose_output_mode_list_obtain(struct rose_output* output);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_cursor_set(struct rose_output* output,
-                       enum rose_output_cursor_type type);
+rose_output_cursor_set(
+    struct rose_output* output, enum rose_output_cursor_type type);
 
 void
 rose_output_cursor_warp(struct rose_output* output, double x, double y);
 
 void
-rose_output_cursor_client_surface_set( //
+rose_output_cursor_client_surface_set(
     struct rose_output* output, struct wlr_surface* surface, int32_t hotspot_x,
     int32_t hotspot_y);
 
 void
-rose_output_cursor_drag_and_drop_surface_set( //
+rose_output_cursor_drag_and_drop_surface_set(
     struct rose_output* output, struct wlr_surface* surface);
 
 #endif // H_0DF3C518ADEA43DB9AA264FB4CF22816

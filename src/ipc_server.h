@@ -30,11 +30,11 @@ rose_ipc_server_destroy(struct rose_ipc_server* server);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_server_dispatch_command(struct rose_ipc_server* server,
-                                 struct rose_ipc_command command);
+rose_ipc_server_dispatch_command(
+    struct rose_ipc_server* server, struct rose_ipc_command command);
 
 void
-rose_ipc_server_broadcast_status(struct rose_ipc_server* server,
-                                 struct rose_ipc_status status);
+rose_ipc_server_broadcast_status(
+    struct rose_ipc_server* server, struct rose_ipc_status status);
 
 #endif // H_CCDF8B8A9BB149EDB2E82AB68ADEEF4E

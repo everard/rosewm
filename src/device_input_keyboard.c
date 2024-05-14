@@ -179,9 +179,10 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
         // Obtain current shortcut based on keyboard's state.
         struct rose_keyboard_shortcut shortcut = {};
 
-        memcpy(shortcut.keysyms, keyboard->keysyms_pressed.data,
-               keyboard->keysyms_pressed.size *
-                   sizeof(struct rose_keyboard_keysym));
+        memcpy(
+            shortcut.keysyms, keyboard->keysyms_pressed.data,
+            keyboard->keysyms_pressed.size *
+                sizeof(struct rose_keyboard_keysym));
 
         // Obtain a core action which corresponds to the shortcut.
         struct rose_keyboard_core_action* core_action = NULL;
@@ -195,7 +196,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
                 context->config.keyboard_control_scheme->core_actions;
 
             // Find an action which corresponds to the shortcut.
-            core_action = bsearch( //
+            core_action = bsearch(
                 &shortcut, core_actions, core_action_count,
                 sizeof(*core_actions), rose_keyboard_core_action_compare);
 
@@ -268,7 +269,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
                 context->config.keyboard_control_scheme->ipc_actions;
 
             // Find an action which corresponds to the shortcut.
-            struct rose_keyboard_ipc_action* ipc_action = bsearch( //
+            struct rose_keyboard_ipc_action* ipc_action = bsearch(
                 &shortcut, ipc_actions, ipc_action_count, sizeof(*ipc_actions),
                 rose_keyboard_ipc_action_compare);
 
@@ -313,8 +314,8 @@ rose_handle_event_keyboard_modifiers(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_keyboard_initialize(struct rose_keyboard* keyboard,
-                         struct rose_input* parent) {
+rose_keyboard_initialize(
+    struct rose_keyboard* keyboard, struct rose_input* parent) {
     // Initialize the keyboard.
     *keyboard = (struct rose_keyboard){.parent = parent};
 

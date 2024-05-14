@@ -71,8 +71,8 @@ rose_command_list_notify_command_termination(
 ////////////////////////////////////////////////////////////////////////////////
 
 rose_command_access_rights_mask
-rose_command_list_query_access_rights(struct rose_command_list* command_list,
-                                      pid_t command_pid);
+rose_command_list_query_access_rights(
+    struct rose_command_list* command_list, pid_t command_pid);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Command argument list initialization interface.

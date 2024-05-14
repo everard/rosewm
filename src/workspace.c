@@ -196,9 +196,9 @@ enum rose_workspace_layout_update_type {
 };
 
 static void
-rose_workspace_layout_update(enum rose_workspace_layout_update_type type,
-                             struct rose_workspace* workspace,
-                             struct rose_surface* surface) {
+rose_workspace_layout_update(
+    enum rose_workspace_layout_update_type type,
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Do nothing if the given workspace does not contain the surface.
     if(workspace != surface->workspace) {
         return;
@@ -227,14 +227,15 @@ rose_workspace_layout_update(enum rose_workspace_layout_update_type type,
         // If the surface is removed, then update workspace's focus.
         if(workspace->focused_surface == surface) {
             // Select surface's successor.
-            struct rose_surface* successor = //
+            struct rose_surface* successor =
                 ((surface->link_mapped.next != &(workspace->surfaces_mapped))
                      ? wl_container_of(
                            surface->link_mapped.next, surface, link_mapped)
                      : (wl_list_empty(&(workspace->surfaces_mapped))
                             ? NULL
-                            : wl_container_of(workspace->surfaces_mapped.next,
-                                              surface, link_mapped)));
+                            : wl_container_of(
+                                  workspace->surfaces_mapped.next, surface,
+                                  link_mapped)));
 
             // Focus the successor, but make sure that the surface is not its
             // own successor.
@@ -293,8 +294,8 @@ rose_handle_event_workspace_transaction_timer_expiry(void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_workspace_initialize(struct rose_workspace* workspace,
-                          struct rose_server_context* context) {
+rose_workspace_initialize(
+    struct rose_workspace* workspace, struct rose_server_context* context) {
     // Initialize workspace object.
     *workspace = (struct rose_workspace){
         .context = context, .width = 640, .height = 480};
@@ -379,7 +380,7 @@ rose_workspace_destroy(struct rose_workspace* workspace) {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct wl_list*
-rose_workspace_find_position_in_list( //
+rose_workspace_find_position_in_list(
     struct wl_list* head, struct rose_workspace* workspace,
     size_t link_offset) {
     // Obtain given workspace's ID.
@@ -415,8 +416,9 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
     // Obtain parent output's prompt.
     struct rose_output_widget* prompt =
         ((workspace->output != NULL)
-             ? (!wl_list_empty(workspace->output->ui.widgets_mapped +
-                               rose_output_widget_type_prompt)
+             ? (!wl_list_empty(
+                    workspace->output->ui.widgets_mapped +
+                    rose_output_widget_type_prompt)
                     ? (wl_container_of(
                           workspace->output->ui
                               .widgets_mapped[rose_output_widget_type_prompt]
@@ -446,8 +448,9 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
         // widget.
         struct rose_output_widget* screen_lock =
             ((workspace->output != NULL)
-                 ? (!wl_list_empty(workspace->output->ui.widgets_mapped +
-                                   rose_output_widget_type_screen_lock)
+                 ? (!wl_list_empty(
+                        workspace->output->ui.widgets_mapped +
+                        rose_output_widget_type_screen_lock)
                         ? (wl_container_of(
                               workspace->output->ui
                                   .widgets_mapped
@@ -517,7 +520,7 @@ rose_workspace_make_current(struct rose_workspace* workspace) {
     }
 
     // Update pointer's focus by warping the pointer to its current location.
-    rose_workspace_pointer_warp( //
+    rose_workspace_pointer_warp(
         workspace, workspace->pointer.movement_time_msec, workspace->pointer.x,
         workspace->pointer.y);
 }
@@ -533,8 +536,8 @@ rose_workspace_is_current(struct rose_workspace* workspace) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_focus_surface(struct rose_workspace* workspace,
-                             struct rose_surface* surface) {
+rose_workspace_focus_surface(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // If there is no surface to focus, then there is no need to set any surface
     // parameters either.
     if(surface == NULL) {
@@ -611,7 +614,7 @@ rose_workspace_focus_surface_relative(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_surface_configure( //
+rose_workspace_surface_configure(
     struct rose_workspace* workspace, struct rose_surface* surface,
     struct rose_surface_configure_parameters parameters) {
     // Do nothing if the given workspace doesn't contain the surface.
@@ -651,8 +654,9 @@ rose_workspace_surface_configure( //
             parameters.width = surface->state.saved.width;
             parameters.height = surface->state.saved.height;
         }
-    } else if(!(state_prev.is_maximized || state_prev.is_fullscreen) &&
-              (state_next.is_maximized || state_next.is_fullscreen)) {
+    } else if(
+        !(state_prev.is_maximized || state_prev.is_fullscreen) &&
+        (state_next.is_maximized || state_next.is_fullscreen)) {
         // If the surface is being maximized or set to fullscreen, then save its
         // previous state.
         surface->state.saved = state_prev;
@@ -707,8 +711,8 @@ rose_workspace_surface_configure( //
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_add_surface(struct rose_workspace* workspace,
-                           struct rose_surface* surface) {
+rose_workspace_add_surface(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Do nothing if the surface doesn't change its workspace.
     if(workspace == surface->workspace) {
         return;
@@ -767,15 +771,16 @@ rose_workspace_add_surface(struct rose_workspace* workspace,
 
             // Add the workspace to the list of workspaces without output.
             wl_list_remove(&(workspace->link_output));
-            wl_list_insert(&(workspace->context->workspaces_without_output),
-                           &(workspace->link_output));
+            wl_list_insert(
+                &(workspace->context->workspaces_without_output),
+                &(workspace->link_output));
         }
     }
 }
 
 void
-rose_workspace_remove_surface(struct rose_workspace* workspace,
-                              struct rose_surface* surface) {
+rose_workspace_remove_surface(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Do nothing if the given workspace doesn't contain the surface.
     if(workspace != surface->workspace) {
         return;
@@ -820,10 +825,11 @@ rose_workspace_remove_surface(struct rose_workspace* workspace,
                 // If the workspace does not belong to any outputs, and it is
                 // not current, then add it to the list of available workspaces.
                 wl_list_remove(&(workspace->link));
-                wl_list_insert(rose_workspace_find_position_in_list(
-                                   &(workspace->context->workspaces), workspace,
-                                   offsetof(struct rose_workspace, link)),
-                               &(workspace->link));
+                wl_list_insert(
+                    rose_workspace_find_position_in_list(
+                        &(workspace->context->workspaces), workspace,
+                        offsetof(struct rose_workspace, link)),
+                    &(workspace->link));
 
                 // Remove it from the list of workspaces without output.
                 wl_list_remove(&(workspace->link_output));
@@ -842,7 +848,7 @@ rose_workspace_remove_surface(struct rose_workspace* workspace,
 }
 
 void
-rose_workspace_reposition_surface( //
+rose_workspace_reposition_surface(
     struct rose_workspace* workspace, struct rose_surface* surface,
     struct rose_surface* destination) {
     // Do nothing if either the source surface, or its destination, is not
@@ -894,8 +900,8 @@ rose_workspace_reposition_surface( //
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_set_panel(struct rose_workspace* workspace,
-                         struct rose_ui_panel panel) {
+rose_workspace_set_panel(
+    struct rose_workspace* workspace, struct rose_ui_panel panel) {
     // Update the panel.
     workspace->panel_saved = workspace->panel;
     workspace->panel = panel;
@@ -911,7 +917,7 @@ rose_workspace_set_panel(struct rose_workspace* workspace,
     rose_workspace_layout_compute(workspace);
 
     // Update pointer's focus by warping the pointer to its current location.
-    rose_workspace_pointer_warp( //
+    rose_workspace_pointer_warp(
         workspace, workspace->pointer.movement_time_msec, workspace->pointer.x,
         workspace->pointer.y);
 
@@ -1072,8 +1078,8 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_notify_output_mode(struct rose_workspace* workspace,
-                                  struct rose_output* output) {
+rose_workspace_notify_output_mode(
+    struct rose_workspace* workspace, struct rose_output* output) {
     // Do nothing if the given workspace does not belong to the output.
     if(workspace->output != output) {
         return;
@@ -1090,7 +1096,7 @@ rose_workspace_notify_output_mode(struct rose_workspace* workspace,
     // Update pointer's position, if needed.
     if((workspace->pointer.x > workspace->width) ||
        (workspace->pointer.y > workspace->height)) {
-        rose_workspace_pointer_warp( //
+        rose_workspace_pointer_warp(
             workspace, workspace->pointer.movement_time_msec,
             workspace->pointer.x, workspace->pointer.y);
     }
@@ -1101,8 +1107,8 @@ rose_workspace_notify_output_mode(struct rose_workspace* workspace,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_notify_surface_name_update(struct rose_workspace* workspace,
-                                          struct rose_surface* surface) {
+rose_workspace_notify_surface_name_update(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Do nothing if the given workspace does not contain the surface.
     if(workspace != surface->workspace) {
         return;
@@ -1126,8 +1132,8 @@ rose_workspace_notify_surface_name_update(struct rose_workspace* workspace,
 }
 
 void
-rose_workspace_notify_surface_map(struct rose_workspace* workspace,
-                                  struct rose_surface* surface) {
+rose_workspace_notify_surface_map(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Save surface's initial state.
     surface->state.saved = surface->state.current;
 
@@ -1138,10 +1144,11 @@ rose_workspace_notify_surface_map(struct rose_workspace* workspace,
     surface->state.saved.x = main_area.x;
     surface->state.saved.y = main_area.y;
 
-#define shift_(v, d)                                            \
-    ((v) += ((main_area.d > surface->state.saved.d)             \
-                 ? ((main_area.d - surface->state.saved.d) / 2) \
-                 : 0))
+#define shift_(v, d)                                     \
+    ((v) +=                                              \
+     ((main_area.d > surface->state.saved.d)             \
+          ? ((main_area.d - surface->state.saved.d) / 2) \
+          : 0))
 
     shift_(surface->state.saved.x, width);
     shift_(surface->state.saved.y, height);
@@ -1174,16 +1181,16 @@ rose_workspace_notify_surface_map(struct rose_workspace* workspace,
 }
 
 void
-rose_workspace_notify_surface_unmap(struct rose_workspace* workspace,
-                                    struct rose_surface* surface) {
+rose_workspace_notify_surface_unmap(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Update workspace's layout.
     rose_workspace_layout_update(
         rose_workspace_layout_update_surface_remove, workspace, surface);
 }
 
 void
-rose_workspace_notify_surface_commit(struct rose_workspace* workspace,
-                                     struct rose_surface* surface) {
+rose_workspace_notify_surface_commit(
+    struct rose_workspace* workspace, struct rose_surface* surface) {
     // Do nothing if the given workspace does not contain the surface.
     if(workspace != surface->workspace) {
         return;
@@ -1262,7 +1269,7 @@ rose_workspace_transaction_commit(struct rose_workspace* workspace) {
         struct rose_surface_snapshot* surface_snapshot = NULL;
         struct rose_surface_snapshot* _ = NULL;
 
-        wl_list_for_each_safe( //
+        wl_list_for_each_safe(
             surface_snapshot, _, &(workspace->transaction.snapshot.surfaces),
             link) {
             rose_surface_snapshot_destroy(surface_snapshot);

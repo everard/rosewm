@@ -24,9 +24,10 @@ struct rose_theme
 rose_theme_initialize_default() {
     return (struct rose_theme){
         .font_size = 16,
-        .panel = {.position = rose_ui_panel_position_top,
-                  .size = 40,
-                  .is_visible = true},
+        .panel =
+            {.position = rose_ui_panel_position_top,
+             .size = 40,
+             .is_visible = true},
         .color_scheme = rose_color_scheme_initialize_default()};
 }
 

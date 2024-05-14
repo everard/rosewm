@@ -62,8 +62,8 @@ struct rose_output_ui_selection {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_ui_initialize(struct rose_output_ui* ui,
-                          struct rose_output* output);
+rose_output_ui_initialize(
+    struct rose_output_ui* ui, struct rose_output* output);
 
 void
 rose_output_ui_destroy(struct rose_output_ui* ui);

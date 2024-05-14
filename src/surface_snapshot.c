@@ -24,9 +24,10 @@ rose_surface_snapshot_initialize(
     *snapshot = (struct rose_surface_snapshot){
         .type = parameters.type,
         // Select the transform based on snapshot's type.
-        .transform = ((parameters.type == rose_surface_snapshot_type_normal)
-                          ? parameters.surface->current.transform
-                          : WL_OUTPUT_TRANSFORM_NORMAL),
+        .transform =
+            ((parameters.type == rose_surface_snapshot_type_normal)
+                 ? parameters.surface->current.transform
+                 : WL_OUTPUT_TRANSFORM_NORMAL),
         .x = parameters.x,
         .y = parameters.y,
         .width = parameters.surface->current.width,

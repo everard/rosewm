@@ -215,19 +215,20 @@ rose_server_context_destroy(struct rose_server_context* context);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_server_context_set_keyboard_layout(struct rose_server_context* context,
-                                        unsigned layout_index);
+rose_server_context_set_keyboard_layout(
+    struct rose_server_context* context, unsigned layout_index);
 
 void
-rose_server_context_configure(struct rose_server_context* context,
-                              rose_server_context_configure_mask flags);
+rose_server_context_configure(
+    struct rose_server_context* context,
+    rose_server_context_configure_mask flags);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Cursor image acquisition interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_cursor_image
-rose_server_context_get_cursor_image( //
+rose_server_context_get_cursor_image(
     struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale);
 
@@ -236,12 +237,12 @@ rose_server_context_get_cursor_image( //
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_input*
-rose_server_context_obtain_input(struct rose_server_context* context,
-                                 unsigned id);
+rose_server_context_obtain_input(
+    struct rose_server_context* context, unsigned id);
 
 struct rose_output*
-rose_server_context_obtain_output(struct rose_server_context* context,
-                                  unsigned id);
+rose_server_context_obtain_output(
+    struct rose_server_context* context, unsigned id);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.

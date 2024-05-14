@@ -62,8 +62,8 @@ struct rose_device_preference_list {
 ////////////////////////////////////////////////////////////////////////////////
 
 static int
-rose_device_database_node_compare(struct rose_map_node const* x,
-                                  struct rose_map_node const* y) {
+rose_device_database_node_compare(
+    struct rose_map_node const* x, struct rose_map_node const* y) {
     return memcmp(
         container_of_(x, struct rose_device_database_entry const, node)
             ->preference.device_name.data,
@@ -86,8 +86,9 @@ rose_device_database_key_compare(void const* k, struct rose_map_node const* x) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_device_database_insert(struct rose_device_database* database,
-                            struct rose_device_preference preference) {
+rose_device_database_insert(
+    struct rose_device_database* database,
+    struct rose_device_preference preference) {
     // Precondition: All preferences in the database have the same device type
     // as the given preference.
 
@@ -95,9 +96,9 @@ rose_device_database_insert(struct rose_device_database* database,
     struct rose_device_database_entry* entry = NULL;
     while(true) {
         // Find an existing node with the given device name.
-        struct rose_map_node* node =
-            rose_map_find(database->map_root, &(preference.device_name),
-                          rose_device_database_key_compare);
+        struct rose_map_node* node = rose_map_find(
+            database->map_root, &(preference.device_name),
+            rose_device_database_key_compare);
 
         if(node != NULL) {
             // If such node has been found, then obtain the database entry which
@@ -155,10 +156,10 @@ rose_device_database_insert(struct rose_device_database* database,
         wl_list_insert(&(database->order), &(entry->link));
 
         // Insert the entry into the map.
-        database->map_root = //
-            rose_map_insert(database->map_root, &(entry->node),
-                            rose_device_database_node_compare)
-                .root;
+        database->map_root = rose_map_insert(
+                                 database->map_root, &(entry->node),
+                                 rose_device_database_node_compare)
+                                 .root;
 
         break;
     }
@@ -216,7 +217,7 @@ rose_device_database_insert(struct rose_device_database* database,
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool
-rose_device_preference_read( //
+rose_device_preference_read(
     struct rose_device_preference* preference, FILE* file) {
     // Zero-initialize the preference.
     *preference = (struct rose_device_preference){};
@@ -292,7 +293,7 @@ rose_device_preference_read( //
 }
 
 static bool
-rose_device_preference_write( //
+rose_device_preference_write(
     struct rose_device_preference* preference, FILE* file) {
 #define write_array_(array)                          \
     if(fwrite(array, sizeof(array), 1, file) != 1) { \
@@ -479,9 +480,9 @@ rose_device_preference_list_update(
 
 #define configure_(type)                                                     \
     /* Find an entry in the corresponding database. */                       \
-    struct rose_map_node* node =                                             \
-        rose_map_find(preference_list->db[rose_device_type_##type].map_root, \
-                      &device_name, rose_device_database_key_compare);       \
+    struct rose_map_node* node = rose_map_find(                              \
+        preference_list->db[rose_device_type_##type].map_root, &device_name, \
+        rose_device_database_key_compare);                                   \
                                                                              \
     /* Configure the device, if needed. */                                   \
     if(node != NULL) {                                                       \
@@ -520,18 +521,19 @@ rose_output_apply_preferences(
 // Device name acquisition interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
-#define acquire_name_(object)                              \
-    /* Initialize an empty name. */                        \
-    struct rose_device_name device_name = {};              \
-                                                           \
-    /* Obtain device's name. */                            \
-    if(object->device->name != NULL) {                     \
-        size_t name_size = strlen(object->device->name);   \
-        memcpy(device_name.data, object->device->name,     \
-               min_(name_size, sizeof(device_name.data))); \
-    }                                                      \
-                                                           \
-    /* Return the name. */                                 \
+#define acquire_name_(object)                            \
+    /* Initialize an empty name. */                      \
+    struct rose_device_name device_name = {};            \
+                                                         \
+    /* Obtain device's name. */                          \
+    if(object->device->name != NULL) {                   \
+        size_t name_size = strlen(object->device->name); \
+        memcpy(                                          \
+            device_name.data, object->device->name,      \
+            min_(name_size, sizeof(device_name.data)));  \
+    }                                                    \
+                                                         \
+    /* Return the name. */                               \
     return device_name;
 
 struct rose_device_name

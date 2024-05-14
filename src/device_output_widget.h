@@ -100,7 +100,7 @@ struct rose_output_widget {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_widget_initialize( //
+rose_output_widget_initialize(
     struct rose_output_ui* ui, struct wlr_xdg_toplevel* toplevel,
     enum rose_output_widget_type type);
 

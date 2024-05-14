@@ -37,8 +37,8 @@ struct rose_drag_and_drop_action {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_handle_event_drag_and_drop_action_destroy(struct wl_listener* listener,
-                                               void* data) {
+rose_handle_event_drag_and_drop_action_destroy(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the action.
@@ -63,8 +63,8 @@ rose_handle_event_drag_and_drop_action_destroy(struct wl_listener* listener,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_drag_and_drop_start(struct rose_server_context* context,
-                         struct wlr_drag* drag) {
+rose_drag_and_drop_start(
+    struct rose_server_context* context, struct wlr_drag* drag) {
     // Allocate and initialize a new drag and drop action object.
     struct rose_drag_and_drop_action* action =
         malloc(sizeof(struct rose_drag_and_drop_action));

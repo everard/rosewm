@@ -13,8 +13,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct wlr_surface*
-rose_output_ui_select_surface_at(struct rose_output_ui* ui, double x, double y,
-                                 double* x_local, double* y_local) {
+rose_output_ui_select_surface_at(
+    struct rose_output_ui* ui, double x, double y, double* x_local,
+    double* y_local) {
     // Iterate through the list of mapped widgets.
     // Note: Only normal widgets can be selected. Special widgets are treated
     // separately.
@@ -37,7 +38,7 @@ rose_output_ui_select_surface_at(struct rose_output_ui* ui, double x, double y,
                (y >= state.y) && (y <= (state.y + state.height))) {
                 // If the point is inside the widget's rectangle, then find any
                 // surface under the given coordinates.
-                surface = wlr_xdg_surface_surface_at( //
+                surface = wlr_xdg_surface_surface_at(
                     widget->xdg_surface, x - state.x, y - state.y, x_local,
                     y_local);
             } else {
@@ -64,8 +65,8 @@ rose_output_ui_select_surface_at(struct rose_output_ui* ui, double x, double y,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_output_ui_initialize(struct rose_output_ui* ui,
-                          struct rose_output* output) {
+rose_output_ui_initialize(
+    struct rose_output_ui* ui, struct rose_output* output) {
     // Initialize the UI object.
     *ui = (struct rose_output_ui){.output = output};
 

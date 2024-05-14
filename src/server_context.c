@@ -224,8 +224,9 @@ rose_obtain_parent_pid(pid_t pid) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool
-rose_filter_global(struct wl_client const* client,
-                   struct wl_global const* global, void* data) {
+rose_filter_global(
+    struct wl_client const* client, struct wl_global const* global,
+    void* data) {
     // Obtain the server context.
     struct rose_server_context* context = data;
 
@@ -245,9 +246,10 @@ rose_filter_global(struct wl_client const* client,
             (struct wl_client*)(client), &client_pid, NULL, NULL);
 
         // Privileged protocols require privileged clients.
-        return ((rose_command_list_query_access_rights(
-                     context->command_list, client_pid) &
-                 rose_command_access_wayland_privileged_protocols) != 0);
+        return (
+            (rose_command_list_query_access_rights(
+                 context->command_list, client_pid) &
+             rose_command_access_wayland_privileged_protocols) != 0);
     }
 
     // Normal protocols are accessible by all clients.
@@ -348,8 +350,8 @@ rose_handle_event_backend_new_output(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_handle_event_seat_request_set_cursor(struct wl_listener* listener,
-                                          void* data) {
+rose_handle_event_seat_request_set_cursor(
+    struct wl_listener* listener, void* data) {
     // Obtain the server context.
     struct rose_server_context* context =
         wl_container_of(listener, context, listener_seat_request_set_cursor);
@@ -371,8 +373,8 @@ rose_handle_event_seat_request_set_cursor(struct wl_listener* listener,
 }
 
 static void
-rose_handle_event_seat_request_set_selection(struct wl_listener* listener,
-                                             void* data) {
+rose_handle_event_seat_request_set_selection(
+    struct wl_listener* listener, void* data) {
     // Obtain the server context.
     struct rose_server_context* context =
         wl_container_of(listener, context, listener_seat_request_set_selection);
@@ -399,8 +401,8 @@ rose_handle_event_seat_request_set_primary_selection(
 }
 
 static void
-rose_handle_event_seat_request_start_drag(struct wl_listener* listener,
-                                          void* data) {
+rose_handle_event_seat_request_start_drag(
+    struct wl_listener* listener, void* data) {
     // Obtain the server context.
     struct rose_server_context* context =
         wl_container_of(listener, context, listener_seat_request_start_drag);
@@ -465,7 +467,7 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
 
         if(output != NULL) {
             // If such output exists, then initialize the widget.
-            rose_output_widget_initialize( //
+            rose_output_widget_initialize(
                 &(output->ui), xdg_surface->toplevel,
                 rose_output_widget_type_notification);
 
@@ -484,7 +486,7 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
             }
 
             // Initialize the widget.
-            rose_output_widget_initialize( //
+            rose_output_widget_initialize(
                 &(output->ui), xdg_surface->toplevel,
                 rose_output_widget_type_screen_lock);
 
@@ -503,7 +505,7 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
             }
 
             // Initialize the widget.
-            rose_output_widget_initialize( //
+            rose_output_widget_initialize(
                 &(output->ui), xdg_surface->toplevel,
                 rose_output_widget_type_background);
 
@@ -513,7 +515,7 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
     } else if(client_pid == context->processes.dispatcher_pid) {
         if(context->current_workspace->output != NULL) {
             // Initialize the widget.
-            rose_output_widget_initialize( //
+            rose_output_widget_initialize(
                 &(context->current_workspace->output->ui),
                 xdg_surface->toplevel, rose_output_widget_type_prompt);
 
@@ -532,7 +534,7 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
             }
 
             // Initialize the widget.
-            rose_output_widget_initialize( //
+            rose_output_widget_initialize(
                 &(output->ui), xdg_surface->toplevel,
                 rose_output_widget_type_panel);
 
@@ -553,8 +555,8 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
 }
 
 static void
-rose_handle_event_xdg_new_toplevel_decoration(struct wl_listener* listener,
-                                              void* data) {
+rose_handle_event_xdg_new_toplevel_decoration(
+    struct wl_listener* listener, void* data) {
     // Initialize the surface decoration.
     unused_(listener), rose_surface_decoration_initialize(data);
 }
@@ -590,11 +592,12 @@ bool
 rose_server_context_initialize(struct rose_server_context* context) {
     // Initialize the server context object.
     *context = (struct rose_server_context){
-        .processes = {.background_pid = (pid_t)(-1),
-                      .dispatcher_pid = (pid_t)(-1),
-                      .notification_daemon_pid = (pid_t)(-1),
-                      .panel_pid = (pid_t)(-1),
-                      .screen_locker_pid = (pid_t)(-1)}};
+        .processes = {
+            .background_pid = (pid_t)(-1),
+            .dispatcher_pid = (pid_t)(-1),
+            .notification_daemon_pid = (pid_t)(-1),
+            .panel_pid = (pid_t)(-1),
+            .screen_locker_pid = (pid_t)(-1)}};
 
     // Initialize lists.
     wl_list_init(&(context->menus_visible));
@@ -639,11 +642,13 @@ rose_server_context_initialize(struct rose_server_context* context) {
     }
 
     // Construct paths to the configuration directories.
-    strcpy(context->config.paths[0].data,
-           rose_utf8_string_concat(home_path, "/.config/rosewm/").data);
+    strcpy(
+        context->config.paths[0].data,
+        rose_utf8_string_concat(home_path, "/.config/rosewm/").data);
 
-    strcpy(context->config.paths[1].data,
-           rose_utf8_string_concat("", "/etc/rosewm/").data);
+    strcpy(
+        context->config.paths[1].data,
+        rose_utf8_string_concat("", "/etc/rosewm/").data);
 
     // Read the theme.
     if(true) {
@@ -708,8 +713,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
             context->config.paths[0].data, "device_preferences");
 
         // Try initializing device preference list.
-        try_(context->preference_list =
-                 rose_device_preference_list_initialize(file_path.data));
+        try_(
+            context->preference_list =
+                rose_device_preference_list_initialize(file_path.data));
     }
 
     // Initialize keyboard control scheme.
@@ -725,8 +731,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     }
 
     if(context->config.keyboard_control_scheme == NULL) {
-        try_(context->config.keyboard_control_scheme =
-                 rose_keyboard_control_scheme_initialize(NULL));
+        try_(
+            context->config.keyboard_control_scheme =
+                rose_keyboard_control_scheme_initialize(NULL));
     }
 
     // Initialize text rendering context.
@@ -745,8 +752,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     }
 
     // Initialize keyboard context.
-    try_(context->keyboard_context = rose_keyboard_context_initialize(
-             context->config.keyboard_layouts.data));
+    try_(
+        context->keyboard_context = rose_keyboard_context_initialize(
+            context->config.keyboard_layouts.data));
 
     // Create a display object and obtain its event loop.
     try_(context->display = wl_display_create());
@@ -775,25 +783,30 @@ rose_server_context_initialize(struct rose_server_context* context) {
     }
 
     // Create event sources for SIGINT, SIGTERM, and SIGCHLD.
-    try_(context->event_source_sigint = wl_event_loop_add_signal(
-             context->event_loop, SIGINT, rose_handle_signal, context));
+    try_(
+        context->event_source_sigint = wl_event_loop_add_signal(
+            context->event_loop, SIGINT, rose_handle_signal, context));
 
-    try_(context->event_source_sigterm = wl_event_loop_add_signal(
-             context->event_loop, SIGTERM, rose_handle_signal, context));
+    try_(
+        context->event_source_sigterm = wl_event_loop_add_signal(
+            context->event_loop, SIGTERM, rose_handle_signal, context));
 
-    try_(context->event_source_sigchld = wl_event_loop_add_signal(
-             context->event_loop, SIGCHLD, rose_handle_signal, context));
+    try_(
+        context->event_source_sigchld = wl_event_loop_add_signal(
+            context->event_loop, SIGCHLD, rose_handle_signal, context));
 
     // Create event source for timer.
-    try_(context->event_source_timer = wl_event_loop_add_timer(
-             context->event_loop, rose_handle_event_server_context_timer_expiry,
-             context));
+    try_(
+        context->event_source_timer = wl_event_loop_add_timer(
+            context->event_loop, rose_handle_event_server_context_timer_expiry,
+            context));
 
     // Initialize cursor context.
     if(true) {
         // Create cursor manager.
-        try_(context->cursor_context.manager =
-                 wlr_xcursor_manager_create(NULL, 24));
+        try_(
+            context->cursor_context.manager =
+                wlr_xcursor_manager_create(NULL, 24));
 
         // Load cursor theme.
         if(!wlr_xcursor_manager_load(context->cursor_context.manager, 1.0f)) {
@@ -837,8 +850,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
                     context->cursor_context.manager, names[i], 1.0f);
 
                 if(cursor == NULL) {
-                    try_(cursor = wlr_xcursor_manager_get_xcursor(
-                             context->cursor_context.manager, names[0], 1.0f));
+                    try_(
+                        cursor = wlr_xcursor_manager_get_xcursor(
+                            context->cursor_context.manager, names[0], 1.0f));
                 }
 
                 // Obtain the first image from the cursor.
@@ -853,14 +867,15 @@ rose_server_context_initialize(struct rose_server_context* context) {
             try_(raster);
 
             // Copy image to the raster.
-            memcpy(raster->pixels, image->buffer,
-                   raster->base.width * raster->base.height * 4U);
+            memcpy(
+                raster->pixels, image->buffer,
+                raster->base.width * raster->base.height * 4U);
 
             // Save the cursor image to the context.
-            context->cursor_context.images[i] =
-                (struct rose_cursor_image){.raster = raster,
-                                           .hotspot_x = image->hotspot_x,
-                                           .hotspot_y = image->hotspot_y};
+            context->cursor_context.images[i] = (struct rose_cursor_image){
+                .raster = raster,
+                .hotspot_x = image->hotspot_x,
+                .hotspot_y = image->hotspot_y};
         }
     }
 
@@ -868,8 +883,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     wl_signal_add(&((x)->events.f), &(context->listener_##ns##_##f))
 
     // Initialize the backend.
-    try_(context->backend =
-             wlr_backend_autocreate(context->display, &(context->session)));
+    try_(
+        context->backend =
+            wlr_backend_autocreate(context->display, &(context->session)));
 
     add_signal_(context->backend, backend, new_input);
     add_signal_(context->backend, backend, new_output);
@@ -881,8 +897,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     }
 
     // Initialize the allocator.
-    try_(context->allocator =
-             wlr_allocator_autocreate(context->backend, context->renderer));
+    try_(
+        context->allocator =
+            wlr_allocator_autocreate(context->backend, context->renderer));
 
     // Initialize the compositor.
     try_(wlr_compositor_create(context->display, 5, context->renderer));
@@ -897,12 +914,14 @@ rose_server_context_initialize(struct rose_server_context* context) {
     add_signal_(context->seat, seat, start_drag);
 
     // Initialize Wayland protocols: relative-pointer.
-    try_(context->relative_pointer_manager =
-             wlr_relative_pointer_manager_v1_create(context->display));
+    try_(
+        context->relative_pointer_manager =
+            wlr_relative_pointer_manager_v1_create(context->display));
 
     // Initialize Wayland protocols: pointer-constraints.
-    try_(context->pointer_constraints =
-             wlr_pointer_constraints_v1_create(context->display));
+    try_(
+        context->pointer_constraints =
+            wlr_pointer_constraints_v1_create(context->display));
 
     add_signal_(
         context->pointer_constraints, pointer_constraints, new_constraint);
@@ -911,8 +930,9 @@ rose_server_context_initialize(struct rose_server_context* context) {
     try_(context->tablet_manager = wlr_tablet_v2_create(context->display));
 
     // Initialize Wayland protocols: presentation-time.
-    try_(context->presentation =
-             wlr_presentation_create(context->display, context->backend));
+    try_(
+        context->presentation =
+            wlr_presentation_create(context->display, context->backend));
 
     // Initialize Wayland protocols: data device, primary selection.
     try_(wlr_data_device_manager_create(context->display));
@@ -997,11 +1017,11 @@ void
 rose_server_context_destroy(struct rose_server_context* context) {
     // Destroy event sources.
     if(true) {
-        struct wl_event_source* sources[] = //
-            {context->event_source_sigint,  //
-             context->event_source_sigterm, //
-             context->event_source_sigchld, //
-             context->event_source_timer};
+        struct wl_event_source* sources[] = {
+            context->event_source_sigint,  //
+            context->event_source_sigterm, //
+            context->event_source_sigchld, //
+            context->event_source_timer};
 
         for(size_t i = 0; i != array_size_(sources); ++i) {
             if(sources[i] != NULL) {
@@ -1130,8 +1150,8 @@ rose_server_context_destroy(struct rose_server_context* context) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_server_context_set_keyboard_layout(struct rose_server_context* context,
-                                        unsigned layout_index) {
+rose_server_context_set_keyboard_layout(
+    struct rose_server_context* context, unsigned layout_index) {
     // If requested layout is invalid, then fail.
     if(layout_index >= context->keyboard_context->layout_count) {
         return false;
@@ -1153,7 +1173,7 @@ rose_server_context_set_keyboard_layout(struct rose_server_context* context,
         struct wlr_keyboard_modifiers modifiers = device->modifiers;
 
         // Update keyboard's modifiers.
-        wlr_keyboard_notify_modifiers( //
+        wlr_keyboard_notify_modifiers(
             device, modifiers.depressed, modifiers.latched, modifiers.locked,
             group_index);
     }
@@ -1169,8 +1189,9 @@ rose_server_context_set_keyboard_layout(struct rose_server_context* context,
 }
 
 void
-rose_server_context_configure(struct rose_server_context* context,
-                              rose_server_context_configure_mask flags) {
+rose_server_context_configure(
+    struct rose_server_context* context,
+    rose_server_context_configure_mask flags) {
     // If requested configuration is a no-op, then do nothing.
     if(flags == 0) {
         return;
@@ -1300,8 +1321,8 @@ rose_server_context_configure(struct rose_server_context* context,
 
         // Broadcast the change through IPC.
         if(true) {
-            struct rose_ipc_status status = //
-                {.type = rose_ipc_status_type_theme};
+            struct rose_ipc_status status = {
+                .type = rose_ipc_status_type_theme};
 
             rose_ipc_server_broadcast_status(context->ipc_server, status);
         }
@@ -1365,7 +1386,7 @@ rose_server_context_configure(struct rose_server_context* context,
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_cursor_image
-rose_server_context_get_cursor_image( //
+rose_server_context_get_cursor_image(
     struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale) {
     // Note: Scaling factor is not used.
@@ -1395,14 +1416,14 @@ rose_server_context_get_cursor_image( //
     return device;
 
 struct rose_input*
-rose_server_context_obtain_input(struct rose_server_context* context,
-                                 unsigned id) {
+rose_server_context_obtain_input(
+    struct rose_server_context* context, unsigned id) {
     define_search_(input);
 }
 
 struct rose_output*
-rose_server_context_obtain_output(struct rose_server_context* context,
-                                  unsigned id) {
+rose_server_context_obtain_output(
+    struct rose_server_context* context, unsigned id) {
     define_search_(output);
 }
 
@@ -1416,9 +1437,10 @@ struct rose_ipc_status
 rose_server_context_obtain_status(struct rose_server_context* context) {
     struct rose_ipc_status status = {
         .type = rose_ipc_status_type_server_state,
-        .server_state = {context->is_screen_locked,
-                         context->are_keyboard_shortcuts_inhibited,
-                         context->keyboard_context->layout_index}};
+        .server_state = {
+            context->is_screen_locked,
+            context->are_keyboard_shortcuts_inhibited,
+            context->keyboard_context->layout_index}};
 
     return status;
 }

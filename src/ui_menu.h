@@ -116,8 +116,8 @@ rose_ui_menu_destroy(struct rose_ui_menu* menu);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ui_menu_show(struct rose_ui_menu* menu,
-                  enum rose_ui_menu_line_type line_type);
+rose_ui_menu_show(
+    struct rose_ui_menu* menu, enum rose_ui_menu_line_type line_type);
 
 void
 rose_ui_menu_hide(struct rose_ui_menu* menu);
@@ -142,8 +142,8 @@ void
 rose_ui_menu_move_mark(struct rose_ui_menu* menu, int direction);
 
 void
-rose_ui_menu_perform_action(struct rose_ui_menu* menu,
-                            enum rose_ui_menu_action_type type);
+rose_ui_menu_perform_action(
+    struct rose_ui_menu* menu, enum rose_ui_menu_action_type type);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.
@@ -160,31 +160,31 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ui_menu_notify_pointer_axis(struct rose_ui_menu* menu,
-                                 struct rose_pointer_event_axis event);
+rose_ui_menu_notify_pointer_axis(
+    struct rose_ui_menu* menu, struct rose_pointer_event_axis event);
 
 void
-rose_ui_menu_notify_pointer_button(struct rose_ui_menu* menu,
-                                   struct rose_pointer_event_button event);
+rose_ui_menu_notify_pointer_button(
+    struct rose_ui_menu* menu, struct rose_pointer_event_button event);
 
 void
-rose_ui_menu_notify_pointer_warp(struct rose_ui_menu* menu, uint32_t time_msec,
-                                 double x, double y);
+rose_ui_menu_notify_pointer_warp(
+    struct rose_ui_menu* menu, uint32_t time_msec, double x, double y);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: line.
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ui_menu_notify_line_add(struct rose_ui_menu* menu,
-                             struct rose_ui_menu_line line);
+rose_ui_menu_notify_line_add(
+    struct rose_ui_menu* menu, struct rose_ui_menu_line line);
 
 void
-rose_ui_menu_notify_line_remove(struct rose_ui_menu* menu,
-                                struct rose_ui_menu_line line);
+rose_ui_menu_notify_line_remove(
+    struct rose_ui_menu* menu, struct rose_ui_menu_line line);
 
 void
-rose_ui_menu_notify_line_update(struct rose_ui_menu* menu,
-                                struct rose_ui_menu_line line);
+rose_ui_menu_notify_line_update(
+    struct rose_ui_menu* menu, struct rose_ui_menu_line line);
 
 #endif // H_BA71ADF1CED54B6AAB1D54FD2FDCD50F

@@ -59,7 +59,7 @@ rose_raster_clear(struct rose_raster* raster);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_raster_texture_update( //
+rose_raster_texture_update(
     struct rose_raster* raster, pixman_region32_t* region);
 
 #endif // H_13A2516DF1AF47968C7A0CF09882D5CD

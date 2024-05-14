@@ -54,8 +54,8 @@ rose_command_key_compare(void const* k, struct rose_map_node const* x) {
 }
 
 static int
-rose_command_node_compare(struct rose_map_node const* x,
-                          struct rose_map_node const* y) {
+rose_command_node_compare(
+    struct rose_map_node const* x, struct rose_map_node const* y) {
     struct rose_command const* command = wl_container_of(x, command, node);
     return rose_command_key_compare(&(command->pid), y);
 }
@@ -189,8 +189,8 @@ rose_command_list_notify_command_termination(
 ////////////////////////////////////////////////////////////////////////////////
 
 rose_command_access_rights_mask
-rose_command_list_query_access_rights(struct rose_command_list* command_list,
-                                      pid_t command_pid) {
+rose_command_list_query_access_rights(
+    struct rose_command_list* command_list, pid_t command_pid) {
     // If command list is not specified, or if it is empty, then the command has
     // no special access rights.
     if((command_list == NULL) || (command_list->root == NULL)) {

@@ -41,13 +41,13 @@ rose_handle_event_pointer_axis(struct wl_listener* listener, void* data) {
 
     // Obtain event data.
     struct wlr_pointer_axis_event* wlr_event = data;
-    struct rose_pointer_event_axis event = //
-        {.time_msec = wlr_event->time_msec,
-         .delta_discrete = wlr_event->delta_discrete,
-         .delta = wlr_event->delta,
-         .orientation =
-             (enum rose_pointer_axis_orientation)(wlr_event->orientation),
-         .source = (enum rose_pointer_axis_source)(wlr_event->source)};
+    struct rose_pointer_event_axis event = {
+        .time_msec = wlr_event->time_msec,
+        .delta_discrete = wlr_event->delta_discrete,
+        .delta = wlr_event->delta,
+        .orientation =
+            (enum rose_pointer_axis_orientation)(wlr_event->orientation),
+        .source = (enum rose_pointer_axis_source)(wlr_event->source)};
 
     // Notify current workspace of this event.
     rose_workspace_notify_pointer_axis(workspace, event);
@@ -65,12 +65,13 @@ rose_handle_event_pointer_button(struct wl_listener* listener, void* data) {
 
     // Obtain event data.
     struct wlr_pointer_button_event* wlr_event = data;
-    struct rose_pointer_event_button event = //
-        {.time_msec = wlr_event->time_msec,
-         .button = wlr_event->button,
-         .state = ((wlr_event->state == WLR_BUTTON_RELEASED)
-                       ? rose_pointer_button_state_released
-                       : rose_pointer_button_state_pressed)};
+    struct rose_pointer_event_button event = {
+        .time_msec = wlr_event->time_msec,
+        .button = wlr_event->button,
+        .state =
+            ((wlr_event->state == WLR_BUTTON_RELEASED)
+                 ? rose_pointer_button_state_released
+                 : rose_pointer_button_state_pressed)};
 
     // Notify current workspace of this event.
     rose_workspace_notify_pointer_button(workspace, event);
@@ -88,20 +89,20 @@ rose_handle_event_pointer_motion(struct wl_listener* listener, void* data) {
 
     // Obtain event data.
     struct wlr_pointer_motion_event* wlr_event = data;
-    struct rose_pointer_event_motion event = //
-        {.time_msec = wlr_event->time_msec,
-         .dx = wlr_event->delta_x,
-         .dy = wlr_event->delta_y,
-         .dx_unaccel = wlr_event->unaccel_dx,
-         .dy_unaccel = wlr_event->unaccel_dy};
+    struct rose_pointer_event_motion event = {
+        .time_msec = wlr_event->time_msec,
+        .dx = wlr_event->delta_x,
+        .dy = wlr_event->delta_y,
+        .dx_unaccel = wlr_event->unaccel_dx,
+        .dy_unaccel = wlr_event->unaccel_dy};
 
     // Notify current workspace of this event.
     rose_workspace_notify_pointer_move(workspace, event);
 }
 
 static void
-rose_handle_event_pointer_motion_absolute(struct wl_listener* listener,
-                                          void* data) {
+rose_handle_event_pointer_motion_absolute(
+    struct wl_listener* listener, void* data) {
     // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_motion_absolute);
@@ -112,10 +113,10 @@ rose_handle_event_pointer_motion_absolute(struct wl_listener* listener,
 
     // Obtain event data.
     struct wlr_pointer_motion_absolute_event* wlr_event = data;
-    struct rose_pointer_event_motion_absolute event = //
-        {.time_msec = wlr_event->time_msec,
-         .x = wlr_event->x,
-         .y = wlr_event->y};
+    struct rose_pointer_event_motion_absolute event = {
+        .time_msec = wlr_event->time_msec,
+        .x = wlr_event->x,
+        .y = wlr_event->y};
 
     // Notify current workspace of this event.
     rose_workspace_notify_pointer_warp(workspace, event);
@@ -138,8 +139,8 @@ rose_handle_event_pointer_frame(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_pointer_initialize(struct rose_pointer* pointer,
-                        struct rose_input* parent) {
+rose_pointer_initialize(
+    struct rose_pointer* pointer, struct rose_input* parent) {
     // Initialize the pointer device.
     *pointer = (struct rose_pointer){.parent = parent};
 
@@ -181,8 +182,9 @@ rose_pointer_destroy(struct rose_pointer* pointer) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_pointer_configure(struct rose_pointer* pointer,
-                       struct rose_pointer_configure_parameters parameters) {
+rose_pointer_configure(
+    struct rose_pointer* pointer,
+    struct rose_pointer_configure_parameters parameters) {
     // If requested configuration is a no-op, then return success.
     if(parameters.flags == 0) {
         return true;

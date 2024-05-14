@@ -10,15 +10,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_execute_core_action(struct rose_server_context* context,
-                         enum rose_core_action_type action_type) {
+rose_execute_core_action(
+    struct rose_server_context* context,
+    enum rose_core_action_type action_type) {
     struct {
         struct rose_workspace* workspace;
         struct rose_surface* surface;
         struct rose_output* output;
-    } focus = {.workspace = context->current_workspace,
-               .surface = context->current_workspace->focused_surface,
-               .output = context->current_workspace->output};
+    } focus = {
+        .workspace = context->current_workspace,
+        .surface = context->current_workspace->focused_surface,
+        .output = context->current_workspace->output};
 
     switch(action_type) {
         // Main actions.
@@ -229,8 +231,8 @@ rose_execute_core_action(struct rose_server_context* context,
 }
 
 void
-rose_execute_menu_action(struct rose_ui_menu* menu,
-                         enum rose_menu_action_type action_type) {
+rose_execute_menu_action(
+    struct rose_ui_menu* menu, enum rose_menu_action_type action_type) {
     switch(action_type) {
         case rose_menu_action_type_move_mark_up:
             rose_ui_menu_move_mark(menu, -1);

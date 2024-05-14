@@ -49,8 +49,8 @@ rose_handle_event_input_destroy(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_input_initialize(struct rose_server_context* context,
-                      struct wlr_input_device* device) {
+rose_input_initialize(
+    struct rose_server_context* context, struct wlr_input_device* device) {
     // Allocate and initialize a new input.
     struct rose_input* input = malloc(sizeof(struct rose_input));
 
@@ -84,18 +84,21 @@ rose_input_initialize(struct rose_server_context* context,
     // Perform device-specific initialization.
     switch(device->type) {
         case WLR_INPUT_DEVICE_KEYBOARD:
-            input->type = (rose_keyboard_initialize(&(input->keyboard), input),
-                           rose_input_device_type_keyboard);
+            input->type =
+                (rose_keyboard_initialize(&(input->keyboard), input),
+                 rose_input_device_type_keyboard);
             break;
 
         case WLR_INPUT_DEVICE_POINTER:
-            input->type = (rose_pointer_initialize(&(input->pointer), input),
-                           rose_input_device_type_pointer);
+            input->type =
+                (rose_pointer_initialize(&(input->pointer), input),
+                 rose_input_device_type_pointer);
             break;
 
         case WLR_INPUT_DEVICE_TABLET_TOOL:
-            input->type = (rose_tablet_initialize(&(input->tablet), input),
-                           rose_input_device_type_tablet);
+            input->type =
+                (rose_tablet_initialize(&(input->tablet), input),
+                 rose_input_device_type_tablet);
             break;
 
         default:

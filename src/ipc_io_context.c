@@ -101,13 +101,15 @@ rose_ipc_rx_more(struct rose_ipc_io_context* io_context) {
         }
 
         // Signal operation's success.
-        return ((payload_size == 0) ? rose_ipc_io_result_success
-                                    : rose_ipc_io_result_partial);
+        return (
+            (payload_size == 0) ? rose_ipc_io_result_success
+                                : rose_ipc_io_result_partial);
     } else {
         // Otherwise, signal operation's success.
-        return ((io_context->rx_packet.size == data_size_required)
-                    ? rose_ipc_io_result_success
-                    : rose_ipc_io_result_partial);
+        return (
+            (io_context->rx_packet.size == data_size_required)
+                ? rose_ipc_io_result_success
+                : rose_ipc_io_result_partial);
     }
 }
 
@@ -131,8 +133,9 @@ rose_ipc_tx_more(struct rose_ipc_io_context* io_context) {
     io_context->tx_packet.size -= (size_t)(n);
 
     // Shift remaining data.
-    memmove(io_context->tx_packet.data, io_context->tx_packet.data + n,
-            io_context->tx_packet.size);
+    memmove(
+        io_context->tx_packet.data, io_context->tx_packet.data + n,
+        io_context->tx_packet.size);
 
     // Update event source.
     // Note: Check for socket's writable event if the packet has not been
@@ -149,8 +152,9 @@ rose_ipc_tx_more(struct rose_ipc_io_context* io_context) {
     }
 
     // Signal operation's success.
-    return ((io_context->tx_packet.size != 0) ? rose_ipc_io_result_partial
-                                              : rose_ipc_io_result_success);
+    return (
+        (io_context->tx_packet.size != 0) ? rose_ipc_io_result_partial
+                                          : rose_ipc_io_result_success);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -214,8 +218,9 @@ rose_handle_event_ipc_rx_data(int fd, uint32_t mask, void* data) {
             io_context->rx_packet.size = 0;
 
             // Signal operation's success.
-            io_context->rx_callback_fn(io_context->external_context,
-                                       rose_ipc_io_result_success, buffer);
+            io_context->rx_callback_fn(
+                io_context->external_context, rose_ipc_io_result_success,
+                buffer);
 
             // fall-through
         case rose_ipc_io_result_partial:
@@ -232,8 +237,9 @@ rose_handle_event_ipc_rx_data(int fd, uint32_t mask, void* data) {
 
 error:
     // On error, signal operation's failure.
-    return io_context->rx_callback_fn(io_context->external_context,
-                                      rose_ipc_io_result_failure, buffer),
+    return io_context->rx_callback_fn(
+               io_context->external_context, rose_ipc_io_result_failure,
+               buffer),
            0;
 }
 
@@ -303,7 +309,7 @@ rose_ipc_io_context_initialize(
         parameters.event_loop, parameters.socket_fd, WL_EVENT_READABLE,
         rose_handle_event_ipc_rx_data, io_context);
 
-    io_context->tx_event_source = wl_event_loop_add_fd( //
+    io_context->tx_event_source = wl_event_loop_add_fd(
         parameters.event_loop, parameters.socket_fd, 0,
         rose_handle_event_ipc_tx_data, io_context);
 
@@ -353,8 +359,8 @@ rose_ipc_io_context_destroy(struct rose_ipc_io_context* io_context) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_tx(struct rose_ipc_io_context* io_context,
-            struct rose_ipc_buffer_ref buffer) {
+rose_ipc_tx(
+    struct rose_ipc_io_context* io_context, struct rose_ipc_buffer_ref buffer) {
     // Validate transmission buffer's size.
     if(buffer.size > rose_ipc_buffer_size_max) {
         goto error;
@@ -378,8 +384,9 @@ rose_ipc_tx(struct rose_ipc_io_context* io_context,
         io_context->tx_packet.size = rose_ipc_packet_header_size + buffer.size;
 
         // Write the payload.
-        memmove(io_context->tx_packet.data + rose_ipc_packet_header_size,
-                buffer.data, buffer.size);
+        memmove(
+            io_context->tx_packet.data + rose_ipc_packet_header_size,
+            buffer.data, buffer.size);
     }
 
     // Transmit the packet and perform additional actions depending on the

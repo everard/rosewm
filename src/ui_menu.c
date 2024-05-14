@@ -62,8 +62,8 @@ rose_ui_menu_line_type_upcast(struct rose_ui_menu_line line) {
 }
 
 static struct rose_ui_menu_line
-rose_ui_menu_line_type_cast(struct rose_ui_menu_line line,
-                            enum rose_ui_menu_line_type type) {
+rose_ui_menu_line_type_cast(
+    struct rose_ui_menu_line line, enum rose_ui_menu_line_type type) {
     // Do nothing if the given line's type matches the requested type.
     if(line.type == type) {
         return line;
@@ -88,14 +88,14 @@ rose_ui_menu_line_is_empty(struct rose_ui_menu_line line) {
 }
 
 static bool
-rose_ui_menu_line_is_equal(struct rose_ui_menu_line x,
-                           struct rose_ui_menu_line y) {
+rose_ui_menu_line_is_equal(
+    struct rose_ui_menu_line x, struct rose_ui_menu_line y) {
     return ((x.type == y.type) && (x.data == y.data));
 }
 
 static bool
-rose_ui_menu_line_is_included(struct rose_ui_menu_line x,
-                              struct rose_ui_menu_line s) {
+rose_ui_menu_line_is_included(
+    struct rose_ui_menu_line x, struct rose_ui_menu_line s) {
     // If any of the given lines is empty, then the first line can not belong to
     // the second line.
     if(rose_ui_menu_line_is_empty(x) || rose_ui_menu_line_is_empty(s)) {
@@ -107,8 +107,8 @@ rose_ui_menu_line_is_included(struct rose_ui_menu_line x,
 }
 
 static bool
-rose_ui_menu_line_is_skipped(struct rose_ui_menu_line line,
-                             struct rose_ui_menu_line skip) {
+rose_ui_menu_line_is_skipped(
+    struct rose_ui_menu_line line, struct rose_ui_menu_line skip) {
     if(rose_ui_menu_line_is_included(line, skip)) {
         return true;
     }
@@ -211,8 +211,8 @@ rose_ui_menu_line_select_next(
 }
 
 static struct rose_ui_menu_line
-rose_ui_menu_line_select(struct rose_ui_menu_line line,
-                         struct rose_ui_menu_line skip, int delta) {
+rose_ui_menu_line_select(
+    struct rose_ui_menu_line line, struct rose_ui_menu_line skip, int delta) {
     // If the given line is empty, then there is nothing to select.
     if(rose_ui_menu_line_is_empty(line)) {
         return line;
@@ -256,8 +256,8 @@ rose_ui_menu_line_select(struct rose_ui_menu_line line,
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_ui_menu_line_move(struct rose_ui_menu_line line,
-                       struct rose_ui_menu_line destination) {
+rose_ui_menu_line_move(
+    struct rose_ui_menu_line line, struct rose_ui_menu_line destination) {
     // If either the source line, or its destination, is not specified, then do
     // nothing.
     if(rose_ui_menu_line_is_empty(line) ||
@@ -407,9 +407,9 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
         // Compute line's height. Use "M" string as a reference.
         struct rose_utf32_string string = {.data = U"M", .size = 1};
         menu->layout.line_height =
-            (int)((2.0 * rose_compute_string_extent(text_rendering_context,
-                                                    text_rendering_parameters,
-                                                    string)
+            (int)((2.0 * rose_compute_string_extent(
+                             text_rendering_context, text_rendering_parameters,
+                             string)
                              .height) /
                       output_state.scale +
                   0.5);
@@ -457,8 +457,9 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
                  ? workspace->focused_surface
                  : (wl_list_empty(&(workspace->surfaces_mapped))
                         ? NULL
-                        : wl_container_of(workspace->surfaces_mapped.next,
-                                          surface, link_mapped)));
+                        : wl_container_of(
+                              workspace->surfaces_mapped.next, surface,
+                              link_mapped)));
 
         // Initialize the mark depending on its type.
         switch(mark.type) {
@@ -564,8 +565,8 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
 }
 
 static void
-rose_ui_menu_set_line_type(struct rose_ui_menu* menu,
-                           enum rose_ui_menu_line_type type) {
+rose_ui_menu_set_line_type(
+    struct rose_ui_menu* menu, enum rose_ui_menu_line_type type) {
     // Precondition: The menu is active.
 
     // Do nothing if the menu doesn't change its line type.
@@ -624,8 +625,8 @@ rose_ui_menu_destroy(struct rose_ui_menu* menu) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ui_menu_show(struct rose_ui_menu* menu,
-                  enum rose_ui_menu_line_type line_type) {
+rose_ui_menu_show(
+    struct rose_ui_menu* menu, enum rose_ui_menu_line_type line_type) {
     // Do nothing if there is no menu specified, or the specified menu is
     // already visible.
     if((menu == NULL) || (menu->is_visible)) {
@@ -811,8 +812,9 @@ rose_ui_menu_move_mark(struct rose_ui_menu* menu, int direction) {
     // Compute head's movement direction.
     if(menu->page.mark_index < 0) {
         direction = menu->page.mark_index;
-    } else if((menu->page.line_count <= menu->page.mark_index) &&
-              (menu->page.line_count == menu->layout.line_max_count)) {
+    } else if(
+        (menu->page.line_count <= menu->page.mark_index) &&
+        (menu->page.line_count == menu->layout.line_max_count)) {
         direction = menu->page.mark_index - menu->page.line_count + 1;
     } else {
         direction = 0;
@@ -830,8 +832,8 @@ rose_ui_menu_move_mark(struct rose_ui_menu* menu, int direction) {
 }
 
 void
-rose_ui_menu_perform_action(struct rose_ui_menu* menu,
-                            enum rose_ui_menu_action_type type) {
+rose_ui_menu_perform_action(
+    struct rose_ui_menu* menu, enum rose_ui_menu_action_type type) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -935,9 +937,9 @@ rose_ui_menu_perform_action(struct rose_ui_menu* menu,
         case rose_ui_menu_action_select:
             // Select marked line.
             if(menu->page.mark_index < menu->page.line_count) {
-                menu->selection = //
-                    menu->page.lines[menu->page.selection_index =
-                                         menu->page.mark_index];
+                menu->selection =
+                    menu->page.lines
+                        [menu->page.selection_index = menu->page.mark_index];
             } else {
                 menu->selection = (struct rose_ui_menu_line){};
             }
@@ -1035,12 +1037,14 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 // Format the line.
                 if(name.size != 0) {
                     char const* format = "%s\xEF\x89\x8D %s";
-                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, name_buffer);
+                    snprintf(
+                        line_buffer, rose_ui_menu_utf8_string_size_max, format,
+                        prefix, name_buffer);
                 } else {
                     char const* format = "%s\xEF\x89\x8D ---";
-                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
-                             format, prefix);
+                    snprintf(
+                        line_buffer, rose_ui_menu_utf8_string_size_max, format,
+                        prefix);
                 }
 
                 break;
@@ -1053,9 +1057,9 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 struct rose_surface* surface = workspace->focused_surface;
                 if(surface == NULL) {
                     if(!wl_list_empty(&(workspace->surfaces_mapped))) {
-                        surface =
-                            wl_container_of(workspace->surfaces_mapped.next,
-                                            surface, link_mapped);
+                        surface = wl_container_of(
+                            workspace->surfaces_mapped.next, surface,
+                            link_mapped);
                     }
                 }
 
@@ -1070,12 +1074,14 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 // Format the line.
                 if(name.size != 0) {
                     char const* format = "%s\xEF\x81\x84 %02d %s";
-                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, workspace->id, name_buffer);
+                    snprintf(
+                        line_buffer, rose_ui_menu_utf8_string_size_max, format,
+                        prefix, workspace->id, name_buffer);
                 } else {
                     char const* format = "%s\xEF\x81\x84 %02d ---";
-                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, workspace->id);
+                    snprintf(
+                        line_buffer, rose_ui_menu_utf8_string_size_max, format,
+                        prefix, workspace->id);
                 }
 
                 break;
@@ -1094,12 +1100,14 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
                 // Format the line.
                 if(name.size != 0) {
                     char const* format = "%s\xEF\x89\xAC %02d %s";
-                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, output->id, name_buffer);
+                    snprintf(
+                        line_buffer, rose_ui_menu_utf8_string_size_max, format,
+                        prefix, output->id, name_buffer);
                 } else {
                     char const* format = "%s\xEF\x89\xAC %02d";
-                    snprintf(line_buffer, rose_ui_menu_utf8_string_size_max,
-                             format, prefix, output->id);
+                    snprintf(
+                        line_buffer, rose_ui_menu_utf8_string_size_max, format,
+                        prefix, output->id);
                 }
 
                 break;
@@ -1128,8 +1136,8 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ui_menu_notify_pointer_axis(struct rose_ui_menu* menu,
-                                 struct rose_pointer_event_axis event) {
+rose_ui_menu_notify_pointer_axis(
+    struct rose_ui_menu* menu, struct rose_pointer_event_axis event) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1144,8 +1152,8 @@ rose_ui_menu_notify_pointer_axis(struct rose_ui_menu* menu,
 }
 
 void
-rose_ui_menu_notify_pointer_button(struct rose_ui_menu* menu,
-                                   struct rose_pointer_event_button event) {
+rose_ui_menu_notify_pointer_button(
+    struct rose_ui_menu* menu, struct rose_pointer_event_button event) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1202,8 +1210,8 @@ rose_ui_menu_notify_pointer_button(struct rose_ui_menu* menu,
 }
 
 void
-rose_ui_menu_notify_pointer_warp(struct rose_ui_menu* menu, uint32_t time_msec,
-                                 double x, double y) {
+rose_ui_menu_notify_pointer_warp(
+    struct rose_ui_menu* menu, uint32_t time_msec, double x, double y) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1245,8 +1253,8 @@ rose_ui_menu_notify_pointer_warp(struct rose_ui_menu* menu, uint32_t time_msec,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ui_menu_notify_line_add(struct rose_ui_menu* menu,
-                             struct rose_ui_menu_line line) {
+rose_ui_menu_notify_line_add(
+    struct rose_ui_menu* menu, struct rose_ui_menu_line line) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1274,8 +1282,8 @@ rose_ui_menu_notify_line_add(struct rose_ui_menu* menu,
 }
 
 void
-rose_ui_menu_notify_line_remove(struct rose_ui_menu* menu,
-                                struct rose_ui_menu_line line) {
+rose_ui_menu_notify_line_remove(
+    struct rose_ui_menu* menu, struct rose_ui_menu_line line) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1312,8 +1320,8 @@ rose_ui_menu_notify_line_remove(struct rose_ui_menu* menu,
 }
 
 void
-rose_ui_menu_notify_line_update(struct rose_ui_menu* menu,
-                                struct rose_ui_menu_line line) {
+rose_ui_menu_notify_line_update(
+    struct rose_ui_menu* menu, struct rose_ui_menu_line line) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;

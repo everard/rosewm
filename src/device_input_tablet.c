@@ -46,8 +46,8 @@ struct rose_tablet_tool {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_handle_event_tablet_tool_set_cursor(struct wl_listener* listener,
-                                         void* data) {
+rose_handle_event_tablet_tool_set_cursor(
+    struct wl_listener* listener, void* data) {
     // Obtain the device.
     struct rose_tablet_tool* tool =
         wl_container_of(listener, tool, listener_set_cursor);
@@ -69,8 +69,8 @@ rose_handle_event_tablet_tool_set_cursor(struct wl_listener* listener,
 }
 
 static void
-rose_handle_event_tablet_tool_destroy(struct wl_listener* listener,
-                                      void* data) {
+rose_handle_event_tablet_tool_destroy(
+    struct wl_listener* listener, void* data) {
     unused_(data);
 
     // Obtain the device.
@@ -93,8 +93,8 @@ rose_handle_event_tablet_tool_destroy(struct wl_listener* listener,
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_tablet_tool*
-rose_tablet_tool_obtain(struct rose_tablet* tablet,
-                        struct wlr_tablet_tool* wlr_tool) {
+rose_tablet_tool_obtain(
+    struct rose_tablet* tablet, struct wlr_tablet_tool* wlr_tool) {
     // If the tablet is not properly initialized, then it can't have any
     // associated tools.
     if(tablet->handle == NULL) {

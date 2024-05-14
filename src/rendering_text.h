@@ -85,13 +85,13 @@ rose_text_rendering_context_destroy(
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_text_rendering_extent
-rose_compute_string_extent( //
+rose_compute_string_extent(
     struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string);
 
 struct rose_text_rendering_extent
-rose_render_string( //
+rose_render_string(
     struct rose_text_rendering_context* context,
     struct rose_text_rendering_parameters parameters,
     struct rose_utf32_string string, //

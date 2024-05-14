@@ -22,8 +22,8 @@ enum rose_ipc_io_result {
 // IPC IO callback function type definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-typedef void (*rose_ipc_rx_callback_fn)(void*, enum rose_ipc_io_result,
-                                        struct rose_ipc_buffer_ref);
+typedef void (*rose_ipc_rx_callback_fn)(
+    void*, enum rose_ipc_io_result, struct rose_ipc_buffer_ref);
 
 typedef void (*rose_ipc_tx_callback_fn)(void*, enum rose_ipc_io_result);
 
@@ -87,8 +87,8 @@ rose_ipc_io_context_destroy(struct rose_ipc_io_context* io_context);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_tx(struct rose_ipc_io_context* io_context,
-            struct rose_ipc_buffer_ref buffer);
+rose_ipc_tx(
+    struct rose_ipc_io_context* io_context, struct rose_ipc_buffer_ref buffer);
 
 ////////////////////////////////////////////////////////////////////////////////
 // IPC IO context's state query interface.

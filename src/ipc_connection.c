@@ -30,8 +30,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool
-rose_ipc_connection_transition(struct rose_ipc_connection* connection,
-                               enum rose_ipc_connection_type type) {
+rose_ipc_connection_transition(
+    struct rose_ipc_connection* connection,
+    enum rose_ipc_connection_type type) {
     // Remove watchdog timer, if needed.
     if(connection->watchdog_timer != NULL) {
         connection->watchdog_timer =
@@ -73,8 +74,9 @@ rose_ipc_connection_transition(struct rose_ipc_connection* connection,
             struct xucred ucred;
             socklen_t ucred_size = sizeof(ucred);
 
-            if((getsockopt(connection->io_context.socket_fd, SOL_LOCAL,
-                           LOCAL_PEERCRED, &ucred, &ucred_size) < 0) ||
+            if((getsockopt(
+                    connection->io_context.socket_fd, SOL_LOCAL, LOCAL_PEERCRED,
+                    &ucred, &ucred_size) < 0) ||
                (ucred.cr_version != XUCRED_VERSION)) {
                 return false;
             } else {
@@ -88,8 +90,9 @@ rose_ipc_connection_transition(struct rose_ipc_connection* connection,
             struct ucred ucred;
             socklen_t ucred_size = sizeof(ucred);
 
-            if(getsockopt(connection->io_context.socket_fd, SOL_SOCKET,
-                          SO_PEERCRED, &ucred, &ucred_size) < 0) {
+            if(getsockopt(
+                   connection->io_context.socket_fd, SOL_SOCKET, SO_PEERCRED,
+                   &ucred, &ucred_size) < 0) {
                 return false;
             } else {
                 pid = ucred.pid;
@@ -108,7 +111,7 @@ rose_ipc_connection_transition(struct rose_ipc_connection* connection,
 
     // Move connection to the appropriate list.
     wl_list_remove(&(connection->link));
-    wl_list_insert( //
+    wl_list_insert(
         &(connection->container->connections[connection->type]),
         &(connection->link));
 
@@ -121,8 +124,9 @@ rose_ipc_connection_transition(struct rose_ipc_connection* connection,
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_ipc_connection_execute_command(struct rose_ipc_connection* connection,
-                                    struct rose_ipc_buffer_ref command_buffer) {
+rose_ipc_connection_execute_command(
+    struct rose_ipc_connection* connection,
+    struct rose_ipc_buffer_ref command_buffer) {
     // Validate the given buffer.
     if(command_buffer.size == 0) {
         return;
@@ -169,8 +173,9 @@ rose_ipc_connection_dispatch_command_queue(
 
     // Fill the command buffer.
     for(size_t i = 0; i != connection->dispatcher.queue.size; ++i) {
-        memcpy(buffer.data + i * rose_ipc_command_size,
-               pass_(connection->dispatcher.queue.data[i]));
+        memcpy(
+            buffer.data + i * rose_ipc_command_size,
+            pass_(connection->dispatcher.queue.data[i]));
     }
 
 #undef pass_
@@ -187,8 +192,8 @@ rose_ipc_connection_dispatch_command_queue(
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool
-rose_ipc_connection_queue_status(struct rose_ipc_connection* connection,
-                                 struct rose_ipc_status status) {
+rose_ipc_connection_queue_status(
+    struct rose_ipc_connection* connection, struct rose_ipc_status status) {
     static size_t const data_sizes[] = {
         // rose_ipc_status_type_server_state
         rose_ipc_status_server_state_size,
@@ -226,9 +231,10 @@ rose_ipc_connection_queue_status(struct rose_ipc_connection* connection,
     if((status.type == rose_ipc_status_type_server_state) &&
        (connection->status.server_state_offset != -1)) {
         // Write the state.
-        memcpy(connection->status.buffer.data +
-                   connection->status.server_state_offset + 1,
-               pass_(status.server_state));
+        memcpy(
+            connection->status.buffer.data +
+                connection->status.server_state_offset + 1,
+            pass_(status.server_state));
 
         // Do nothing else.
         return true;
@@ -323,8 +329,9 @@ rose_ipc_connection_transmit_status_buffer(
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_ipc_connection_handle_rx(void* context, enum rose_ipc_io_result result,
-                              struct rose_ipc_buffer_ref buffer) {
+rose_ipc_connection_handle_rx(
+    void* context, enum rose_ipc_io_result result,
+    struct rose_ipc_buffer_ref buffer) {
     // Obtain the connection.
     struct rose_ipc_connection* connection = context;
 
@@ -439,7 +446,7 @@ rose_ipc_connection_initialize(
     }
 
     // Add connection to the list.
-    wl_list_insert( //
+    wl_list_insert(
         &(connection->container->connections[rose_ipc_connection_type_none]),
         &(connection->link));
 
@@ -500,8 +507,8 @@ rose_ipc_connection_destroy(struct rose_ipc_connection* connection) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_connection_dispatch_command(struct rose_ipc_connection* connection,
-                                     struct rose_ipc_command command) {
+rose_ipc_connection_dispatch_command(
+    struct rose_ipc_connection* connection, struct rose_ipc_command command) {
     // Do nothing if connection is not of command-dispatching type.
     if(connection->type != rose_ipc_connection_type_dispatcher) {
         return;
@@ -522,8 +529,8 @@ rose_ipc_connection_dispatch_command(struct rose_ipc_connection* connection,
 }
 
 void
-rose_ipc_connection_send_status(struct rose_ipc_connection* connection,
-                                struct rose_ipc_status status) {
+rose_ipc_connection_send_status(
+    struct rose_ipc_connection* connection, struct rose_ipc_status status) {
     // Do nothing if connection is not of status-reporting type.
     if(connection->type != rose_ipc_connection_type_status) {
         return;

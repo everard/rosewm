@@ -136,8 +136,8 @@ struct rose_pointer_configure_parameters {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_pointer_initialize(struct rose_pointer* pointer,
-                        struct rose_input* parent);
+rose_pointer_initialize(
+    struct rose_pointer* pointer, struct rose_input* parent);
 
 void
 rose_pointer_destroy(struct rose_pointer* pointer);
@@ -147,8 +147,9 @@ rose_pointer_destroy(struct rose_pointer* pointer);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_pointer_configure(struct rose_pointer* pointer,
-                       struct rose_pointer_configure_parameters parameters);
+rose_pointer_configure(
+    struct rose_pointer* pointer,
+    struct rose_pointer_configure_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.

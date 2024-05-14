@@ -60,8 +60,8 @@ struct rose_input {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_input_initialize(struct rose_server_context* context,
-                      struct wlr_input_device* device);
+rose_input_initialize(
+    struct rose_server_context* context, struct wlr_input_device* device);
 
 // Note: This function is called automatically upon input device's destruction.
 void

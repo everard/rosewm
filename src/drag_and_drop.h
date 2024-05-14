@@ -19,7 +19,7 @@ struct wlr_drag;
 
 // Note: Might immediately cancel if there is not enough memory.
 void
-rose_drag_and_drop_start(struct rose_server_context* context,
-                         struct wlr_drag* drag);
+rose_drag_and_drop_start(
+    struct rose_server_context* context, struct wlr_drag* drag);
 
 #endif // H_D93B01AD136D4EB7BD50F1B2C3D69386

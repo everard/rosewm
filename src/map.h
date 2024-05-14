@@ -36,20 +36,21 @@ struct rose_map_insertion_result {
 ////////////////////////////////////////////////////////////////////////////////
 
 // This function must compare keys of the given nodes.
-typedef int (*rose_map_node_comparison_fn)(struct rose_map_node const*,
-                                           struct rose_map_node const*);
+typedef int (*rose_map_node_comparison_fn)(
+    struct rose_map_node const*, struct rose_map_node const*);
 
 // This function must compare the given key with the node's key.
-typedef int (*rose_map_key_comparison_fn)(void const*,
-                                          struct rose_map_node const*);
+typedef int (*rose_map_key_comparison_fn)(
+    void const*, struct rose_map_node const*);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Map node insertion/removal interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_map_insertion_result
-rose_map_insert(struct rose_map_node* root, struct rose_map_node* node,
-                rose_map_node_comparison_fn compare);
+rose_map_insert(
+    struct rose_map_node* root, struct rose_map_node* node,
+    rose_map_node_comparison_fn compare);
 
 // Note: This function returns map's new root.
 struct rose_map_node*
@@ -60,12 +61,14 @@ rose_map_remove(struct rose_map_node* root, struct rose_map_node* node);
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_map_node*
-rose_map_find(struct rose_map_node* root, void const* k,
-              rose_map_key_comparison_fn compare);
+rose_map_find(
+    struct rose_map_node* root, void const* k,
+    rose_map_key_comparison_fn compare);
 
 struct rose_map_node*
-rose_map_lower_bound(struct rose_map_node* root, void const* k,
-                     rose_map_key_comparison_fn compare);
+rose_map_lower_bound(
+    struct rose_map_node* root, void const* k,
+    rose_map_key_comparison_fn compare);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Map boundary access interface.

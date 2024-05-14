@@ -114,8 +114,8 @@ enum rose_workspace_focus_direction {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-rose_workspace_initialize(struct rose_workspace* workspace,
-                          struct rose_server_context* context);
+rose_workspace_initialize(
+    struct rose_workspace* workspace, struct rose_server_context* context);
 
 void
 rose_workspace_destroy(struct rose_workspace* workspace);
@@ -127,7 +127,7 @@ rose_workspace_destroy(struct rose_workspace* workspace);
 // Finds workspace's position in the list specified by the given head. List link
 // is determined by the given offset.
 struct wl_list*
-rose_workspace_find_position_in_list( //
+rose_workspace_find_position_in_list(
     struct wl_list* head, struct rose_workspace* workspace, size_t link_offset);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -145,8 +145,8 @@ rose_workspace_is_current(struct rose_workspace* workspace);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_focus_surface(struct rose_workspace* workspace,
-                             struct rose_surface* surface);
+rose_workspace_focus_surface(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 void
 rose_workspace_focus_surface_relative(
@@ -158,7 +158,7 @@ rose_workspace_focus_surface_relative(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_surface_configure( //
+rose_workspace_surface_configure(
     struct rose_workspace* workspace, struct rose_surface* surface,
     struct rose_surface_configure_parameters parameters);
 
@@ -167,15 +167,15 @@ rose_workspace_surface_configure( //
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_add_surface(struct rose_workspace* workspace,
-                           struct rose_surface* surface);
+rose_workspace_add_surface(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 void
-rose_workspace_remove_surface(struct rose_workspace* workspace,
-                              struct rose_surface* surface);
+rose_workspace_remove_surface(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 void
-rose_workspace_reposition_surface( //
+rose_workspace_reposition_surface(
     struct rose_workspace* workspace, struct rose_surface* surface,
     struct rose_surface* destination);
 
@@ -184,8 +184,8 @@ rose_workspace_reposition_surface( //
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_set_panel(struct rose_workspace* workspace,
-                         struct rose_ui_panel panel);
+rose_workspace_set_panel(
+    struct rose_workspace* workspace, struct rose_ui_panel panel);
 
 void
 rose_workspace_request_redraw(struct rose_workspace* workspace);
@@ -201,24 +201,24 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace);
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_pointer_warp(struct rose_workspace* workspace,
-                            uint32_t time_msec, double x, double y);
+rose_workspace_pointer_warp(
+    struct rose_workspace* workspace, uint32_t time_msec, double x, double y);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: pointer device.
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_notify_pointer_axis(struct rose_workspace* workspace,
-                                   struct rose_pointer_event_axis event);
+rose_workspace_notify_pointer_axis(
+    struct rose_workspace* workspace, struct rose_pointer_event_axis event);
 
 void
-rose_workspace_notify_pointer_button(struct rose_workspace* workspace,
-                                     struct rose_pointer_event_button event);
+rose_workspace_notify_pointer_button(
+    struct rose_workspace* workspace, struct rose_pointer_event_button event);
 
 void
-rose_workspace_notify_pointer_move(struct rose_workspace* workspace,
-                                   struct rose_pointer_event_motion event);
+rose_workspace_notify_pointer_move(
+    struct rose_workspace* workspace, struct rose_pointer_event_motion event);
 
 void
 rose_workspace_notify_pointer_warp(
@@ -239,28 +239,28 @@ rose_workspace_notify_tablet_tool_warp(
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_notify_output_mode(struct rose_workspace* workspace,
-                                  struct rose_output* output);
+rose_workspace_notify_output_mode(
+    struct rose_workspace* workspace, struct rose_output* output);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: surface.
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_workspace_notify_surface_name_update(struct rose_workspace* workspace,
-                                          struct rose_surface* surface);
+rose_workspace_notify_surface_name_update(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 void
-rose_workspace_notify_surface_map(struct rose_workspace* workspace,
-                                  struct rose_surface* surface);
+rose_workspace_notify_surface_map(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 void
-rose_workspace_notify_surface_unmap(struct rose_workspace* workspace,
-                                    struct rose_surface* surface);
+rose_workspace_notify_surface_unmap(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 void
-rose_workspace_notify_surface_commit(struct rose_workspace* workspace,
-                                     struct rose_surface* surface);
+rose_workspace_notify_surface_commit(
+    struct rose_workspace* workspace, struct rose_surface* surface);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Transaction interface.

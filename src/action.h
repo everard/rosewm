@@ -75,11 +75,12 @@ enum rose_menu_action_type {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_execute_core_action(struct rose_server_context* context,
-                         enum rose_core_action_type action_type);
+rose_execute_core_action(
+    struct rose_server_context* context,
+    enum rose_core_action_type action_type);
 
 void
-rose_execute_menu_action(struct rose_ui_menu* menu,
-                         enum rose_menu_action_type action_type);
+rose_execute_menu_action(
+    struct rose_ui_menu* menu, enum rose_menu_action_type action_type);
 
 #endif // H_B874428317F44488BADD725175626A91

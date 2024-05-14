@@ -145,15 +145,16 @@ rose_ipc_server_initialize(struct rose_server_context* context) {
         server->socket_addr.sun_family = AF_UNIX;
 
         // Select runtime directory.
-        char* runtime_dir = getenv("XDG_RUNTIME_DIR");
-        runtime_dir = ((runtime_dir == NULL) ? "/tmp" : runtime_dir);
+        char* runtime_directory = getenv("XDG_RUNTIME_DIR");
+        runtime_directory =
+            ((runtime_directory == NULL) ? "/tmp" : runtime_directory);
 
 #define pair_(x) (x), sizeof((x))
 
         // Write socket's path to the string.
-        int n = snprintf( //
+        int n = snprintf(
             pair_(server->socket_addr.sun_path), "%s/rose.wm.%u.%i.socket",
-            runtime_dir, getuid(), getpid());
+            runtime_directory, getuid(), getpid());
 
 #undef pair_
 
@@ -165,8 +166,9 @@ rose_ipc_server_initialize(struct rose_server_context* context) {
     }
 
     // Bind socket to the address.
-    if(bind(server->socket_fd, (struct sockaddr*)(&(server->socket_addr)),
-            sizeof(server->socket_addr)) == -1) {
+    if(bind(
+           server->socket_fd, (struct sockaddr*)(&(server->socket_addr)),
+           sizeof(server->socket_addr)) == -1) {
         goto error;
     }
 
@@ -237,8 +239,8 @@ rose_ipc_server_destroy(struct rose_ipc_server* server) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-rose_ipc_server_dispatch_command(struct rose_ipc_server* server,
-                                 struct rose_ipc_command command) {
+rose_ipc_server_dispatch_command(
+    struct rose_ipc_server* server, struct rose_ipc_command command) {
     struct wl_list* list =
         &(server->container.connections[rose_ipc_connection_type_dispatcher]);
 
@@ -251,8 +253,8 @@ rose_ipc_server_dispatch_command(struct rose_ipc_server* server,
 }
 
 void
-rose_ipc_server_broadcast_status(struct rose_ipc_server* server,
-                                 struct rose_ipc_status status) {
+rose_ipc_server_broadcast_status(
+    struct rose_ipc_server* server, struct rose_ipc_status status) {
     struct wl_list* list =
         &(server->container.connections[rose_ipc_connection_type_status]);
 

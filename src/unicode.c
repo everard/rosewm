@@ -186,8 +186,9 @@ rose_convert_utf8_to_utf32(struct rose_utf8_string string) {
         }
 
         // Run the algorithm.
-        fribidi_log2vis(buffer_input, string_size, &base_dir, buffer_output,
-                        NULL, NULL, NULL);
+        fribidi_log2vis(
+            buffer_input, string_size, &base_dir, buffer_output, NULL, NULL,
+            NULL);
 
         // Copy algorithm's output back to the resulting UTF-32 string.
         for(size_t i = 0; i < r.size; ++i) {

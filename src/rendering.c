@@ -38,8 +38,8 @@ struct rose_rectangle {
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_matrix
-rose_project_rectangle(struct rose_output* output,
-                       struct rose_rectangle rectangle) {
+rose_project_rectangle(
+    struct rose_output* output, struct rose_rectangle rectangle) {
     // Initialize resulting matrix by scaling and rotating the rectangle.
     struct rose_matrix result =                            //
         {{1.0f, 0.0f, rectangle.x * output->device->scale, //
@@ -68,15 +68,17 @@ rose_project_rectangle(struct rose_output* output,
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_render_rectangle(struct rose_output* output, struct rose_color color,
-                      struct rose_rectangle rectangle) {
+rose_render_rectangle(
+    struct rose_output* output, struct rose_color color,
+    struct rose_rectangle rectangle) {
     // Project the rectangle to the output and render it with the given color.
-    wlr_render_quad_with_matrix(output->context->renderer, color.rgba32,
-                                rose_project_rectangle(output, rectangle).a);
+    wlr_render_quad_with_matrix(
+        output->context->renderer, color.rgba32,
+        rose_project_rectangle(output, rectangle).a);
 }
 
 static void
-rose_render_rectangle_with_texture( //
+rose_render_rectangle_with_texture(
     struct rose_output* output, struct wlr_texture* texture,
     struct wlr_fbox* region, struct rose_rectangle rectangle) {
     // Do nothing if there is no texture.
@@ -87,12 +89,12 @@ rose_render_rectangle_with_texture( //
     // Project the rectangle to the output and render it with the given texture.
     if(region != NULL) {
         // Render only the given region of the texture.
-        wlr_render_subtexture_with_matrix( //
+        wlr_render_subtexture_with_matrix(
             output->context->renderer, texture, region,
             rose_project_rectangle(output, rectangle).a, 1.0f);
     } else {
         // Render the entire texture.
-        wlr_render_texture_with_matrix( //
+        wlr_render_texture_with_matrix(
             output->context->renderer, texture,
             rose_project_rectangle(output, rectangle).a, 1.0f);
     }
@@ -112,12 +114,12 @@ rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
     struct rose_output* output = context->output;
 
     // Compute a rectangle which will represent the given surface.
-    struct rose_rectangle rectangle = //
-        {.x = x + context->dx,
-         .y = y + context->dy,
-         .width = surface->current.width,
-         .height = surface->current.height,
-         .transform = surface->current.transform};
+    struct rose_rectangle rectangle = {
+        .x = x + context->dx,
+        .y = y + context->dy,
+        .width = surface->current.width,
+        .height = surface->current.height,
+        .transform = surface->current.transform};
 
     // Obtain the visible region of the surface's buffer.
     struct wlr_fbox region = {};
@@ -133,8 +135,8 @@ rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
 }
 
 static void
-rose_render_surface_decoration(struct rose_output* output,
-                               struct rose_rectangle surface_rectangle) {
+rose_render_surface_decoration(
+    struct rose_output* output, struct rose_rectangle surface_rectangle) {
     // Obtain the color scheme.
     struct rose_color_scheme* color_scheme =
         &(output->context->config.theme.color_scheme);
@@ -161,9 +163,10 @@ rose_render_surface_decoration(struct rose_output* output,
 }
 
 static void
-rose_render_output_widgets(struct rose_output* output,
-                           enum rose_output_widget_type starting_widget_type,
-                           enum rose_output_widget_type sentinel_widget_type) {
+rose_render_output_widgets(
+    struct rose_output* output,
+    enum rose_output_widget_type starting_widget_type,
+    enum rose_output_widget_type sentinel_widget_type) {
     // Obtain output's state.
     struct rose_output_state output_state = rose_output_state_obtain(output);
 
@@ -187,17 +190,17 @@ rose_render_output_widgets(struct rose_output* output,
 #define scale_(x) (int)((x) * (output_state.scale) + 0.5)
 
             // Compute scissor rectangle.
-            struct wlr_box scissor_rectangle = //
-                {.x = scale_(state.x),
-                 .y = scale_(state.y),
-                 .width = scale_(state.width),
-                 .height = scale_(state.height)};
+            struct wlr_box scissor_rectangle = {
+                .x = scale_(state.x),
+                .y = scale_(state.y),
+                .width = scale_(state.width),
+                .height = scale_(state.height)};
 
 #undef scale_
 
             // Set scissor rectangle and render widget's main surface.
             wlr_renderer_scissor(output->context->renderer, &scissor_rectangle);
-            wlr_surface_for_each_surface( //
+            wlr_surface_for_each_surface(
                 widget->xdg_surface->surface, rose_render_surface, &context);
 
             // Reset scissor rectangle and render widget's child pop-up
@@ -364,15 +367,17 @@ rose_render_content(struct rose_output* output) {
     wlr_renderer_clear(renderer, color_scheme.workspace_background.rgba32);
 
     // Render background widget.
-    rose_render_output_widgets(output, rose_output_widget_type_background,
-                               rose_output_widget_type_background + 1);
+    rose_render_output_widgets(
+        output, rose_output_widget_type_background,
+        rose_output_widget_type_background + 1);
 
     // Render the workspace.
     if(workspace->transaction.sentinel > 0) {
         // If the workspace has a running transaction, then render its snapshot.
         struct rose_surface_snapshot* surface_snapshot = NULL;
-        wl_list_for_each(surface_snapshot,
-                         &(workspace->transaction.snapshot.surfaces), link) {
+        wl_list_for_each(
+            surface_snapshot, &(workspace->transaction.snapshot.surfaces),
+            link) {
             // Compute a rectangle which will represent the given snapshot.
             struct rose_rectangle rectangle = {
                 .x = surface_snapshot->x,
@@ -400,8 +405,9 @@ rose_render_content(struct rose_output* output) {
                 // And render it.
                 rose_render_rectangle_with_texture(
                     output, texture, &region, rectangle);
-            } else if(surface_snapshot->type ==
-                      rose_surface_snapshot_type_decoration) {
+            } else if(
+                surface_snapshot->type ==
+                rose_surface_snapshot_type_decoration) {
                 // Otherwise, render the decoration it represents.
                 rose_render_surface_decoration(output, rectangle);
             }
@@ -427,12 +433,12 @@ rose_render_content(struct rose_output* output) {
                ((surface->xdg_decoration == NULL) ||
                 (surface->xdg_decoration->current.mode ==
                  WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE))) {
-                struct rose_rectangle rectangle = //
-                    {.x = context.dx,
-                     .y = context.dy,
-                     .width = state.width,
-                     .height = state.height,
-                     .transform = WL_OUTPUT_TRANSFORM_NORMAL};
+                struct rose_rectangle rectangle = {
+                    .x = context.dx,
+                    .y = context.dy,
+                    .width = state.width,
+                    .height = state.height,
+                    .transform = WL_OUTPUT_TRANSFORM_NORMAL};
 
                 rose_render_surface_decoration(output, rectangle);
             }
@@ -520,8 +526,9 @@ rose_render_content(struct rose_output* output) {
     }
 
     // Render normal widgets.
-    rose_render_output_widgets(output, rose_output_special_widget_type_count_,
-                               rose_output_widget_type_count_);
+    rose_render_output_widgets(
+        output, rose_output_special_widget_type_count_,
+        rose_output_widget_type_count_);
 
     // Render the menu, if needed.
     if(menu->is_visible) {
@@ -549,7 +556,7 @@ rose_render_content(struct rose_output* output) {
         // Render menu's selected line, if needed.
         if(rose_ui_menu_has_selection(menu)) {
             if(menu->page.selection_index >= 0) {
-                rectangle.y = //
+                rectangle.y =
                     menu->area.y +
                     menu->page.selection_index * menu->layout.line_height +
                     menu->layout.margin_y;
@@ -570,12 +577,12 @@ rose_render_content(struct rose_output* output) {
             rectangle.height = menu->page.line_count * menu->layout.line_height;
 
             // Specify texture's cropping box.
-            struct wlr_fbox box = //
-                {.width = rectangle.width * output_state.scale,
-                 .height = rectangle.height * output_state.scale};
+            struct wlr_fbox box = {
+                .width = rectangle.width * output_state.scale,
+                .height = rectangle.height * output_state.scale};
 
             // Crop and render raster's texture.
-            wlr_render_subtexture_with_matrix( //
+            wlr_render_subtexture_with_matrix(
                 renderer, raster->texture, &box,
                 rose_project_rectangle(output, rectangle).a, 1.0f);
         }
@@ -590,7 +597,7 @@ rose_render_content(struct rose_output* output) {
             .dy = workspace->pointer.y};
 
         // Render the surface and all its subsurfaces.
-        wlr_surface_for_each_surface( //
+        wlr_surface_for_each_surface(
             output->cursor.drag_and_drop_surface, rose_render_surface,
             &context);
     }
@@ -697,52 +704,52 @@ rose_render_content(struct rose_output* output) {
 
         // Compute and render rectangle's decorations.
         if(true) {
-            struct rose_rectangle frame_parts[] = //
-                {{.x = rectangle.x - 4,
-                  .y = rectangle.y - 4,
-                  .width = rectangle.width + 8,
-                  .height = 4},
-                 {.x = rectangle.x - 4,
-                  .y = rectangle.y + rectangle.height,
-                  .width = rectangle.width + 8,
-                  .height = 4},
-                 {.x = rectangle.x - 4,
-                  .y = rectangle.y,
-                  .width = 4,
-                  .height = rectangle.height},
-                 {.x = rectangle.x + rectangle.width,
-                  .y = rectangle.y,
-                  .width = 4,
-                  .height = rectangle.height}};
+            struct rose_rectangle frame_parts[] = {
+                {.x = rectangle.x - 4,
+                 .y = rectangle.y - 4,
+                 .width = rectangle.width + 8,
+                 .height = 4},
+                {.x = rectangle.x - 4,
+                 .y = rectangle.y + rectangle.height,
+                 .width = rectangle.width + 8,
+                 .height = 4},
+                {.x = rectangle.x - 4,
+                 .y = rectangle.y,
+                 .width = 4,
+                 .height = rectangle.height},
+                {.x = rectangle.x + rectangle.width,
+                 .y = rectangle.y,
+                 .width = 4,
+                 .height = rectangle.height}};
 
             for(size_t i = 0; i < array_size_(frame_parts); ++i) {
-                rose_render_rectangle( //
+                rose_render_rectangle(
                     output, color_scheme.surface_resizing_background0,
                     frame_parts[i]);
             }
         }
 
         if(true) {
-            struct rose_rectangle frame_parts[] = //
-                {{.x = rectangle.x - 5,
-                  .y = rectangle.y - 5,
-                  .width = rectangle.width + 10,
-                  .height = 1},
-                 {.x = rectangle.x - 5,
-                  .y = rectangle.y + rectangle.height + 4,
-                  .width = rectangle.width + 10,
-                  .height = 1},
-                 {.x = rectangle.x - 5,
-                  .y = rectangle.y - 4,
-                  .width = 1,
-                  .height = rectangle.height + 8},
-                 {.x = rectangle.x + rectangle.width + 4,
-                  .y = rectangle.y - 4,
-                  .width = 1,
-                  .height = rectangle.height + 8}};
+            struct rose_rectangle frame_parts[] = {
+                {.x = rectangle.x - 5,
+                 .y = rectangle.y - 5,
+                 .width = rectangle.width + 10,
+                 .height = 1},
+                {.x = rectangle.x - 5,
+                 .y = rectangle.y + rectangle.height + 4,
+                 .width = rectangle.width + 10,
+                 .height = 1},
+                {.x = rectangle.x - 5,
+                 .y = rectangle.y - 4,
+                 .width = 1,
+                 .height = rectangle.height + 8},
+                {.x = rectangle.x + rectangle.width + 4,
+                 .y = rectangle.y - 4,
+                 .width = 1,
+                 .height = rectangle.height + 8}};
 
             for(size_t i = 0; i < array_size_(frame_parts); ++i) {
-                rose_render_rectangle( //
+                rose_render_rectangle(
                     output, color_scheme.surface_resizing_background1,
                     frame_parts[i]);
             }
