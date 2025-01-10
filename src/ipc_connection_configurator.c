@@ -35,29 +35,29 @@ struct rose_ipc_device_descriptor {
 // Configuration protocol definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum rose_ipc_configure_request_type {
+enum rose_ipc_configuration_request_type {
     // Server state query.
-    rose_ipc_configure_request_type_obtain_keymap,
-    rose_ipc_configure_request_type_obtain_device_count,
+    rose_ipc_configuration_request_type_obtain_keymap,
+    rose_ipc_configuration_request_type_obtain_device_count,
 
     // Device state query.
-    rose_ipc_configure_request_type_obtain_input_state,
-    rose_ipc_configure_request_type_obtain_output_state,
+    rose_ipc_configuration_request_type_obtain_input_state,
+    rose_ipc_configuration_request_type_obtain_output_state,
 
     // State setting.
-    rose_ipc_configure_request_type_set_keyboard_layout,
-    rose_ipc_configure_request_type_set_pointer_state,
-    rose_ipc_configure_request_type_set_output_state,
+    rose_ipc_configuration_request_type_set_keyboard_layout,
+    rose_ipc_configuration_request_type_set_pointer_state,
+    rose_ipc_configuration_request_type_set_output_state,
 
     // Server state update.
-    rose_ipc_configure_request_type_update_server_state
+    rose_ipc_configuration_request_type_update_server_state
 };
 
-enum rose_ipc_configure_result {
-    rose_ipc_configure_result_success,
-    rose_ipc_configure_result_failure,
-    rose_ipc_configure_result_invalid_request,
-    rose_ipc_configure_result_device_not_found
+enum rose_ipc_configuration_result {
+    rose_ipc_configuration_result_success,
+    rose_ipc_configuration_result_failure,
+    rose_ipc_configuration_result_invalid_request,
+    rose_ipc_configuration_result_device_not_found
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,12 +71,12 @@ enum {
     rose_ipc_serialized_size_output_mode =
         3 * sizeof(int) // width, height, refresh rate
     ,
-    rose_ipc_serialized_size_pointer_configure_parameters =
+    rose_ipc_serialized_size_pointer_configuration_parameters =
         sizeof(unsigned) // flags,
         + 1              // acceleration_type,
         + sizeof(float)  // speed
     ,
-    rose_ipc_serialized_size_output_configure_parameters =
+    rose_ipc_serialized_size_output_configuration_parameters =
         sizeof(unsigned)                       // flags,
         + 1                                    // adaptive_sync_state,
         + 1                                    // transform,
@@ -272,23 +272,23 @@ rose_ipc_connection_dispatch_configuration_request(
     struct rose_ipc_connection* connection,
     struct rose_ipc_buffer_ref request) {
     static size_t const payload_sizes[] = {
-        // rose_ipc_configure_request_type_obtain_keymap
+        // rose_ipc_configuration_request_type_obtain_keymap
         0,
-        // rose_ipc_configure_request_type_obtain_device_count
+        // rose_ipc_configuration_request_type_obtain_device_count
         0,
-        // rose_ipc_configure_request_type_obtain_input_state
+        // rose_ipc_configuration_request_type_obtain_input_state
         sizeof(unsigned),
-        // rose_ipc_configure_request_type_obtain_output_state
+        // rose_ipc_configuration_request_type_obtain_output_state
         sizeof(unsigned),
-        // rose_ipc_configure_request_type_set_keyboard_layout
+        // rose_ipc_configuration_request_type_set_keyboard_layout
         1,
-        // rose_ipc_configure_request_type_set_pointer_state
+        // rose_ipc_configuration_request_type_set_pointer_state
         rose_ipc_serialized_size_device_descriptor +
-            rose_ipc_serialized_size_pointer_configure_parameters,
-        // rose_ipc_configure_request_type_set_output_state
+            rose_ipc_serialized_size_pointer_configuration_parameters,
+        // rose_ipc_configuration_request_type_set_output_state
         rose_ipc_serialized_size_device_descriptor +
-            rose_ipc_serialized_size_output_configure_parameters,
-        // rose_ipc_configure_request_type_update_server_state
+            rose_ipc_serialized_size_output_configuration_parameters,
+        // rose_ipc_configuration_request_type_update_server_state
         1};
 
     // Obtain the server context.
@@ -300,13 +300,13 @@ rose_ipc_connection_dispatch_configuration_request(
     // Respond with failure if the given request is not valid.
     if(request.size == 0) {
         rose_ipc_buffer_write_byte(
-            &response, rose_ipc_configure_result_invalid_request);
+            &response, rose_ipc_configuration_result_invalid_request);
 
         goto end;
     }
 
     // Obtain request's type.
-    enum rose_ipc_configure_request_type request_type =
+    enum rose_ipc_configuration_request_type request_type =
         rose_ipc_buffer_ref_read_byte(&request);
 
 #define array_size_(x) (sizeof(x) / sizeof((x)[0]))
@@ -314,7 +314,7 @@ rose_ipc_connection_dispatch_configuration_request(
     // Respond with failure if request's type is not valid.
     if((request_type < 0) || (request_type >= array_size_(payload_sizes))) {
         rose_ipc_buffer_write_byte(
-            &response, rose_ipc_configure_result_invalid_request);
+            &response, rose_ipc_configuration_result_invalid_request);
 
         goto end;
     }
@@ -324,17 +324,17 @@ rose_ipc_connection_dispatch_configuration_request(
     // Respond with failure if request's payload has invalid size.
     if(request.size != payload_sizes[request_type]) {
         rose_ipc_buffer_write_byte(
-            &response, rose_ipc_configure_result_invalid_request);
+            &response, rose_ipc_configuration_result_invalid_request);
 
         goto end;
     }
 
     // Process the request depending on its type.
     switch(request_type) {
-        case rose_ipc_configure_request_type_obtain_keymap:
+        case rose_ipc_configuration_request_type_obtain_keymap:
             // Write operation's result.
             rose_ipc_buffer_write_byte(
-                &response, rose_ipc_configure_result_success);
+                &response, rose_ipc_configuration_result_success);
 
             // Write the number of keyboard layouts in the keymap.
             rose_ipc_buffer_write_uint(
@@ -347,14 +347,14 @@ rose_ipc_connection_dispatch_configuration_request(
 
             break;
 
-        case rose_ipc_configure_request_type_obtain_device_count: {
+        case rose_ipc_configuration_request_type_obtain_device_count: {
             // Obtain server context's state.
             struct rose_server_context_state state =
                 rose_server_context_state_obtain(context);
 
             // Write operation's result.
             rose_ipc_buffer_write_byte(
-                &response, rose_ipc_configure_result_success);
+                &response, rose_ipc_configuration_result_success);
 
             // Write the number of input and output devices.
             rose_ipc_buffer_write_uint(&response, state.input_device_count);
@@ -363,7 +363,7 @@ rose_ipc_connection_dispatch_configuration_request(
             break;
         }
 
-        case rose_ipc_configure_request_type_obtain_input_state: {
+        case rose_ipc_configuration_request_type_obtain_input_state: {
             // Obtain an input with the requested ID.
             struct rose_input* input = rose_server_context_obtain_input(
                 context, rose_ipc_buffer_ref_read_uint(&request));
@@ -371,7 +371,7 @@ rose_ipc_connection_dispatch_configuration_request(
             // Respond with failure if there is no such input.
             if(input == NULL) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_device_not_found);
+                    &response, rose_ipc_configuration_result_device_not_found);
 
                 break;
             }
@@ -382,7 +382,7 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Write operation's result.
             rose_ipc_buffer_write_byte(
-                &response, rose_ipc_configure_result_success);
+                &response, rose_ipc_configuration_result_success);
 
             // Write input's type.
             rose_ipc_buffer_write_byte(&response, input->type);
@@ -418,7 +418,7 @@ rose_ipc_connection_dispatch_configuration_request(
             break;
         }
 
-        case rose_ipc_configure_request_type_obtain_output_state: {
+        case rose_ipc_configuration_request_type_obtain_output_state: {
             // Obtain an output with the requested ID.
             struct rose_output* output = rose_server_context_obtain_output(
                 context, rose_ipc_buffer_ref_read_uint(&request));
@@ -426,7 +426,7 @@ rose_ipc_connection_dispatch_configuration_request(
             // Respond with failure if there is no such output.
             if(output == NULL) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_device_not_found);
+                    &response, rose_ipc_configuration_result_device_not_found);
 
                 break;
             }
@@ -444,7 +444,7 @@ rose_ipc_connection_dispatch_configuration_request(
 
             // Write operation's result.
             rose_ipc_buffer_write_byte(
-                &response, rose_ipc_configure_result_success);
+                &response, rose_ipc_configuration_result_success);
 
             // Write output's descriptor.
             rose_ipc_buffer_write_device_descriptor(&response, descriptor);
@@ -477,27 +477,27 @@ rose_ipc_connection_dispatch_configuration_request(
             break;
         }
 
-        case rose_ipc_configure_request_type_set_keyboard_layout: {
+        case rose_ipc_configuration_request_type_set_keyboard_layout: {
             // Set requested layout and write operation's result.
             if(rose_server_context_set_keyboard_layout(
                    context, rose_ipc_buffer_ref_read_byte(&request))) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_success);
+                    &response, rose_ipc_configuration_result_success);
             } else {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_failure);
+                    &response, rose_ipc_configuration_result_failure);
             }
 
             break;
         }
 
-        case rose_ipc_configure_request_type_set_pointer_state: {
+        case rose_ipc_configuration_request_type_set_pointer_state: {
             // Read target device's descriptor.
             struct rose_ipc_device_descriptor descriptor =
                 rose_ipc_buffer_ref_read_device_descriptor(&request);
 
             // Read pointer's configuration parameters.
-            struct rose_pointer_configure_parameters parameters = {
+            struct rose_pointer_configuration_parameters parameters = {
                 .flags = rose_ipc_buffer_ref_read_uint(&request),
                 .acceleration_type = rose_ipc_buffer_ref_read_byte(&request),
                 .speed = rose_ipc_buffer_ref_read_float(&request)};
@@ -513,7 +513,7 @@ rose_ipc_connection_dispatch_configuration_request(
                     rose_input_device_descriptor_obtain(input).name,
                     descriptor.name, sizeof(descriptor.name)) != 0)) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_device_not_found);
+                    &response, rose_ipc_configuration_result_device_not_found);
 
                 break;
             }
@@ -521,22 +521,22 @@ rose_ipc_connection_dispatch_configuration_request(
             // Configure the pointer and write operation's result.
             if(rose_pointer_configure(&(input->pointer), parameters)) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_success);
+                    &response, rose_ipc_configuration_result_success);
             } else {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_failure);
+                    &response, rose_ipc_configuration_result_failure);
             }
 
             break;
         }
 
-        case rose_ipc_configure_request_type_set_output_state: {
+        case rose_ipc_configuration_request_type_set_output_state: {
             // Read target device's descriptor.
             struct rose_ipc_device_descriptor descriptor =
                 rose_ipc_buffer_ref_read_device_descriptor(&request);
 
             // Read output's configuration parameters.
-            struct rose_output_configure_parameters parameters = {
+            struct rose_output_configuration_parameters parameters = {
                 .flags = rose_ipc_buffer_ref_read_uint(&request),
                 .adaptive_sync_state = rose_ipc_buffer_ref_read_byte(&request),
                 .transform = rose_ipc_buffer_ref_read_byte(&request),
@@ -556,7 +556,7 @@ rose_ipc_connection_dispatch_configuration_request(
                     rose_output_device_descriptor_obtain(output).name,
                     descriptor.name, sizeof(descriptor.name)) != 0)) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_device_not_found);
+                    &response, rose_ipc_configuration_result_device_not_found);
 
                 break;
             }
@@ -564,29 +564,34 @@ rose_ipc_connection_dispatch_configuration_request(
             // Configure the output and write operation's result.
             if(rose_output_configure(output, parameters)) {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_success);
+                    &response, rose_ipc_configuration_result_success);
             } else {
                 rose_ipc_buffer_write_byte(
-                    &response, rose_ipc_configure_result_failure);
+                    &response, rose_ipc_configuration_result_failure);
             }
 
             break;
         }
 
-        case rose_ipc_configure_request_type_update_server_state:
+        case rose_ipc_configuration_request_type_update_server_state:
             // Write operation's result.
             rose_ipc_buffer_write_byte(
-                &response, rose_ipc_configure_result_success);
+                &response, rose_ipc_configuration_result_success);
+
+            // Read server context's configuration parameters.
+            struct rose_server_context_configuration_parameters parameters = {
+                .flags = rose_ipc_buffer_ref_read_byte(&request)};
 
             // Configure the context.
-            rose_server_context_configure(
-                context, rose_ipc_buffer_ref_read_byte(&request));
+            if(true) {
+                rose_server_context_configure(context, parameters);
+            }
 
             break;
 
         default:
             rose_ipc_buffer_write_byte(
-                &response, rose_ipc_configure_result_invalid_request);
+                &response, rose_ipc_configuration_result_invalid_request);
 
             break;
     }

@@ -6,7 +6,7 @@
 #ifndef H_C77C7556E4AD4F86B73504A2F5399EC0
 #define H_C77C7556E4AD4F86B73504A2F5399EC0
 
-#include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
@@ -26,7 +26,7 @@ struct rose_tablet_tool_event_motion {
     struct wlr_tablet_v2_tablet_tool* tool;
 
     // Event's data.
-    uint32_t time_msec;
+    uint32_t time;
     double x, y, dx, dy;
 };
 
@@ -35,7 +35,7 @@ struct rose_tablet_tool_event_motion {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_tablet {
-    // Pointer to the parent input.
+    // Parent input device.
     struct rose_input* parent;
 
     // Protocol object.

@@ -19,7 +19,7 @@ struct rose_input;
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_keyboard {
-    // Pointer to the parent input device.
+    // Parent input device.
     struct rose_input* parent;
 
     // Keyboard's state which holds keysyms generated from pressed keys.

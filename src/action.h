@@ -52,15 +52,14 @@ enum rose_core_action_type {
 };
 
 enum rose_menu_action_type {
-    // Menu's cursor movement.
+    // Cursor movement.
     rose_menu_action_type_move_mark_up,
     rose_menu_action_type_move_mark_down,
 
-    // Menu's page scrolling.
     rose_menu_action_type_move_page_up,
     rose_menu_action_type_move_page_down,
 
-    // Menu's actions.
+    // Line manipulation.
     rose_menu_action_type_cancel,
     rose_menu_action_type_commit,
     rose_menu_action_type_select,

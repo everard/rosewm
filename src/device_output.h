@@ -36,15 +36,23 @@ struct rose_output_mode {
 // Output mode list definition.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum { rose_output_mode_max_count = 128 };
+enum { rose_output_mode_list_size_max = 128 };
 
 struct rose_output_mode_list {
-    struct rose_output_mode data[rose_output_mode_max_count];
+    struct rose_output_mode data[rose_output_mode_list_size_max];
     size_t size;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Output adaptive sync state definition.
+// Output damage definition.
+////////////////////////////////////////////////////////////////////////////////
+
+struct rose_output_damage {
+    int x, y, width, height;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Output's adaptive sync state definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_output_adaptive_sync_state {
@@ -53,7 +61,7 @@ enum rose_output_adaptive_sync_state {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Output cursor type definition.
+// Output's cursor type definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_output_cursor_type {
@@ -77,10 +85,10 @@ enum rose_output_cursor_type {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_output {
-    // Pointer to the server context.
+    // Parent server context.
     struct rose_server_context* context;
 
-    // Pointer to the underlying output device.
+    // Underlying output device.
     struct wlr_output* device;
 
     // Layout this output device belongs to.
@@ -113,6 +121,15 @@ struct rose_output {
     // List of workspaces.
     struct wl_list workspaces;
 
+    // Damage tracker.
+    struct {
+        // Damage array for different buffer ages.
+        struct rose_output_damage damage[8];
+
+        // Number of frames rendered without damage.
+        unsigned frame_without_damage_count;
+    } damage_tracker;
+
     // User interface.
     struct rose_output_ui ui;
 
@@ -124,7 +141,7 @@ struct rose_output {
     struct rose_surface* focused_surface;
     struct rose_workspace* focused_workspace;
 
-    // Rasters for the title bar and the menu.
+    // Rasters for the focused surface's title and the menu.
     struct {
         struct rose_raster *title, *menu;
     } rasters;
@@ -140,11 +157,11 @@ struct rose_output {
     struct wl_listener listener_cursor_surface_destroy;
     struct wl_listener listener_cursor_drag_and_drop_surface_destroy;
 
-    // List links.
+    // List link.
     struct wl_list link;
 
-    // Output's ID and number of frames rendered without damage.
-    unsigned id, frame_without_damage_count;
+    // Output's ID.
+    unsigned id;
 
     // Flags.
     bool is_scanned_out, is_frame_scheduled, is_rasters_update_requested;
@@ -181,7 +198,7 @@ struct rose_output_state {
 // Configuration-related definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum rose_output_configure_type {
+enum rose_output_configuration_type {
     rose_output_configure_adaptive_sync = 0x01,
     rose_output_configure_transform = 0x02,
     rose_output_configure_scale = 0x04,
@@ -189,12 +206,12 @@ enum rose_output_configure_type {
 };
 
 // Output's configuration mask. Is a bitwise OR of zero or more values from the
-// rose_output_configure_type enumeration.
-typedef unsigned rose_output_configure_mask;
+// rose_output_configuration_type enumeration.
+typedef unsigned rose_output_configuration_mask;
 
-struct rose_output_configure_parameters {
+struct rose_output_configuration_parameters {
     // Output's configuration flags.
-    rose_output_configure_mask flags;
+    rose_output_configuration_mask flags;
 
     // Output's requested adaptive sync state.
     enum rose_output_adaptive_sync_state adaptive_sync_state;
@@ -237,7 +254,7 @@ rose_output_destroy(struct rose_output* output);
 bool
 rose_output_configure(
     struct rose_output* output,
-    struct rose_output_configure_parameters parameters);
+    struct rose_output_configuration_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Workspace focusing interface.
@@ -262,6 +279,23 @@ rose_output_add_workspace(
 void
 rose_output_remove_workspace(
     struct rose_output* output, struct rose_workspace* workspace);
+
+////////////////////////////////////////////////////////////////////////////////
+// Damage handling interface.
+////////////////////////////////////////////////////////////////////////////////
+
+// Returns damage for the given buffer age and shifts damage array in a single
+// operation.
+struct rose_output_damage
+rose_output_consume_damage(struct rose_output* output, int buffer_age);
+
+void
+rose_output_add_damage(
+    struct rose_output* output, struct rose_output_damage damage);
+
+void
+rose_output_add_surface_damage(
+    struct rose_output* output, struct rose_surface* surface);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State manipulation interface.

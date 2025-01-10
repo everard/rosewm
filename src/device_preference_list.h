@@ -42,8 +42,8 @@ struct rose_device_preference {
 
     // Device configuration parameters.
     union {
-        struct rose_pointer_configure_parameters pointer;
-        struct rose_output_configure_parameters output;
+        struct rose_pointer_configuration_parameters pointer;
+        struct rose_output_configuration_parameters output;
     } parameters;
 };
 

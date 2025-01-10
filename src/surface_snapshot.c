@@ -23,7 +23,6 @@ rose_surface_snapshot_initialize(
     // Set snapshot's parameters.
     *snapshot = (struct rose_surface_snapshot){
         .type = parameters.type,
-        // Select the transform based on snapshot's type.
         .transform =
             ((parameters.type == rose_surface_snapshot_type_normal)
                  ? parameters.surface->current.transform

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2024.
+// Copyright Nezametdinov E. Ildus 2025.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -15,103 +15,251 @@
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/render/wlr_renderer.h>
-
-////////////////////////////////////////////////////////////////////////////////
-// Matrix definition.
-////////////////////////////////////////////////////////////////////////////////
-
-struct rose_matrix {
-    float a[9];
-};
+#include <wlr/util/transform.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Rectangle definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_rectangle {
+    // Rectangle's position and size.
     int x, y, width, height;
+
+    // Rectangle's transformation in output's coordinate system.
     enum wl_output_transform transform;
+
+    // A flag which shows that the rectangle is already transformed to the
+    // output buffer's coordinates.
+    bool is_transformed;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Rectangle projecting utility function.
+// Rendering context definition.
 ////////////////////////////////////////////////////////////////////////////////
 
-static struct rose_matrix
-rose_project_rectangle(
-    struct rose_output* output, struct rose_rectangle rectangle) {
-    // Initialize resulting matrix by scaling and rotating the rectangle.
-    struct rose_matrix result =                            //
-        {{1.0f, 0.0f, rectangle.x * output->device->scale, //
-          0.0f, 1.0f, rectangle.y * output->device->scale, //
-          0.0f, 0.0f, 1.0f}};
+struct rose_rendering_context {
+    // Current output and its damage.
+    struct rose_output* output;
+    struct rose_output_damage damage;
 
-    result.a[0] = floor(0.5f + rectangle.width * output->device->scale);
-    result.a[4] = floor(0.5f + rectangle.height * output->device->scale);
+    // Scissor rectangle. Limits rendering to the damaged area.
+    pixman_region32_t scissor_rectangle;
 
-    if(rectangle.transform != WL_OUTPUT_TRANSFORM_NORMAL) {
-        wlr_matrix_translate(result.a, 0.5f, 0.5f);
-        wlr_matrix_transform(
-            result.a, wlr_output_transform_invert(rectangle.transform));
-        wlr_matrix_translate(result.a, -0.5f, -0.5f);
+    // Resulting output state and active rendering pass.
+    struct wlr_output_state state;
+    struct wlr_render_pass* pass;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Surface rendering context definition.
+////////////////////////////////////////////////////////////////////////////////
+
+struct rose_surface_rendering_context {
+    struct rose_rendering_context* parent;
+    int dx, dy;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Rendering context initialization/finalization utility functions.
+////////////////////////////////////////////////////////////////////////////////
+
+static bool
+rose_rendering_context_initialize(
+    struct rose_rendering_context* context, struct rose_output* output) {
+    // Set the output.
+    context->output = output;
+
+    // Initialize an empty resulting state.
+    wlr_output_state_init(&(context->state));
+
+    // Configure output's primary swapchain.
+    if(!wlr_output_configure_primary_swapchain(
+           output->device, &(context->state), &(output->device->swapchain))) {
+        return wlr_output_state_finish(&(context->state)), false;
     }
 
-    // Apply output's transform.
-    wlr_matrix_multiply(result.a, output->device->transform_matrix, result.a);
+    // Start rendering operation, obtain current buffer age.
+    int buffer_age = -1;
+    context->pass = wlr_output_begin_render_pass(
+        output->device, &(context->state), &buffer_age, NULL);
 
-    // Return computed transform.
+    // Consume current damage.
+    context->damage = rose_output_consume_damage(output, buffer_age);
+
+    // Initialize scissor rectangle.
+    pixman_region32_init_rect(
+        &(context->scissor_rectangle), //
+        context->damage.x,             //
+        context->damage.y,             //
+        context->damage.width,         //
+        context->damage.height);
+
+    // Initialization succeeded.
+    return true;
+}
+
+static void
+rose_rendering_context_finalize(struct rose_rendering_context* context) {
+    // Render software cursors.
+    wlr_output_add_software_cursors_to_render_pass(
+        context->output->device, context->pass, NULL);
+
+    // Finish rendering operation.
+    wlr_render_pass_submit(context->pass);
+
+    // Commit resulting state.
+    wlr_output_commit_state(context->output->device, &(context->state));
+
+    // Clean-up resulting state.
+    wlr_output_state_finish(&(context->state));
+
+    // Clean-up the scissor rectangle.
+    pixman_region32_fini(&(context->scissor_rectangle));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Rectangle transforming utility function.
+////////////////////////////////////////////////////////////////////////////////
+
+static struct rose_rectangle
+rose_rectangle_transform(
+    struct rose_rectangle source, struct rose_output_state state) {
+#define scale_(x) (int)((double)(x) * state.scale + 0.5)
+
+    // Scale the source rectangle.
+    if(true) {
+        source.width += source.x;
+        source.height += source.y;
+
+        source.x = scale_(source.x);
+        source.y = scale_(source.y);
+        source.width = scale_(source.width) - source.x;
+        source.height = scale_(source.height) - source.y;
+    }
+
+#undef scale_
+
+    // Initialize resulting rectangle.
+    struct rose_rectangle result = source;
+    result.transform =
+        wlr_output_transform_compose(state.transform, source.transform);
+
+    // Transform rectangle's size.
+    if(state.transform % 2 != 0) {
+        result.width = source.height;
+        result.height = source.width;
+    }
+
+    // Transform rectangle's position.
+    switch(state.transform) {
+        case WL_OUTPUT_TRANSFORM_NORMAL:
+            break;
+
+        case WL_OUTPUT_TRANSFORM_90:
+            result.x = source.y;
+            result.y = state.width - source.x - source.width;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_180:
+            result.x = state.width - source.x - source.width;
+            result.y = state.height - source.y - source.height;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_270:
+            result.x = state.height - source.y - source.height;
+            result.y = source.x;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED:
+            result.x = state.width - source.x - source.width;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+            result.x = state.height - source.y - source.height;
+            result.y = state.width - source.x - source.width;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+            result.y = state.height - source.y - source.height;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+            result.x = source.y;
+            result.y = source.x;
+            break;
+
+        default:
+            break;
+    }
+
     return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Rendering utility functions and types.
+// Rendering utility functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
 rose_render_rectangle(
-    struct rose_output* output, struct rose_color color,
+    struct rose_rendering_context* context, struct rose_color color,
     struct rose_rectangle rectangle) {
-    // Project the rectangle to the output and render it with the given color.
-    wlr_render_quad_with_matrix(
-        output->context->renderer, color.rgba32,
-        rose_project_rectangle(output, rectangle).a);
+    // Transform the rectangle.
+    if(!(rectangle.is_transformed)) {
+        rectangle = rose_rectangle_transform(
+            rectangle, rose_output_state_obtain(context->output));
+    }
+
+    // Render the rectangle.
+    struct wlr_render_rect_options options = {
+        .box =
+            {.x = rectangle.x,
+             .y = rectangle.y,
+             .width = rectangle.width,
+             .height = rectangle.height},
+        .color =
+            {.r = color.rgba32[0],
+             .g = color.rgba32[1],
+             .b = color.rgba32[2],
+             .a = color.rgba32[3]},
+        .clip = &(context->scissor_rectangle)};
+
+    wlr_render_pass_add_rect(context->pass, &options);
 }
 
 static void
 rose_render_rectangle_with_texture(
-    struct rose_output* output, struct wlr_texture* texture,
+    struct rose_rendering_context* context, struct wlr_texture* texture,
     struct wlr_fbox* region, struct rose_rectangle rectangle) {
     // Do nothing if there is no texture.
     if(texture == NULL) {
         return;
     }
 
-    // Project the rectangle to the output and render it with the given texture.
-    if(region != NULL) {
-        // Render only the given region of the texture.
-        wlr_render_subtexture_with_matrix(
-            output->context->renderer, texture, region,
-            rose_project_rectangle(output, rectangle).a, 1.0f);
-    } else {
-        // Render the entire texture.
-        wlr_render_texture_with_matrix(
-            output->context->renderer, texture,
-            rose_project_rectangle(output, rectangle).a, 1.0f);
+    // Transform the rectangle.
+    if(!(rectangle.is_transformed)) {
+        rectangle = rose_rectangle_transform(
+            rectangle, rose_output_state_obtain(context->output));
     }
-}
 
-struct rose_surface_rendering_context {
-    struct rose_output* output;
-    int dx, dy;
-};
+    // Render the rectangle.
+    struct wlr_render_texture_options options = {
+        .texture = texture,
+        .src_box = ((region != NULL) ? *region : (struct wlr_fbox){}),
+        .dst_box =
+            {.x = rectangle.x,
+             .y = rectangle.y,
+             .width = rectangle.width,
+             .height = rectangle.height},
+        .clip = &(context->scissor_rectangle),
+        .transform = rectangle.transform};
+
+    wlr_render_pass_add_texture(context->pass, &options);
+}
 
 static void
 rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
     // Obtain surface rendering context.
     struct rose_surface_rendering_context* context = data;
-
-    // Obtain the output.
-    struct rose_output* output = context->output;
 
     // Compute a rectangle which will represent the given surface.
     struct rose_rectangle rectangle = {
@@ -127,20 +275,18 @@ rose_render_surface(struct wlr_surface* surface, int x, int y, void* data) {
 
     // Render the rectangle with surface's texture.
     rose_render_rectangle_with_texture(
-        output, wlr_surface_get_texture(surface), &region, rectangle);
+        context->parent, wlr_surface_get_texture(surface), &region, rectangle);
 
     // Send presentation feedback.
     wlr_presentation_surface_textured_on_output(
-        output->context->presentation, surface, output->device);
+        surface, context->parent->output->device);
 }
 
 static void
 rose_render_surface_decoration(
-    struct rose_output* output, struct rose_rectangle surface_rectangle) {
-    // Obtain the color scheme.
-    struct rose_color_scheme* color_scheme =
-        &(output->context->config.theme.color_scheme);
-
+    struct rose_rendering_context* context,
+    struct rose_color_scheme const* color_scheme,
+    struct rose_rectangle surface_rectangle) {
     // Update surface's rectangle.
     surface_rectangle.x -= 5;
     surface_rectangle.y -= 5;
@@ -150,7 +296,7 @@ rose_render_surface_decoration(
 
     // Render surface's background frame.
     rose_render_rectangle(
-        output, color_scheme->surface_background1, surface_rectangle);
+        context, color_scheme->surface_background1, surface_rectangle);
 
     surface_rectangle.x += 1;
     surface_rectangle.y += 1;
@@ -159,55 +305,44 @@ rose_render_surface_decoration(
     surface_rectangle.height -= 2;
 
     rose_render_rectangle(
-        output, color_scheme->surface_background0, surface_rectangle);
+        context, color_scheme->surface_background0, surface_rectangle);
 }
 
 static void
-rose_render_output_widgets(
-    struct rose_output* output,
-    enum rose_output_widget_type starting_widget_type,
-    enum rose_output_widget_type sentinel_widget_type) {
-    // Obtain output's state.
-    struct rose_output_state output_state = rose_output_state_obtain(output);
-
-    // Iterate through the supplied range of UI widget types.
-    struct rose_output_widget* widget = NULL;
+rose_render_widgets(
+    struct rose_rendering_context* context,
+    enum rose_surface_widget_type starting_widget_type,
+    enum rose_surface_widget_type sentinel_widget_type) {
+    // Iterate through the supplied range of widget types.
+    struct rose_surface* surface = NULL;
     for(ptrdiff_t i = starting_widget_type; i != sentinel_widget_type; ++i) {
-        wl_list_for_each(widget, &(output->ui.widgets_mapped[i]), link_mapped) {
-            // Skip invisible widgets.
-            if(!rose_output_widget_is_visible(widget)) {
+        wl_list_for_each(
+            surface, &(context->output->ui.surfaces_mapped[i]), link_mapped) {
+            // Skip invisible surfaces.
+            if(!rose_output_ui_is_surface_visible(
+                   &(context->output->ui), surface)) {
                 continue;
             }
 
-            // Obtain current widget's state.
-            struct rose_output_widget_state state =
-                rose_output_widget_state_obtain(widget);
+            // Obtain current surface's state.
+            struct rose_surface_state surface_state =
+                rose_surface_state_obtain(surface);
 
             // Initialize surface rendering context.
-            struct rose_surface_rendering_context context = {
-                .output = output, .dx = state.x, .dy = state.y};
+            struct rose_surface_rendering_context surface_rendering_context = {
+                .parent = context,
+                .dx = surface_state.x,
+                .dy = surface_state.y};
 
-#define scale_(x) (int)((x) * (output_state.scale) + 0.5)
-
-            // Compute scissor rectangle.
-            struct wlr_box scissor_rectangle = {
-                .x = scale_(state.x),
-                .y = scale_(state.y),
-                .width = scale_(state.width),
-                .height = scale_(state.height)};
-
-#undef scale_
-
-            // Set scissor rectangle and render widget's main surface.
-            wlr_renderer_scissor(output->context->renderer, &scissor_rectangle);
+            // Render the main surface.
             wlr_surface_for_each_surface(
-                widget->xdg_surface->surface, rose_render_surface, &context);
+                surface->xdg_surface->surface, rose_render_surface,
+                &surface_rendering_context);
 
-            // Reset scissor rectangle and render widget's child pop-up
-            // surfaces, if any.
-            wlr_renderer_scissor(output->context->renderer, NULL);
+            // Render surface's children.
             wlr_xdg_surface_for_each_popup_surface(
-                widget->xdg_surface, rose_render_surface, &context);
+                surface->xdg_surface, rose_render_surface,
+                &surface_rendering_context);
         }
     }
 }
@@ -221,9 +356,6 @@ rose_render_content(struct rose_output* output) {
     // Obtain output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
 
-    // Obtain the renderer.
-    struct wlr_renderer* renderer = output->context->renderer;
-
     // Obtain the color scheme.
     struct rose_color_scheme color_scheme =
         output->context->config.theme.color_scheme;
@@ -234,30 +366,32 @@ rose_render_content(struct rose_output* output) {
     // If the screen is locked, or the given output has no focused workspace,
     // then render output's visible widgets, and do nothing else.
     if((output->context->is_screen_locked) || (workspace == NULL)) {
-        // Attach the renderer to the output.
-        if(!wlr_output_attach_render(output->device, NULL)) {
+        // Initialize rendering context.
+        struct rose_rendering_context context = {};
+        if(!rose_rendering_context_initialize(&context, output)) {
             return;
         }
 
-        // Start rendering operation.
-        wlr_renderer_begin(
-            renderer, output->device->width, output->device->height);
+        if(!pixman_region32_not_empty(&(context.scissor_rectangle))) {
+            return rose_rendering_context_finalize(&context);
+        }
 
         // Fill-in with solid color.
-        wlr_renderer_clear(renderer, color_scheme.workspace_background.rgba32);
+        if(true) {
+            struct rose_rectangle rectangle = {
+                .width = output->device->width,
+                .height = output->device->height,
+                .is_transformed = true};
+
+            rose_render_rectangle(
+                &context, color_scheme.workspace_background, rectangle);
+        }
 
         // Render all widgets.
-        rose_render_output_widgets(output, 0, rose_output_widget_type_count_);
+        rose_render_widgets(&context, 0, rose_surface_widget_type_count_);
 
         // Finish rendering operation.
-        wlr_output_render_software_cursors(output->device, NULL);
-        wlr_renderer_end(renderer);
-
-        // Commit the rendering operation.
-        wlr_output_commit(output->device);
-
-        // Do nothing else.
-        return;
+        return rose_rendering_context_finalize(&context);
     }
 
     // Obtain panel's data.
@@ -276,31 +410,38 @@ rose_render_content(struct rose_output* output) {
     // Try using direct scan-out.
     while(output->cursor.drag_and_drop_surface == NULL) {
         // Obtain workspace's focused surface.
-        struct rose_surface* surface = workspace->focused_surface;
+        struct rose_surface* focused_surface = workspace->focused_surface;
 
         // If the workspace has no focused surface, or if any of the UI
         // components are visible, or the workspace is not in normal mode, then
         // direct scan-out is not possible.
-        if((surface == NULL) || (panel.is_visible || menu->is_visible) ||
+        if((focused_surface == NULL) ||
+           (panel.is_visible || menu->is_visible) ||
            (workspace->mode != rose_workspace_mode_normal)) {
             break;
         }
 
-        struct rose_surface_state state = rose_surface_state_obtain(surface);
-        struct wlr_surface* wlr_surface = surface->xdg_surface->surface;
+        // Obtain focused surface's state.
+        struct rose_surface_state focused_surface_state =
+            rose_surface_state_obtain(focused_surface);
+
+        // Obtain focused surface's underlying implementation.
+        struct wlr_surface* underlying = focused_surface->xdg_surface->surface;
 
         // If the surface is not positioned properly, or it has child entities,
         // then scan-out is not possible.
-        if(((state.x != 0) || (state.y != 0)) || (wlr_surface == NULL) ||
-           !wl_list_empty(&(surface->subsurfaces)) ||
-           !wl_list_empty(&(surface->temporaries))) {
+        if((focused_surface_state.x != 0) || //
+           (focused_surface_state.y != 0) || //
+           (underlying == NULL) ||
+           !wl_list_empty(&(focused_surface->subsurfaces)) ||
+           !wl_list_empty(&(focused_surface->temporaries))) {
             break;
         }
 
-        // If surface's state does not match output's state, then scan-out is
-        // not possible.
-        if((wlr_surface->current.transform != output_state.transform) ||
-           (wlr_surface->current.scale != output_state.scale)) {
+        // If focused surface's state does not match output's state, then
+        // scan-out is not possible.
+        if((underlying->current.transform != output_state.transform) ||
+           (underlying->current.scale != output_state.scale)) {
             break;
         }
 
@@ -308,16 +449,16 @@ rose_render_content(struct rose_output* output) {
         // possible.
         if(true) {
             // At this point there are no visible widgets.
-            bool is_widget_found = false;
+            bool is_found = false;
 
-            // Search for a visible widget.
-            struct rose_output_widget* widget = NULL;
-            for(ptrdiff_t i = rose_output_special_widget_type_count_;
-                i != rose_output_widget_type_count_; ++i) {
+            // Search for a visible widget surface.
+            struct rose_surface* surface = NULL;
+            for(ptrdiff_t i = rose_surface_special_widget_type_count_;
+                i != rose_surface_widget_type_count_; ++i) {
                 wl_list_for_each(
-                    widget, &(output->ui.widgets_mapped[i]), link_mapped) {
-                    if(rose_output_widget_is_visible(widget)) {
-                        // Note: The widget has been found.
+                    surface, &(output->ui.surfaces_mapped[i]), link_mapped) {
+                    if(rose_output_ui_is_surface_visible(
+                           &(output->ui), surface)) {
                         goto found;
                     }
                 }
@@ -325,51 +466,75 @@ rose_render_content(struct rose_output* output) {
                 continue;
 
             found:
-                is_widget_found = true;
+                is_found = true;
                 break;
             }
 
             // If such widget has been found, then scan-out is not possible.
-            if(is_widget_found) {
+            if(is_found) {
                 break;
             }
         }
 
-        // Try attaching surface's buffer.
-        wlr_output_attach_buffer(output->device, &(wlr_surface->buffer->base));
-        if(!wlr_output_test(output->device)) {
+        // Initialize an empty state.
+        struct wlr_output_state state = {};
+        wlr_output_state_init(&state);
+
+        // Configure primary swapchain.
+        if(!wlr_output_configure_primary_swapchain(
+               output->device, &state, &(output->device->swapchain))) {
+            return wlr_output_state_finish(&state);
+        }
+
+        // Try attaching focused surface's buffer.
+        wlr_output_state_set_buffer(&state, &(underlying->buffer->base));
+        if(!wlr_output_test_state(output->device, &state)) {
+            wlr_output_state_finish(&state);
             break;
         }
 
         // Try committing the rendering operation.
-        if(!wlr_output_commit(output->device)) {
+        if(!wlr_output_commit_state(output->device, &state)) {
+            wlr_output_state_finish(&state);
             break;
         }
 
         // Send presentation feedback.
         wlr_presentation_surface_scanned_out_on_output(
-            output->context->presentation, wlr_surface, output->device);
+            underlying, output->device);
 
         // Mark the output as scanned-out.
         output->is_scanned_out = true;
 
         // Do nothing else.
+        return wlr_output_state_finish(&state);
+    }
+
+    // Initialize rendering context.
+    struct rose_rendering_context context = {};
+    if(!rose_rendering_context_initialize(&context, output)) {
         return;
     }
 
-    // Attach the renderer to the output.
-    if(!wlr_output_attach_render(output->device, NULL)) {
-        return;
+    if(!pixman_region32_not_empty(&(context.scissor_rectangle))) {
+        return rose_rendering_context_finalize(&context);
     }
 
-    // Start rendering operation, render background.
-    wlr_renderer_begin(renderer, output->device->width, output->device->height);
-    wlr_renderer_clear(renderer, color_scheme.workspace_background.rgba32);
+    // Fill-in with solid color.
+    if(true) {
+        struct rose_rectangle rectangle = {
+            .width = output->device->width,
+            .height = output->device->height,
+            .is_transformed = true};
+
+        rose_render_rectangle(
+            &context, color_scheme.workspace_background, rectangle);
+    }
 
     // Render background widget.
-    rose_render_output_widgets(
-        output, rose_output_widget_type_background,
-        rose_output_widget_type_background + 1);
+    rose_render_widgets(
+        &context, rose_surface_widget_type_background,
+        rose_surface_widget_type_background + 1);
 
     // Render the workspace.
     if(workspace->transaction.sentinel > 0) {
@@ -404,12 +569,13 @@ rose_render_content(struct rose_output* output) {
 
                 // And render it.
                 rose_render_rectangle_with_texture(
-                    output, texture, &region, rectangle);
+                    &context, texture, &region, rectangle);
             } else if(
                 surface_snapshot->type ==
                 rose_surface_snapshot_type_decoration) {
                 // Otherwise, render the decoration it represents.
-                rose_render_surface_decoration(output, rectangle);
+                rose_render_surface_decoration(
+                    &context, &color_scheme, rectangle);
             }
         }
 
@@ -421,31 +587,34 @@ rose_render_content(struct rose_output* output) {
         wl_list_for_each(
             surface, &(workspace->surfaces_visible), link_visible) {
             // Obtain surface's state.
-            struct rose_surface_state state =
+            struct rose_surface_state surface_state =
                 rose_surface_state_obtain(surface);
 
             // Initialize surface rendering context.
-            struct rose_surface_rendering_context context = {
-                .output = output, .dx = state.x, .dy = state.y};
+            struct rose_surface_rendering_context surface_rendering_context = {
+                .parent = &context,
+                .dx = surface_state.x,
+                .dy = surface_state.y};
 
             // Render surface's decoration, if needed.
-            if(!(state.is_maximized || state.is_fullscreen) &&
+            if(!(surface_state.is_maximized || surface_state.is_fullscreen) &&
                ((surface->xdg_decoration == NULL) ||
                 (surface->xdg_decoration->current.mode ==
                  WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE))) {
                 struct rose_rectangle rectangle = {
-                    .x = context.dx,
-                    .y = context.dy,
-                    .width = state.width,
-                    .height = state.height,
-                    .transform = WL_OUTPUT_TRANSFORM_NORMAL};
+                    .x = surface_rendering_context.dx,
+                    .y = surface_rendering_context.dy,
+                    .width = surface_state.width,
+                    .height = surface_state.height};
 
-                rose_render_surface_decoration(output, rectangle);
+                rose_render_surface_decoration(
+                    &context, &color_scheme, rectangle);
             }
 
             // Render the surface.
             wlr_xdg_surface_for_each_surface(
-                surface->xdg_surface, rose_render_surface, &context);
+                surface->xdg_surface, rose_render_surface,
+                &surface_rendering_context);
         }
     }
 
@@ -453,9 +622,7 @@ rose_render_content(struct rose_output* output) {
     if(panel.is_visible) {
         // Initialize panel's rectangle.
         struct rose_rectangle rectangle = {
-            .width = workspace->width,
-            .height = workspace->height,
-            .transform = WL_OUTPUT_TRANSFORM_NORMAL};
+            .width = workspace->width, .height = workspace->height};
 
         // Perform computations depending on panel's position.
         switch(panel.position) {
@@ -480,7 +647,8 @@ rose_render_content(struct rose_output* output) {
         }
 
         // Render the rectangle.
-        rose_render_rectangle(output, color_scheme.panel_background, rectangle);
+        rose_render_rectangle(
+            &context, color_scheme.panel_background, rectangle);
 
         // Start rendering panel's text.
         int dx = 1;
@@ -521,14 +689,14 @@ rose_render_content(struct rose_output* output) {
 
             // Render the texture.
             rose_render_rectangle_with_texture(
-                output, raster->texture, NULL, rectangle);
+                &context, raster->texture, NULL, rectangle);
         }
     }
 
     // Render normal widgets.
-    rose_render_output_widgets(
-        output, rose_output_special_widget_type_count_,
-        rose_output_widget_type_count_);
+    rose_render_widgets(
+        &context, rose_surface_special_widget_type_count_,
+        rose_surface_widget_type_count_);
 
     // Render the menu, if needed.
     if(menu->is_visible) {
@@ -537,11 +705,11 @@ rose_render_content(struct rose_output* output) {
             .x = menu->area.x,
             .y = menu->area.y,
             .width = menu->area.width,
-            .height = menu->area.height,
-            .transform = WL_OUTPUT_TRANSFORM_NORMAL};
+            .height = menu->area.height};
 
         // Render menu's background area.
-        rose_render_rectangle(output, color_scheme.menu_background, rectangle);
+        rose_render_rectangle(
+            &context, color_scheme.menu_background, rectangle);
 
         // Render menu's mark.
         if(true) {
@@ -550,7 +718,7 @@ rose_render_content(struct rose_output* output) {
                            menu->layout.margin_y;
 
             rose_render_rectangle(
-                output, color_scheme.menu_highlight0, rectangle);
+                &context, color_scheme.menu_highlight0, rectangle);
         }
 
         // Render menu's selected line, if needed.
@@ -562,7 +730,7 @@ rose_render_content(struct rose_output* output) {
                     menu->layout.margin_y;
 
                 rose_render_rectangle(
-                    output, color_scheme.menu_highlight1, rectangle);
+                    &context, color_scheme.menu_highlight1, rectangle);
             }
         }
 
@@ -581,25 +749,24 @@ rose_render_content(struct rose_output* output) {
                 .width = rectangle.width * output_state.scale,
                 .height = rectangle.height * output_state.scale};
 
-            // Crop and render raster's texture.
-            wlr_render_subtexture_with_matrix(
-                renderer, raster->texture, &box,
-                rose_project_rectangle(output, rectangle).a, 1.0f);
+            // Render the texture.
+            rose_render_rectangle_with_texture(
+                &context, raster->texture, &box, rectangle);
         }
     }
 
     // Render drag and drop surface, if needed.
     if(output->cursor.drag_and_drop_surface != NULL) {
         // Initialize surface rendering context.
-        struct rose_surface_rendering_context context = {
-            .output = output,
+        struct rose_surface_rendering_context surface_rendering_context = {
+            .parent = &context,
             .dx = workspace->pointer.x,
             .dy = workspace->pointer.y};
 
         // Render the surface and all its subsurfaces.
         wlr_surface_for_each_surface(
             output->cursor.drag_and_drop_surface, rose_render_surface,
-            &context);
+            &surface_rendering_context);
     }
 
     // Render additional rectangle for the surface which is currently being
@@ -698,7 +865,8 @@ rose_render_content(struct rose_output* output) {
         }
 
         // Render the rectangle.
-        rose_render_rectangle(output, color_scheme.surface_resizing, rectangle);
+        rose_render_rectangle(
+            &context, color_scheme.surface_resizing, rectangle);
 
 #define array_size_(a) ((size_t)(sizeof(a) / sizeof(a[0])))
 
@@ -724,7 +892,7 @@ rose_render_content(struct rose_output* output) {
 
             for(size_t i = 0; i < array_size_(frame_parts); ++i) {
                 rose_render_rectangle(
-                    output, color_scheme.surface_resizing_background0,
+                    &context, color_scheme.surface_resizing_background0,
                     frame_parts[i]);
             }
         }
@@ -750,18 +918,48 @@ rose_render_content(struct rose_output* output) {
 
             for(size_t i = 0; i < array_size_(frame_parts); ++i) {
                 rose_render_rectangle(
-                    output, color_scheme.surface_resizing_background1,
+                    &context, color_scheme.surface_resizing_background1,
                     frame_parts[i]);
             }
         }
-
-#undef array_size_
     }
 
-    // Finish rendering operation.
-    wlr_output_render_software_cursors(output->device, NULL);
-    wlr_renderer_end(renderer);
+#ifdef ROSE_RENDER_DAMAGE
+    // Render the damage.
+    if(true) {
+        // Construct rectangles which represent damaged region.
+        struct rose_rectangle rectangles[] = {
+            {.x = context.damage.x,
+             .y = context.damage.y,
+             .width = 2,
+             .height = context.damage.height,
+             .is_transformed = true},
+            {.x = context.damage.x,
+             .y = context.damage.y,
+             .width = context.damage.width,
+             .height = 2,
+             .is_transformed = true},
+            {.x = context.damage.x + context.damage.width - 2,
+             .y = context.damage.y,
+             .width = 2,
+             .height = context.damage.height,
+             .is_transformed = true},
+            {.x = context.damage.x,
+             .y = context.damage.y + context.damage.height - 2,
+             .width = context.damage.width,
+             .height = 2,
+             .is_transformed = true}};
 
-    // Commit rendering operation.
-    wlr_output_commit(output->device);
+        // Initialize damage's color.
+        struct rose_color color_red = {.rgba32 = {0xFF, 0, 0, 0xFF}};
+
+        // Render the damage.
+        for(size_t i = 0; i < array_size_(rectangles); ++i) {
+            rose_render_rectangle(&context, color_red, rectangles[i]);
+        }
+    }
+#endif
+
+    // Finish rendering operation.
+    return rose_rendering_context_finalize(&context);
 }

@@ -6,10 +6,10 @@
 #ifndef H_EA01F7650FA4419F8B00BB4A2007EC35
 #define H_EA01F7650FA4419F8B00BB4A2007EC35
 
-#include "device_input_pointer.h"
 #include "device_input_tablet.h"
 #include "ui_panel.h"
 
+#include <wlr/types/wlr_pointer.h>
 #include <stdint.h>
 #include <time.h>
 
@@ -38,7 +38,7 @@ enum rose_workspace_mode {
 };
 
 struct rose_workspace {
-    // Pointers to the server context and output.
+    // Parent server context and output.
     struct rose_server_context* context;
     struct rose_output* output;
 
@@ -53,7 +53,7 @@ struct rose_workspace {
         double x, y, x_saved, y_saved;
 
         // Last movement time.
-        uint32_t movement_time_msec;
+        uint32_t movement_time;
 
         // Pointer's timer.
         struct wl_event_source* timer;
@@ -93,8 +93,8 @@ struct rose_workspace {
         struct wl_event_source* timer;
     } transaction;
 
-    // Workspace's ID and number of frames rendered without new surface commits.
-    unsigned id, frame_without_commits_count;
+    // Workspace's ID.
+    unsigned id;
 
     // Current mode.
     enum rose_workspace_mode mode;
@@ -160,7 +160,7 @@ rose_workspace_focus_surface_relative(
 void
 rose_workspace_surface_configure(
     struct rose_workspace* workspace, struct rose_surface* surface,
-    struct rose_surface_configure_parameters parameters);
+    struct rose_surface_configuration_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Surface addition/removal/reordering interface.
@@ -202,7 +202,7 @@ rose_workspace_commit_interactive_mode(struct rose_workspace* workspace);
 
 void
 rose_workspace_pointer_warp(
-    struct rose_workspace* workspace, uint32_t time_msec, double x, double y);
+    struct rose_workspace* workspace, uint32_t time, double x, double y);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: pointer device.
@@ -210,20 +210,20 @@ rose_workspace_pointer_warp(
 
 void
 rose_workspace_notify_pointer_axis(
-    struct rose_workspace* workspace, struct rose_pointer_event_axis event);
+    struct rose_workspace* workspace, struct wlr_pointer_axis_event event);
 
 void
 rose_workspace_notify_pointer_button(
-    struct rose_workspace* workspace, struct rose_pointer_event_button event);
+    struct rose_workspace* workspace, struct wlr_pointer_button_event event);
 
 void
 rose_workspace_notify_pointer_move(
-    struct rose_workspace* workspace, struct rose_pointer_event_motion event);
+    struct rose_workspace* workspace, struct wlr_pointer_motion_event event);
 
 void
 rose_workspace_notify_pointer_warp(
     struct rose_workspace* workspace,
-    struct rose_pointer_event_motion_absolute event);
+    struct wlr_pointer_motion_absolute_event event);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: tablet device.

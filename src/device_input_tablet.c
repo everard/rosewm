@@ -24,7 +24,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_tablet_tool {
-    // Pointer to the server context.
+    // Parent server context.
     struct rose_server_context* context;
 
     // Protocol object.
@@ -52,7 +52,7 @@ rose_handle_event_tablet_tool_set_cursor(
     struct rose_tablet_tool* tool =
         wl_container_of(listener, tool, listener_set_cursor);
 
-    // Obtain event data.
+    // Obtain the event.
     struct wlr_tablet_v2_event_cursor* event = data;
 
     // Obtain the current output.
@@ -94,7 +94,7 @@ rose_handle_event_tablet_tool_destroy(
 
 static struct rose_tablet_tool*
 rose_tablet_tool_obtain(
-    struct rose_tablet* tablet, struct wlr_tablet_tool* wlr_tool) {
+    struct rose_tablet* tablet, struct wlr_tablet_tool* underlying) {
     // If the tablet is not properly initialized, then it can't have any
     // associated tools.
     if(tablet->handle == NULL) {
@@ -105,7 +105,7 @@ rose_tablet_tool_obtain(
     struct rose_server_context* context = tablet->parent->context;
 
     // Obtain the tablet tool.
-    struct rose_tablet_tool* tool = wlr_tool->data;
+    struct rose_tablet_tool* tool = underlying->data;
 
     if(tool != NULL) {
         // If such tool exists, then add it to the list of tablet's tools.
@@ -123,12 +123,12 @@ rose_tablet_tool_obtain(
 
         // Create protocol object.
         tool->handle = wlr_tablet_tool_create(
-            context->tablet_manager, context->seat, wlr_tool);
+            context->tablet_manager, context->seat, underlying);
 
         if(tool->handle == NULL) {
             goto error;
         } else {
-            wlr_tool->data = tool;
+            underlying->data = tool;
         }
 
         // Add the tool to the list.
@@ -142,7 +142,7 @@ rose_tablet_tool_obtain(
 
         // Register listeners.
         add_signal_(tool->handle, set_cursor);
-        add_signal_(wlr_tool, destroy);
+        add_signal_(underlying, destroy);
 
 #undef add_signal_
     }
@@ -165,43 +165,43 @@ rose_handle_event_tablet_axis(struct wl_listener* listener, void* data) {
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_axis);
 
-    // Obtain event data.
-    struct wlr_tablet_tool_axis_event* wlr_event = data;
+    // Obtain the event.
+    struct wlr_tablet_tool_axis_event* event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
-        rose_tablet_tool_obtain(tablet, wlr_event->tool);
+        rose_tablet_tool_obtain(tablet, event->tool);
 
     // Handle the event, if needed.
     if(tool != NULL) {
         // Accumulate motion data.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_X) != 0) {
-            tool->x = wlr_event->x;
-            tool->dx = wlr_event->dx;
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_X) != 0) {
+            tool->x = event->x;
+            tool->dx = event->dx;
         }
 
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_Y) != 0) {
-            tool->y = wlr_event->y;
-            tool->dy = wlr_event->dy;
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_Y) != 0) {
+            tool->y = event->y;
+            tool->dy = event->dy;
         }
 
         // Accumulate tilt data.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_TILT_X) != 0) {
-            tool->tilt_x = wlr_event->tilt_x;
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_TILT_X) != 0) {
+            tool->tilt_x = event->tilt_x;
         }
 
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_TILT_Y) != 0) {
-            tool->tilt_y = wlr_event->tilt_y;
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_TILT_Y) != 0) {
+            tool->tilt_y = event->tilt_y;
         }
 
         // Send motion event, if needed.
-        if((wlr_event->updated_axes &
+        if((event->updated_axes &
             (WLR_TABLET_TOOL_AXIS_X | WLR_TABLET_TOOL_AXIS_Y)) != 0) {
             // Construct motion event.
-            struct rose_tablet_tool_event_motion event = {
+            struct rose_tablet_tool_event_motion motion_event = {
                 .tablet = tablet->handle,
                 .tool = tool->handle,
-                .time_msec = wlr_event->time_msec,
+                .time = event->time_msec,
                 .x = tool->x,
                 .y = tool->y,
                 .dx = tool->dx,
@@ -209,44 +209,43 @@ rose_handle_event_tablet_axis(struct wl_listener* listener, void* data) {
 
             // And notify current workspace of this event.
             rose_workspace_notify_tablet_tool_warp(
-                tool->context->current_workspace, event);
+                tool->context->current_workspace, motion_event);
         }
 
         // Send tilt event, if needed.
-        if((wlr_event->updated_axes &
+        if((event->updated_axes &
             (WLR_TABLET_TOOL_AXIS_TILT_X | WLR_TABLET_TOOL_AXIS_TILT_Y)) != 0) {
             wlr_send_tablet_v2_tablet_tool_tilt(
                 tool->handle, tool->tilt_x, tool->tilt_y);
         }
 
         // Send distance event, if needed.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_DISTANCE) != 0) {
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_DISTANCE) != 0) {
             wlr_send_tablet_v2_tablet_tool_distance(
-                tool->handle, wlr_event->distance);
+                tool->handle, event->distance);
         }
 
         // Send pressure event, if needed.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_PRESSURE) != 0) {
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_PRESSURE) != 0) {
             wlr_send_tablet_v2_tablet_tool_pressure(
-                tool->handle, wlr_event->pressure);
+                tool->handle, event->pressure);
         }
 
         // Send rotation event, if needed.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_ROTATION) != 0) {
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_ROTATION) != 0) {
             wlr_send_tablet_v2_tablet_tool_rotation(
-                tool->handle, wlr_event->rotation);
+                tool->handle, event->rotation);
         }
 
         // Send slider event, if needed.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_SLIDER) != 0) {
-            wlr_send_tablet_v2_tablet_tool_slider(
-                tool->handle, wlr_event->slider);
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_SLIDER) != 0) {
+            wlr_send_tablet_v2_tablet_tool_slider(tool->handle, event->slider);
         }
 
         // Send wheel event, if needed.
-        if((wlr_event->updated_axes & WLR_TABLET_TOOL_AXIS_WHEEL) != 0) {
+        if((event->updated_axes & WLR_TABLET_TOOL_AXIS_WHEEL) != 0) {
             wlr_send_tablet_v2_tablet_tool_wheel(
-                tool->handle, wlr_event->wheel_delta, 0);
+                tool->handle, event->wheel_delta, 0);
         }
     }
 }
@@ -257,34 +256,34 @@ rose_handle_event_tablet_proximity(struct wl_listener* listener, void* data) {
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_proximity);
 
-    // Obtain event data.
-    struct wlr_tablet_tool_proximity_event* wlr_event = data;
+    // Obtain the event.
+    struct wlr_tablet_tool_proximity_event* event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
-        rose_tablet_tool_obtain(tablet, wlr_event->tool);
+        rose_tablet_tool_obtain(tablet, event->tool);
 
     // Handle the event, if needed.
     if(tool != NULL) {
-        if(wlr_event->state == WLR_TABLET_TOOL_PROXIMITY_OUT) {
+        if(event->state == WLR_TABLET_TOOL_PROXIMITY_OUT) {
             // If the tool left tablet's proximity, then send appropriate event.
             wlr_send_tablet_v2_tablet_tool_proximity_out(tool->handle);
         } else {
             // Otherwise, obtain motion data.
-            tool->x = wlr_event->x;
-            tool->y = wlr_event->y;
+            tool->x = event->x;
+            tool->y = event->y;
 
             // Construct motion event.
-            struct rose_tablet_tool_event_motion event = {
+            struct rose_tablet_tool_event_motion motion_event = {
                 .tablet = tablet->handle,
                 .tool = tool->handle,
-                .time_msec = wlr_event->time_msec,
+                .time = event->time_msec,
                 .x = tool->x,
                 .y = tool->y};
 
             // And notify current workspace of this event.
             rose_workspace_notify_tablet_tool_warp(
-                tool->context->current_workspace, event);
+                tool->context->current_workspace, motion_event);
         }
     }
 }
@@ -295,21 +294,17 @@ rose_handle_event_tablet_button(struct wl_listener* listener, void* data) {
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_button);
 
-    // Obtain event data.
-    struct wlr_tablet_tool_button_event* wlr_event = data;
+    // Obtain the event.
+    struct wlr_tablet_tool_button_event* event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
-        rose_tablet_tool_obtain(tablet, wlr_event->tool);
+        rose_tablet_tool_obtain(tablet, event->tool);
 
-    // Handle the event, if needed.
+    // Send button event.
     if(tool != NULL) {
-        enum zwp_tablet_pad_v2_button_state button_state =
-            (int)(wlr_event->state);
-
-        // Send button event.
         wlr_send_tablet_v2_tablet_tool_button(
-            tool->handle, wlr_event->button, button_state);
+            tool->handle, event->button, (int)(event->state));
     }
 }
 
@@ -319,16 +314,16 @@ rose_handle_event_tablet_tip(struct wl_listener* listener, void* data) {
     struct rose_tablet* tablet =
         wl_container_of(listener, tablet, listener_tip);
 
-    // Obtain event data.
-    struct wlr_tablet_tool_tip_event* wlr_event = data;
+    // Obtain the event.
+    struct wlr_tablet_tool_tip_event* event = data;
 
     // Obtain associated tool.
     struct rose_tablet_tool* tool =
-        rose_tablet_tool_obtain(tablet, wlr_event->tool);
+        rose_tablet_tool_obtain(tablet, event->tool);
 
     // Send corresponding event, if needed.
     if(tool != NULL) {
-        if(wlr_event->state == WLR_TABLET_TOOL_TIP_UP) {
+        if(event->state == WLR_TABLET_TOOL_TIP_UP) {
             wlr_send_tablet_v2_tablet_tool_up(tool->handle);
         } else {
             wlr_send_tablet_v2_tablet_tool_down(tool->handle);

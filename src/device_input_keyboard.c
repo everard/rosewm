@@ -50,7 +50,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
     struct rose_keyboard* keyboard =
         wl_container_of(listener, keyboard, listener_key);
 
-    // Obtain event data.
+    // Obtain the event.
     struct wlr_keyboard_key_event* event = data;
 
     // Obtain the server context.
@@ -68,8 +68,9 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
         x != end; ++x)
 
     // Manage the session (switch the VT, if needed).
-    // Note: User shall be able to switch the VT even if the screen is locked,
-    // or keyboard shortcuts are inhibited.
+    //
+    // Note: User should always be able to switch the VT (even if the screen is
+    // locked, or keyboard shortcuts are inhibited).
     if(event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
         // Obtain the session.
         struct wlr_session* session = context->session;
@@ -173,6 +174,7 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
     // If the screen is not locked, and the key is pressed, then process
     // keyboard shortcuts.
+    //
     // Note: Screen lock inhibits all types of keyboard actions.
     if((event->state == WL_KEYBOARD_KEY_STATE_PRESSED) &&
        !(context->is_screen_locked)) {
@@ -285,8 +287,10 @@ rose_handle_event_keyboard_key(struct wl_listener* listener, void* data) {
 
 #undef for_each_keysym_
 
-    // Notify the seat of this event.
+    // Set this keyboard device as current.
     wlr_seat_set_keyboard(context->seat, device);
+
+    // Notify the seat of this event.
     wlr_seat_keyboard_notify_key(
         context->seat, event->time_msec, event->keycode, event->state);
 }
@@ -346,7 +350,7 @@ rose_keyboard_initialize(
         wlr_seat_set_keyboard(parent->context->seat, device);
     }
 
-    // Update keyboard focus.
+    // Update current workspace's focus.
     rose_workspace_make_current(parent->context->current_workspace);
 }
 

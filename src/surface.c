@@ -34,7 +34,6 @@ rose_surface_state_equal(
     return (
         (x->width == y->width) && (x->height == y->height) &&
         (x->is_activated == y->is_activated) &&
-        (x->is_maximized == y->is_maximized) &&
         (x->is_fullscreen == y->is_fullscreen));
 }
 
@@ -49,15 +48,34 @@ rose_surface_is_decoration_configured(struct rose_surface* surface) {
 
 static void
 rose_surface_state_sync(struct rose_surface* surface) {
-    // Precondition: surface->type == rose_surface_type_toplevel.
-    surface->state.current = (struct rose_surface_state){
-        .x = surface->state.current.x,
-        .y = surface->state.current.y,
-        .width = surface->xdg_surface->surface->current.width,
-        .height = surface->xdg_surface->surface->current.height,
-        .is_activated = surface->xdg_surface->toplevel->current.activated,
-        .is_maximized = surface->state.pending.is_maximized,
-        .is_fullscreen = surface->xdg_surface->toplevel->current.fullscreen};
+    // Save previous state.
+    surface->state.previous = surface->state.current;
+
+    // Update current state.
+    if(surface->type == rose_surface_type_subsurface) {
+        surface->state.current = (struct rose_surface_state){
+            .x = surface->subsurface->current.x,
+            .y = surface->subsurface->current.y,
+            .width = surface->subsurface->surface->current.width,
+            .height = surface->subsurface->surface->current.height};
+    } else if(surface->type == rose_surface_type_temporary) {
+        surface->state.current = (struct rose_surface_state){
+            .x = surface->xdg_surface->popup->current.geometry.x,
+            .y = surface->xdg_surface->popup->current.geometry.y,
+            .width = surface->xdg_surface->surface->current.width,
+            .height = surface->xdg_surface->surface->current.height};
+    } else if(surface->type == rose_surface_type_toplevel) {
+        surface->state.current = (struct rose_surface_state){
+            .x = surface->state.current.x,
+            .y = surface->state.current.y,
+            .width = surface->xdg_surface->surface->current.width,
+            .height = surface->xdg_surface->surface->current.height,
+            .is_activated = surface->xdg_surface->toplevel->current.activated,
+            .is_maximized = surface->state.pending.is_maximized,
+            .is_minimized = surface->state.pending.is_minimized,
+            .is_fullscreen =
+                surface->xdg_surface->toplevel->current.fullscreen};
+    }
 }
 
 static void
@@ -73,17 +91,18 @@ rose_surface_set_decoration_mode(struct rose_surface* surface) {
         WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 
     // And start surface's transaction, if needed.
-    if(!surface->is_transaction_running) {
+    if((surface->widget_type == rose_surface_widget_type_none) &&
+       !(surface->is_transaction_running)) {
         // Set the flag.
         surface->is_transaction_running = true;
 
         // Start workspace's transaction, if needed.
-        rose_workspace_transaction_start(surface->workspace);
+        rose_workspace_transaction_start(surface->parent.workspace);
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface snapshot construction utility function and type.
+// Surface snapshot construction-related utility function and type.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_surface_snapshot_construction_context {
@@ -147,7 +166,7 @@ rose_surface_construct_snapshot(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface initialization utility function declaration.
+// Surface creating utility function declaration.
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_surface*
@@ -199,13 +218,25 @@ rose_handle_event_surface_pointer_constraint_set_region(
     struct rose_surface* surface = wl_container_of(
         listener, surface, listener_pointer_constraint_set_region);
 
-    // Move workspace's pointer, if needed.
-    if(rose_workspace_is_current(surface->workspace) &&
-       (surface->workspace->focused_surface == surface)) {
-        rose_workspace_notify_pointer_move(
-            surface->workspace,
-            (struct rose_pointer_event_motion){
-                .time_msec = surface->workspace->pointer.movement_time_msec});
+    // Do nothing if the surface is output's widget.
+    if(surface->widget_type != rose_surface_widget_type_none) {
+        return;
+    }
+
+    // Obtain parent workspace.
+    struct rose_workspace* workspace = surface->parent.workspace;
+
+    // Do nothing else if the workspace is not current.
+    if(!rose_workspace_is_current(workspace)) {
+        return;
+    }
+
+    // Notify the workspace.
+    if(workspace->focused_surface == surface) {
+        struct wlr_pointer_motion_event event = {
+            .time_msec = workspace->pointer.movement_time};
+
+        rose_workspace_notify_pointer_move(workspace, event);
     }
 }
 
@@ -238,14 +269,24 @@ rose_handle_event_surface_request_maximize(
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_request_maximize);
 
+    // Do nothing if the surface is not initialized yet.
+    if(!(surface->xdg_surface->initialized)) {
+        return;
+    }
+
     // Configure the surface within its workspace.
-    rose_workspace_surface_configure(
-        surface->workspace, surface,
-        (struct rose_surface_configure_parameters){
-            .flags = rose_surface_configure_maximized |
-                     rose_surface_configure_no_transaction,
-            .is_maximized =
-                surface->xdg_surface->toplevel->requested.maximized});
+    if(surface->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_surface_configure(
+            surface->parent.workspace, surface,
+            (struct rose_surface_configuration_parameters){
+                .flags = rose_surface_configure_maximized |
+                         rose_surface_configure_no_transaction,
+                .is_maximized =
+                    surface->xdg_surface->toplevel->requested.maximized});
+    }
+
+    // Note: This is required by the XDG shell protocol.
+    wlr_xdg_surface_schedule_configure(surface->xdg_surface);
 }
 
 static void
@@ -257,14 +298,24 @@ rose_handle_event_surface_request_fullscreen(
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_request_fullscreen);
 
+    // Do nothing if the surface is not initialized yet.
+    if(!(surface->xdg_surface->initialized)) {
+        return;
+    }
+
     // Configure the surface within its workspace.
-    rose_workspace_surface_configure(
-        surface->workspace, surface,
-        (struct rose_surface_configure_parameters){
-            .flags = rose_surface_configure_fullscreen |
-                     rose_surface_configure_no_transaction,
-            .is_fullscreen =
-                surface->xdg_surface->toplevel->requested.fullscreen});
+    if(surface->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_surface_configure(
+            surface->parent.workspace, surface,
+            (struct rose_surface_configuration_parameters){
+                .flags = rose_surface_configure_fullscreen |
+                         rose_surface_configure_no_transaction,
+                .is_fullscreen =
+                    surface->xdg_surface->toplevel->requested.fullscreen});
+    }
+
+    // Note: This is required by the XDG shell protocol.
+    wlr_xdg_surface_schedule_configure(surface->xdg_surface);
 }
 
 static void
@@ -279,7 +330,10 @@ rose_handle_event_surface_set_title(struct wl_listener* listener, void* data) {
     surface->is_name_updated = true;
 
     // Notify the parent workspace of this event.
-    rose_workspace_notify_surface_name_update(surface->workspace, surface);
+    if(surface->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_notify_surface_name_update(
+            surface->parent.workspace, surface);
+    }
 }
 
 static void
@@ -294,7 +348,10 @@ rose_handle_event_surface_set_app_id(struct wl_listener* listener, void* data) {
     surface->is_name_updated = true;
 
     // Notify the parent workspace of this event.
-    rose_workspace_notify_surface_name_update(surface->workspace, surface);
+    if(surface->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_notify_surface_name_update(
+            surface->parent.workspace, surface);
+    }
 }
 
 static void
@@ -308,23 +365,22 @@ rose_handle_event_surface_map(struct wl_listener* listener, void* data) {
     // Set the flag.
     surface->is_mapped = true;
 
-    if(surface->type == rose_surface_type_toplevel) {
-        // Synchronize surface's state.
-        rose_surface_state_sync(surface);
+    // Synchronize surface's state.
+    rose_surface_state_sync(surface);
 
-        // Update surface's pending state.
-        surface->state.pending = surface->state.current;
+    // Update surface's pending state.
+    surface->state.pending = surface->state.current;
 
-        // Configure surface's decoration.
-        rose_surface_set_decoration_mode(surface);
+    // Obtain the master surface.
+    struct rose_surface* master =
+        ((surface->type == rose_surface_type_toplevel) ? surface
+                                                       : surface->master);
 
-        // Notify the parent workspace of this event.
-        rose_workspace_notify_surface_map(surface->workspace, surface);
+    // Notify the parent of this event.
+    if(master->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_notify_surface_map(master->parent.workspace, surface);
     } else {
-        // Request workspace's redraw, if needed.
-        if(surface->master->is_visible) {
-            rose_workspace_request_redraw(surface->master->workspace);
-        }
+        rose_output_ui_notify_surface_map(master->parent.ui, surface);
     }
 }
 
@@ -339,14 +395,16 @@ rose_handle_event_surface_unmap(struct wl_listener* listener, void* data) {
     // Clear the flag.
     surface->is_mapped = false;
 
-    if(surface->type == rose_surface_type_toplevel) {
-        // Notify the parent workspace of this event.
-        rose_workspace_notify_surface_unmap(surface->workspace, surface);
+    // Obtain the master surface.
+    struct rose_surface* master =
+        ((surface->type == rose_surface_type_toplevel) ? surface
+                                                       : surface->master);
+
+    // Notify the parent of this event.
+    if(master->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_notify_surface_unmap(master->parent.workspace, surface);
     } else {
-        // Request workspace's redraw, if needed.
-        if(surface->master->is_visible) {
-            rose_workspace_request_redraw(surface->master->workspace);
-        }
+        rose_output_ui_notify_surface_unmap(master->parent.ui, surface);
     }
 }
 
@@ -358,11 +416,27 @@ rose_handle_event_surface_commit(struct wl_listener* listener, void* data) {
     struct rose_surface* surface =
         wl_container_of(listener, surface, listener_commit);
 
-    if(surface->type == rose_surface_type_toplevel) {
-        // Synchronize surface's state.
-        rose_surface_state_sync(surface);
+    // Synchronize surface's state.
+    rose_surface_state_sync(surface);
 
+    // Perform additional actions for non-toplevel surfaces.
+    if(surface->type != rose_surface_type_toplevel) {
+        // Update surface's pending state.
+        surface->state.pending = surface->state.current;
+    }
+
+    // Perform additional actions for toplevel surfaces.
+    if((surface->type == rose_surface_type_toplevel) &&
+       (surface->xdg_surface->initial_commit)) {
+        // Update surface's pending state.
+        surface->state.pending = surface->state.current;
+
+        // Configure surface's decoration.
+        rose_surface_set_decoration_mode(surface);
+    } else if(surface->type == rose_surface_type_toplevel) {
         // Commit surface's transaction, if needed.
+        //
+        // Note: A widget shall never have a running transaction.
         if(surface->is_transaction_running &&
            rose_surface_state_equal(
                &(surface->state.current), &(surface->state.pending)) &&
@@ -370,8 +444,8 @@ rose_handle_event_surface_commit(struct wl_listener* listener, void* data) {
             // Stop the transaction.
             surface->is_transaction_running = false;
 
-            // Update workspace's transaction.
-            rose_workspace_transaction_update(surface->workspace);
+            // Update parent workspace's transaction.
+            rose_workspace_transaction_update(surface->parent.workspace);
         }
 
         // If there is no running transaction, then update surface's state and
@@ -384,14 +458,18 @@ rose_handle_event_surface_commit(struct wl_listener* listener, void* data) {
             // Update surface's pending state.
             surface->state.pending = surface->state.current;
         }
+    }
 
-        // Notify the parent workspace of this event.
-        rose_workspace_notify_surface_commit(surface->workspace, surface);
+    // Obtain the master surface.
+    struct rose_surface* master =
+        ((surface->type == rose_surface_type_toplevel) ? surface
+                                                       : surface->master);
+
+    // Notify the parent of this event.
+    if(master->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_notify_surface_commit(master->parent.workspace, surface);
     } else {
-        // Request workspace's redraw, if needed.
-        if(surface->master->is_visible) {
-            rose_workspace_request_redraw(surface->master->workspace);
-        }
+        rose_output_ui_notify_surface_commit(master->parent.ui, surface);
     }
 }
 
@@ -478,16 +556,7 @@ rose_handle_event_surface_new_popup(struct wl_listener* listener, void* data) {
 
     add_signal_(xdg_surface->surface, new_subsurface);
     add_signal_(xdg_surface, new_popup);
-    add_signal_(xdg_surface, destroy);
-
-    // Set constraining box.
-    struct wlr_box constraints = {
-        .x = -master->state.current.x,
-        .y = -master->state.current.y,
-        .width = master->workspace->width,
-        .height = master->workspace->height};
-
-    wlr_xdg_popup_unconstrain_from_box(xdg_surface->popup, &constraints);
+    add_signal_(xdg_surface->popup, destroy);
 }
 
 static void
@@ -503,14 +572,13 @@ rose_handle_event_surface_destroy(struct wl_listener* listener, void* data) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface initialization utility function.
+// Surface creating utility function definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 static struct rose_surface*
 rose_surface_create(enum rose_surface_type type) {
     // Allocate memory for a new surface.
     struct rose_surface* surface = malloc(sizeof(struct rose_surface));
-
     if(surface == NULL) {
         return NULL;
     } else {
@@ -586,7 +654,13 @@ rose_surface_initialize(struct rose_surface_parameters parameters) {
     }
 
     // Set surface's parameters.
-    surface->workspace = NULL;
+    surface->widget_type = parameters.widget_type;
+    if(surface->widget_type == rose_surface_widget_type_none) {
+        surface->parent.workspace = NULL;
+    } else {
+        surface->parent.ui = NULL;
+    }
+
     surface->xdg_decoration = NULL;
     surface->pointer_constraint = NULL;
 
@@ -603,19 +677,14 @@ rose_surface_initialize(struct rose_surface_parameters parameters) {
 
     add_signal_(xdg_surface->surface, new_subsurface);
     add_signal_(xdg_surface, new_popup);
-    add_signal_(xdg_surface, destroy);
+    add_signal_(parameters.toplevel, destroy);
 
-    // Synchronize surface's state.
-    rose_surface_state_sync(surface);
-
-    // Update surface's pending state.
-    surface->state.pending = surface->state.current;
-
-    // Configure the underlying toplevel XDG surface.
-    wlr_xdg_toplevel_set_maximized(xdg_surface->toplevel, true);
-
-    // Add the surface to the given workspace.
-    rose_workspace_add_surface(parameters.workspace, surface);
+    // Add the surface to its parent.
+    if(surface->widget_type == rose_surface_widget_type_none) {
+        rose_workspace_add_surface(parameters.parent.workspace, surface);
+    } else {
+        rose_output_ui_add_surface(parameters.parent.ui, surface);
+    }
 
     // Initialize surface's pointer constraint, if any.
     if(parameters.pointer_constraint != NULL) {
@@ -667,37 +736,21 @@ rose_surface_destroy(struct rose_surface* surface) {
     }
 
     // Remove the link between the surface and its underlying implementation.
-    if(surface->subsurface != NULL) {
+    if(surface->type == rose_surface_type_subsurface) {
         surface->subsurface->data = NULL;
-    }
-
-    if(surface->xdg_surface != NULL) {
+    } else {
         surface->xdg_surface->data = NULL;
     }
 
     // Perform type-dependent destruction.
-    switch(surface->type) {
-        case rose_surface_type_subsurface:
-            // fall-through
-
-        case rose_surface_type_temporary:
-            // Remove the surface from the list.
-            wl_list_remove(&(surface->link));
-
-            // Request workspace's redraw, if needed.
-            if((surface->master != NULL) && (surface->master->is_visible)) {
-                rose_workspace_request_redraw(surface->master->workspace);
-            }
-
-            break;
-
-        case rose_surface_type_toplevel:
-            // Remove the surface from its workspace.
-            rose_workspace_remove_surface(surface->workspace, surface);
-
-            // fall-through
-        default:
-            break;
+    if(surface->type == rose_surface_type_toplevel) {
+        if(surface->widget_type == rose_surface_widget_type_none) {
+            rose_workspace_remove_surface(surface->parent.workspace, surface);
+        } else {
+            rose_output_ui_remove_surface(surface->parent.ui, surface);
+        }
+    } else {
+        wl_list_remove(&(surface->link));
     }
 
     // Free memory.
@@ -767,18 +820,29 @@ rose_surface_pointer_constraint_initialize(
     // Set the pointer constraint.
     surface->pointer_constraint = pointer_constraint;
 
-    // If surface's workspace is current, and the surface is focused, then
-    // handle the pointer constraint.
-    if(rose_workspace_is_current(surface->workspace) &&
-       (surface->workspace->focused_surface == surface)) {
+    // Do nothing else if the surface is output's widget.
+    if(surface->widget_type != rose_surface_widget_type_none) {
+        return;
+    }
+
+    // Obtain parent workspace.
+    struct rose_workspace* workspace = surface->parent.workspace;
+
+    // Do nothing else if the workspace is not current.
+    if(!rose_workspace_is_current(workspace)) {
+        return;
+    }
+
+    // Notify the workspace.
+    if(workspace->focused_surface == surface) {
+        struct wlr_pointer_motion_event event = {
+            .time_msec = workspace->pointer.movement_time};
+
         // Activate the constraint.
         wlr_pointer_constraint_v1_send_activated(pointer_constraint);
 
         // Move workspace's pointer.
-        rose_workspace_notify_pointer_move(
-            surface->workspace,
-            (struct rose_pointer_event_motion){
-                .time_msec = surface->workspace->pointer.movement_time_msec});
+        rose_workspace_notify_pointer_move(workspace, event);
     }
 }
 
@@ -869,70 +933,120 @@ rose_surface_make_current(struct rose_surface* surface, struct wlr_seat* seat) {
 void
 rose_surface_configure(
     struct rose_surface* surface,
-    struct rose_surface_configure_parameters parameters) {
+    struct rose_surface_configuration_parameters parameters) {
     // Only configure top-level surfaces.
     if(surface->type != rose_surface_type_toplevel) {
         return;
     }
 
-    // Set surface's parameters.
+    // Set surface's parameters and compute target state.
     struct rose_surface_state target = surface->state.pending;
+    if(true) {
+        if((parameters.flags & rose_surface_configure_size) != 0) {
+            target.width = parameters.width;
+            target.height = parameters.height;
 
-    if((parameters.flags & rose_surface_configure_size) != 0) {
-        target.width = parameters.width;
-        target.height = parameters.height;
+            wlr_xdg_toplevel_set_size(
+                surface->xdg_surface->toplevel, parameters.width,
+                parameters.height);
+        }
 
-        wlr_xdg_toplevel_set_size(
-            surface->xdg_surface->toplevel, parameters.width,
-            parameters.height);
-    }
+        if((parameters.flags & rose_surface_configure_position) != 0) {
+            target.x = parameters.x;
+            target.y = parameters.y;
+        }
 
-    if((parameters.flags & rose_surface_configure_position) != 0) {
-        target.x = parameters.x;
-        target.y = parameters.y;
-    }
+        if((parameters.flags & rose_surface_configure_activated) != 0) {
+            target.is_activated = parameters.is_activated;
+            wlr_xdg_toplevel_set_activated(
+                surface->xdg_surface->toplevel, parameters.is_activated);
+        }
 
-    if((parameters.flags & rose_surface_configure_activated) != 0) {
-        target.is_activated = parameters.is_activated;
-        wlr_xdg_toplevel_set_activated(
-            surface->xdg_surface->toplevel, parameters.is_activated);
-    }
+        if((parameters.flags & rose_surface_configure_maximized) != 0) {
+            target.is_maximized = parameters.is_maximized;
+        }
 
-    if((parameters.flags & rose_surface_configure_maximized) != 0) {
-        target.is_maximized = parameters.is_maximized;
-    }
+        if((parameters.flags & rose_surface_configure_minimized) != 0) {
+            target.is_minimized = parameters.is_minimized;
+        }
 
-    if((parameters.flags & rose_surface_configure_fullscreen) != 0) {
-        target.is_fullscreen = parameters.is_fullscreen;
-        wlr_xdg_toplevel_set_fullscreen(
-            surface->xdg_surface->toplevel, parameters.is_fullscreen);
+        if((parameters.flags & rose_surface_configure_fullscreen) != 0) {
+            target.is_fullscreen = parameters.is_fullscreen;
+            wlr_xdg_toplevel_set_fullscreen(
+                surface->xdg_surface->toplevel, parameters.is_fullscreen);
+        }
+
+        // Note: Toplevel XDG surfaces are always maximized.
+        wlr_xdg_toplevel_set_maximized(surface->xdg_surface->toplevel, true);
     }
 
     // Update surface's transaction, if needed.
-    if(!rose_surface_state_equal(&target, &(surface->state.pending))) {
-        if((parameters.flags & rose_surface_configure_no_transaction) == 0) {
-            if(!(surface->is_transaction_running)) {
-                // Set the flag.
-                surface->is_transaction_running = true;
+    if((parameters.flags & rose_surface_configure_no_transaction) == 0) {
+        if(!rose_surface_state_equal(&target, &(surface->state.pending))) {
+            if(surface->widget_type == rose_surface_widget_type_none) {
+                if(!(surface->is_transaction_running)) {
+                    // Set the flag.
+                    surface->is_transaction_running = true;
 
-                // Start workspace's transaction, if needed.
-                rose_workspace_transaction_start(surface->workspace);
+                    // Start workspace's transaction, if needed.
+                    rose_workspace_transaction_start(surface->parent.workspace);
+                }
+            }
+        }
+    }
+
+    // If there is no running transaction, then apply immediate updates.
+    if(!(surface->is_transaction_running)) {
+        // Update position.
+        surface->state.previous.x = surface->state.current.x;
+        surface->state.previous.y = surface->state.current.y;
+        surface->state.current.x = target.x;
+        surface->state.current.y = target.y;
+
+        // Update flags.
+        if(true) {
+            surface->state.previous.is_maximized =
+                surface->state.current.is_maximized;
+
+            surface->state.previous.is_minimized =
+                surface->state.current.is_minimized;
+
+            surface->state.current.is_maximized = target.is_maximized;
+            surface->state.current.is_minimized = target.is_minimized;
+        }
+
+        // Handle surface's movement.
+        if((target.x != surface->state.pending.x) ||
+           (target.y != surface->state.pending.y)) {
+            // Obtain the parent output.
+            struct rose_output* output =
+                ((surface->widget_type == rose_surface_widget_type_none)
+                     ? surface->parent.workspace->output
+                     : surface->parent.ui->output);
+
+            // Damage the output.
+            if(output != NULL) {
+                // Determine surface's visibility.
+                bool is_surface_visible = false;
+                if(surface->widget_type == rose_surface_widget_type_none) {
+                    is_surface_visible =
+                        (surface->is_visible &&
+                         !(output->context->is_screen_locked));
+                } else {
+                    is_surface_visible = rose_output_ui_is_surface_visible(
+                        surface->parent.ui, surface);
+                };
+
+                // Add surface's damage to the output.
+                if(is_surface_visible) {
+                    rose_output_add_surface_damage(output, surface);
+                }
             }
         }
     }
 
     // Update pending state.
     surface->state.pending = target;
-
-    // Note: Toplevel XDG surfaces are always maximized.
-    wlr_xdg_toplevel_set_maximized(surface->xdg_surface->toplevel, true);
-
-    // If there is no running transaction, then immediately update surface's
-    // coordinates.
-    if(!(surface->is_transaction_running)) {
-        surface->state.current.x = surface->state.pending.x;
-        surface->state.current.y = surface->state.pending.y;
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -941,7 +1055,6 @@ rose_surface_configure(
 
 struct rose_surface_state
 rose_surface_state_obtain(struct rose_surface* surface) {
-    // This function returns meaningful results only for top-level surfaces.
     return surface->state.current;
 }
 
@@ -951,14 +1064,16 @@ rose_surface_state_obtain(struct rose_surface* surface) {
 
 void
 rose_surface_transaction_initialize_snapshot(struct rose_surface* surface) {
-    // This function is meaningful only for top-level surfaces.
-    if(surface->type != rose_surface_type_toplevel) {
+    // This function is meaningful only for top-level surfaces which are not
+    // output's widgets.
+    if((surface->type != rose_surface_type_toplevel) ||
+       (surface->widget_type != rose_surface_widget_type_none)) {
         return;
     }
 
     // Construct snapshots for the surface itself and all of its child entities.
     struct rose_surface_snapshot_construction_context context = {
-        .workspace = surface->workspace,
+        .workspace = surface->parent.workspace,
         .dx = surface->state.current.x,
         .dy = surface->state.current.y};
 
@@ -973,25 +1088,31 @@ rose_surface_transaction_initialize_snapshot(struct rose_surface* surface) {
         struct rose_surface_snapshot* surface_snapshot =
             &(surface->snapshots[rose_surface_snapshot_type_decoration]);
 
-        // Initialize the snapshot.
+        // Initialize snapshot's parameters.
         struct rose_surface_snapshot_parameters parameters = {
             .type = rose_surface_snapshot_type_decoration,
             .surface = surface->xdg_surface->surface,
             .x = context.dx,
             .y = context.dy};
 
+        // Initialize the snapshot.
         rose_surface_snapshot_destroy(surface_snapshot);
         rose_surface_snapshot_initialize(surface_snapshot, parameters);
 
         // Add surface's snapshot to workspace's snapshot.
         wl_list_insert(
-            &(surface->workspace->transaction.snapshot.surfaces),
+            &(surface->parent.workspace->transaction.snapshot.surfaces),
             &(surface_snapshot->link));
     }
 }
 
 void
-rose_surface_transaction_destroy_snapshot(struct rose_surface* surface) {
+rose_surface_transaction_commit(struct rose_surface* surface) {
+    // This function is meaningful only for top-level surfaces.
+    if(surface->type != rose_surface_type_toplevel) {
+        return;
+    }
+
     // Destroy surface's snapshots.
     for(ptrdiff_t i = 0; i != rose_surface_snapshot_type_count_; ++i) {
         rose_surface_snapshot_destroy(&(surface->snapshots[i]));
@@ -1013,16 +1134,8 @@ rose_surface_transaction_destroy_snapshot(struct rose_surface* surface) {
             }
         }
     }
-}
 
-void
-rose_surface_transaction_commit(struct rose_surface* surface) {
-    // This function is meaningful only for top-level surfaces.
-    if(surface->type != rose_surface_type_toplevel) {
-        return;
-    }
-
-    // Do nothing if there is no running transaction.
+    // Do nothing else if there is no running transaction.
     if(!(surface->is_transaction_running)) {
         return;
     }

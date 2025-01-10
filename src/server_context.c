@@ -8,6 +8,7 @@
 
 #include <wlr/backend.h>
 #include <wlr/backend/libinput.h>
+
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 
@@ -22,6 +23,7 @@
 
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
+
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_data_device.h>
@@ -113,7 +115,8 @@ rose_text_rendering_context_initialize_from_file(char const* file_path) {
     for(size_t i = 0; i != file.size; ++i) {
         switch(file.data[i]) {
             case '\r':
-            // fall-through
+                // fall-through
+
             case '\n':
                 file.data[i] = '\0';
                 break;
@@ -434,29 +437,32 @@ rose_handle_event_seat_start_drag(struct wl_listener* listener, void* data) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
+rose_handle_event_xdg_new_toplevel(struct wl_listener* listener, void* data) {
     // Obtain the server context.
     struct rose_server_context* context =
-        wl_container_of(listener, context, listener_xdg_new_surface);
+        wl_container_of(listener, context, listener_xdg_new_toplevel);
 
-    // Obtain the XDG surface.
-    struct wlr_xdg_surface* xdg_surface = data;
-
-    // Do nothing if the surface is not a top-level XDG surface.
-    if(xdg_surface->role != WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-        return;
-    }
+    // Obtain the toplevel surface.
+    struct wlr_xdg_toplevel* toplevel = data;
 
     // Obtain client's PID.
     pid_t client_pid = -1;
     wl_client_get_credentials(
-        xdg_surface->client->client, &client_pid, NULL, NULL);
+        toplevel->base->client->client, &client_pid, NULL, NULL);
 
-    // Perform actions depending on client's PID.
+    // Initialize surface parameters.
+    struct rose_surface_parameters parameters = {
+        .widget_type = rose_surface_widget_type_none,
+        .parent = {.workspace = context->current_workspace},
+        .toplevel = toplevel,
+        .pointer_constraint = wlr_pointer_constraints_v1_constraint_for_surface(
+            context->pointer_constraints, toplevel->base->surface,
+            context->seat)};
+
+    // Perform actions depending on client's PID and initialize the surface.
     if((client_pid == (pid_t)(-1)) || (client_pid == 0)) {
         // Note: Clients with unknown PID can not make widget surfaces.
     } else if(client_pid == context->processes.notification_daemon_pid) {
-        // Find a suitable output for this notification surface.
         struct rose_output* output =
             ((context->current_workspace->output != NULL)
                  ? context->current_workspace->output
@@ -466,91 +472,56 @@ rose_handle_event_xdg_new_surface(struct wl_listener* listener, void* data) {
                               context->outputs.next, output, link)));
 
         if(output != NULL) {
-            // If such output exists, then initialize the widget.
-            rose_output_widget_initialize(
-                &(output->ui), xdg_surface->toplevel,
-                rose_output_widget_type_notification);
-
-            // And do nothing else.
-            return;
+            parameters.widget_type = rose_surface_widget_type_notification;
+            parameters.parent.ui = &(output->ui);
         }
     } else if(client_pid == context->processes.screen_locker_pid) {
-        // Add the surface as a screen lock widget to an output which does not
-        // contain any screen lock widgets.
         struct rose_output* output = NULL;
         wl_list_for_each(output, &(context->outputs), link) {
-            // Skip any outputs which already contain screen lock widgets.
-            if(!wl_list_empty(&(
-                   output->ui.widgets[rose_output_widget_type_screen_lock]))) {
+            if(!wl_list_empty(
+                   &(output->ui
+                         .surfaces[rose_surface_widget_type_screen_lock]))) {
                 continue;
             }
 
-            // Initialize the widget.
-            rose_output_widget_initialize(
-                &(output->ui), xdg_surface->toplevel,
-                rose_output_widget_type_screen_lock);
+            parameters.widget_type = rose_surface_widget_type_screen_lock;
+            parameters.parent.ui = &(output->ui);
 
-            // Do nothing else.
-            return;
+            break;
         }
     } else if(client_pid == context->processes.background_pid) {
-        // Add the surface as a background widget to an output which does not
-        // contain any background widgets.
         struct rose_output* output = NULL;
         wl_list_for_each(output, &(context->outputs), link) {
-            // Skip any outputs which already contain background widgets.
-            if(!wl_list_empty(
-                   &(output->ui.widgets[rose_output_widget_type_background]))) {
+            if(!wl_list_empty(&(
+                   output->ui.surfaces[rose_surface_widget_type_background]))) {
                 continue;
             }
 
-            // Initialize the widget.
-            rose_output_widget_initialize(
-                &(output->ui), xdg_surface->toplevel,
-                rose_output_widget_type_background);
+            parameters.widget_type = rose_surface_widget_type_background;
+            parameters.parent.ui = &(output->ui);
 
-            // Do nothing else.
-            return;
+            break;
         }
     } else if(client_pid == context->processes.dispatcher_pid) {
         if(context->current_workspace->output != NULL) {
-            // Initialize the widget.
-            rose_output_widget_initialize(
-                &(context->current_workspace->output->ui),
-                xdg_surface->toplevel, rose_output_widget_type_prompt);
-
-            // And do nothing else.
-            return;
+            parameters.widget_type = rose_surface_widget_type_prompt;
+            parameters.parent.ui = &(context->current_workspace->output->ui);
         }
     } else if(client_pid == context->processes.panel_pid) {
-        // Add the surface as a panel widget to an output which does not contain
-        // any panel widgets.
         struct rose_output* output = NULL;
         wl_list_for_each(output, &(context->outputs), link) {
-            // Skip any outputs which already contain panel widgets.
             if(!wl_list_empty(
-                   &(output->ui.widgets[rose_output_widget_type_panel]))) {
+                   &(output->ui.surfaces[rose_surface_widget_type_panel]))) {
                 continue;
             }
 
-            // Initialize the widget.
-            rose_output_widget_initialize(
-                &(output->ui), xdg_surface->toplevel,
-                rose_output_widget_type_panel);
+            parameters.widget_type = rose_surface_widget_type_panel;
+            parameters.parent.ui = &(output->ui);
 
-            // Do nothing else.
-            return;
+            break;
         }
     }
 
-    // If the surface is not a widget, then construct surface parameters.
-    struct rose_surface_parameters parameters = {
-        .workspace = context->current_workspace,
-        .toplevel = xdg_surface->toplevel,
-        .pointer_constraint = wlr_pointer_constraints_v1_constraint_for_surface(
-            context->pointer_constraints, xdg_surface->surface, context->seat)};
-
-    // And initialize a normal top-level surface.
     rose_surface_initialize(parameters);
 }
 
@@ -621,7 +592,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
     initialize_(seat_request_start_drag);
     initialize_(seat_start_drag);
 
-    initialize_(xdg_new_surface);
+    initialize_(xdg_new_toplevel);
     initialize_(xdg_new_toplevel_decoration);
     initialize_(pointer_constraints_new_constraint);
 
@@ -885,7 +856,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
     // Initialize the backend.
     try_(
         context->backend =
-            wlr_backend_autocreate(context->display, &(context->session)));
+            wlr_backend_autocreate(context->event_loop, &(context->session)));
 
     add_signal_(context->backend, backend, new_input);
     add_signal_(context->backend, backend, new_output);
@@ -930,9 +901,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
     try_(context->tablet_manager = wlr_tablet_v2_create(context->display));
 
     // Initialize Wayland protocols: presentation-time.
-    try_(
-        context->presentation =
-            wlr_presentation_create(context->display, context->backend));
+    try_(wlr_presentation_create(context->display, context->backend));
 
     // Initialize Wayland protocols: data device, primary selection.
     try_(wlr_data_device_manager_create(context->display));
@@ -953,7 +922,7 @@ rose_server_context_initialize(struct rose_server_context* context) {
             return false;
         }
 
-        add_signal_(xdg_shell, xdg, new_surface);
+        add_signal_(xdg_shell, xdg, new_toplevel);
         add_signal_(xdg_decoration_manager, xdg, new_toplevel_decoration);
     }
 
@@ -1191,7 +1160,10 @@ rose_server_context_set_keyboard_layout(
 void
 rose_server_context_configure(
     struct rose_server_context* context,
-    rose_server_context_configure_mask flags) {
+    struct rose_server_context_configuration_parameters parameters) {
+    // Obtain configuration flags.
+    rose_server_context_configuration_mask flags = parameters.flags;
+
     // If requested configuration is a no-op, then do nothing.
     if(flags == 0) {
         return;
@@ -1386,7 +1358,7 @@ rose_server_context_configure(
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_cursor_image
-rose_server_context_get_cursor_image(
+rose_server_context_obtain_cursor_image(
     struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale) {
     // Note: Scaling factor is not used.
@@ -1490,6 +1462,7 @@ rose_server_context_check_ipc_access_rights(
     switch(connection_type) {
         case rose_ipc_connection_type_configurator:
             // fall-through
+
         case rose_ipc_connection_type_dispatcher:
             for(int i = 0; i != 3; ++i) {
                 if((rose_command_list_query_access_rights(

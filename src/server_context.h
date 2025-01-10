@@ -26,15 +26,13 @@
 
 struct wlr_backend;
 struct wlr_session;
-
 struct wlr_renderer;
 struct wlr_allocator;
 
 struct wlr_relative_pointer_manager_v1;
 struct wlr_pointer_constraints_v1;
-
 struct wlr_tablet_manager_v2;
-struct wlr_presentation;
+
 struct wlr_seat;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,14 +80,12 @@ struct rose_server_context {
     // Wayland protocols.
     struct wlr_relative_pointer_manager_v1* relative_pointer_manager;
     struct wlr_pointer_constraints_v1* pointer_constraints;
-
     struct wlr_tablet_manager_v2* tablet_manager;
-    struct wlr_presentation* presentation;
 
     // Seat abstraction.
     struct wlr_seat* seat;
 
-    // Pointer to the current workspace (receives input events from the seat).
+    // Current workspace which receives input events from the seat.
     struct rose_workspace* current_workspace;
 
     // Static storage.
@@ -137,8 +133,7 @@ struct rose_server_context {
     // Command list. Contains a map of running commands with access rights.
     struct rose_command_list* command_list;
 
-    // Device preference list (devices from this list will be configured upon
-    // detection).
+    // Device preference list.
     struct rose_device_preference_list* preference_list;
 
     // Event listeners.
@@ -151,7 +146,7 @@ struct rose_server_context {
     struct wl_listener listener_seat_request_start_drag;
     struct wl_listener listener_seat_start_drag;
 
-    struct wl_listener listener_xdg_new_surface;
+    struct wl_listener listener_xdg_new_toplevel;
     struct wl_listener listener_xdg_new_toplevel_decoration;
     struct wl_listener listener_pointer_constraints_new_constraint;
 
@@ -185,7 +180,7 @@ struct rose_server_context_state {
 // Configuration-related definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum rose_server_context_configure_type {
+enum rose_server_context_configuration_type {
     // Updating configuration from files on disk.
     rose_server_context_configure_keyboard_control_scheme = 0x01,
     rose_server_context_configure_keyboard_layouts = 0x02,
@@ -197,8 +192,12 @@ enum rose_server_context_configure_type {
 };
 
 // Server context's configuration mask. Is a bitwise OR of zero or more values
-// from the rose_server_context_configure_type enumeration.
-typedef unsigned rose_server_context_configure_mask;
+// from the rose_server_context_configuration_type enumeration.
+typedef unsigned rose_server_context_configuration_mask;
+
+struct rose_server_context_configuration_parameters {
+    rose_server_context_configuration_mask flags;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Initialization/destruction interface.
@@ -221,14 +220,14 @@ rose_server_context_set_keyboard_layout(
 void
 rose_server_context_configure(
     struct rose_server_context* context,
-    rose_server_context_configure_mask flags);
+    struct rose_server_context_configuration_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Cursor image acquisition interface.
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_cursor_image
-rose_server_context_get_cursor_image(
+rose_server_context_obtain_cursor_image(
     struct rose_server_context* context, enum rose_output_cursor_type type,
     float scale);
 

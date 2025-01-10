@@ -23,12 +23,11 @@ rose_execute_core_action(
         .output = context->current_workspace->output};
 
     switch(action_type) {
-        // Main actions.
         case rose_core_action_type_terminate_display:
             wl_display_terminate(context->display);
             break;
 
-        case rose_core_action_type_switch_keyboard_layout: {
+        case rose_core_action_type_switch_keyboard_layout:
             if(context->keyboard_context->layout_count > 1) {
                 rose_server_context_set_keyboard_layout(
                     context, (context->keyboard_context->layout_index + 1) %
@@ -36,7 +35,6 @@ rose_execute_core_action(
             }
 
             break;
-        }
 
         case rose_core_action_type_toggle_keyboard_shortcuts_inhibiting:
             // Switch the flag.
@@ -50,7 +48,6 @@ rose_execute_core_action(
 
             break;
 
-        // Surface-related actions.
         case rose_core_action_type_surface_close:
             if(focus.surface != NULL) {
                 rose_surface_request_close(focus.surface);
@@ -72,7 +69,7 @@ rose_execute_core_action(
 
         case rose_core_action_type_surface_toggle_maximized:
             if(focus.surface != NULL) {
-                struct rose_surface_configure_parameters parameters = {
+                struct rose_surface_configuration_parameters parameters = {
                     .flags = rose_surface_configure_maximized,
                     .is_maximized = !(
                         rose_surface_state_obtain(focus.surface).is_maximized)};
@@ -85,7 +82,7 @@ rose_execute_core_action(
 
         case rose_core_action_type_surface_toggle_fullscreen:
             if(focus.surface != NULL) {
-                struct rose_surface_configure_parameters parameters = {
+                struct rose_surface_configuration_parameters parameters = {
                     .flags = rose_surface_configure_fullscreen,
                     .is_fullscreen = !(rose_surface_state_obtain(focus.surface)
                                            .is_fullscreen)};
@@ -148,7 +145,6 @@ rose_execute_core_action(
 
             break;
 
-        // Workspace-related actions.
         case rose_core_action_type_workspace_add:
             if(focus.output != NULL) {
                 if(!wl_list_empty(&(context->workspaces))) {
@@ -192,18 +188,19 @@ rose_execute_core_action(
 
             break;
 
-        case rose_core_action_type_workspace_toggle_panel: {
-            // Obtain current workspace's panel.
-            struct rose_ui_panel panel = focus.workspace->panel;
+        case rose_core_action_type_workspace_toggle_panel:
+            if(true) {
+                // Obtain current workspace's panel.
+                struct rose_ui_panel panel = focus.workspace->panel;
 
-            // Flip its visibility flag.
-            panel.is_visible = !(panel.is_visible);
+                // Flip its visibility flag.
+                panel.is_visible = !(panel.is_visible);
 
-            // Update the panel.
-            rose_workspace_set_panel(focus.workspace, panel);
+                // Update the panel.
+                rose_workspace_set_panel(focus.workspace, panel);
+            }
 
             break;
-        }
 
         case rose_core_action_type_workspace_toggle_menu:
             if(focus.output != NULL) {
@@ -212,13 +209,14 @@ rose_execute_core_action(
 
             break;
 
-        // Terminal-related actions.
         case rose_core_action_type_run_terminal:
+            // Start a new terminal instance as stand-alone process.
             rose_execute_command(context->config.argument_lists.terminal);
             break;
 
         case rose_core_action_type_run_terminal_ipc:
             // Start a new terminal instance as compositor's child process.
+            // Enable IPC access.
             rose_command_list_execute_command(
                 context->command_list, context->config.argument_lists.terminal,
                 rose_command_access_ipc);

@@ -54,7 +54,7 @@ struct rose_device_database {
 
 struct rose_device_preference_list {
     char* file_name;
-    struct rose_device_database db[rose_device_type_count_];
+    struct rose_device_database databases[rose_device_type_count_];
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +82,7 @@ rose_device_database_key_compare(void const* k, struct rose_map_node const* x) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Device database manipulation utility functions.
+// Device database manipulating utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
@@ -138,13 +138,13 @@ rose_device_database_insert(
         switch(preference.device_type) {
             case rose_device_type_pointer:
                 entry->preference.parameters.pointer =
-                    (struct rose_pointer_configure_parameters){};
+                    (struct rose_pointer_configuration_parameters){};
 
                 break;
 
             case rose_device_type_output:
                 entry->preference.parameters.output =
-                    (struct rose_output_configure_parameters){};
+                    (struct rose_output_configuration_parameters){};
 
                 break;
 
@@ -253,7 +253,7 @@ rose_device_preference_read(
             // Zero-initialize pointer's parameters.
             preference->device_type = rose_device_type_pointer;
             preference->parameters.pointer =
-                (struct rose_pointer_configure_parameters){};
+                (struct rose_pointer_configuration_parameters){};
 
             // Read pointer's parameters.
             preference->parameters.pointer.flags = fgetc(file);
@@ -266,7 +266,7 @@ rose_device_preference_read(
             // Zero-initialize output's parameters.
             preference->device_type = rose_device_type_output;
             preference->parameters.output =
-                (struct rose_output_configure_parameters){};
+                (struct rose_output_configuration_parameters){};
 
             // Read output's parameters.
             preference->parameters.output.flags = fgetc(file);
@@ -375,9 +375,9 @@ rose_device_preference_list_initialize(char const* file_name) {
         *preference_list = (struct rose_device_preference_list){};
     }
 
-    // Initialize the database objects.
+    // Initialize the databases.
     for(ptrdiff_t i = 0; i != rose_device_type_count_; ++i) {
-        wl_list_init(&(preference_list->db[i].order));
+        wl_list_init(&(preference_list->databases[i].order));
     }
 
     // Save the name of the file with device preferences, if needed.
@@ -409,7 +409,8 @@ rose_device_preference_list_initialize(char const* file_name) {
 
             // Insert it into the corresponding database.
             rose_device_database_insert(
-                preference_list->db + preference.device_type, preference);
+                preference_list->databases + preference.device_type,
+                preference);
         }
 
         // Close the file.
@@ -417,7 +418,7 @@ rose_device_preference_list_initialize(char const* file_name) {
         break;
     }
 
-    // Return created device preference list.
+    // Return created preference list.
     return preference_list;
 }
 
@@ -441,7 +442,7 @@ rose_device_preference_list_destroy(
         for(ptrdiff_t i = 0; i != rose_device_type_count_; ++i) {
             struct rose_device_database_entry* entry = NULL;
             wl_list_for_each_reverse(
-                entry, &(preference_list->db[i].order), link) {
+                entry, &(preference_list->databases[i].order), link) {
                 if(!rose_device_preference_write(&(entry->preference), file)) {
                     goto end;
                 }
@@ -469,8 +470,7 @@ rose_device_preference_list_update(
     if((preference.device_type >= 0) &&
        (preference.device_type < rose_device_type_count_)) {
         rose_device_database_insert(
-            preference_list->db + cast_(ptrdiff_t, preference.device_type),
-            preference);
+            preference_list->databases + preference.device_type, preference);
     }
 }
 
@@ -478,18 +478,16 @@ rose_device_preference_list_update(
 // Application interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
-#define configure_(type)                                                     \
-    /* Find an entry in the corresponding database. */                       \
-    struct rose_map_node* node = rose_map_find(                              \
-        preference_list->db[rose_device_type_##type].map_root, &device_name, \
-        rose_device_database_key_compare);                                   \
-                                                                             \
-    /* Configure the device, if needed. */                                   \
-    if(node != NULL) {                                                       \
-        struct rose_device_database_entry* entry =                           \
-            wl_container_of(node, entry, node);                              \
-                                                                             \
-        rose_##type##_configure(type, entry->preference.parameters.type);    \
+#define configure_(type)                                                  \
+    struct rose_map_node* node = rose_map_find(                           \
+        preference_list->databases[rose_device_type_##type].map_root,     \
+        &device_name, rose_device_database_key_compare);                  \
+                                                                          \
+    if(node != NULL) {                                                    \
+        struct rose_device_database_entry* entry =                        \
+            wl_container_of(node, entry, node);                           \
+                                                                          \
+        rose_##type##_configure(type, entry->preference.parameters.type); \
     }
 
 void

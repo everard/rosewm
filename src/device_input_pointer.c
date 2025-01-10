@@ -24,33 +24,26 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event handlers.
+//
+// Note: Terminology is a bit confusing, since Wayland uses the word "pointer"
+// to describe pointing device, such as mouse, touch pad, etc.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
 rose_handle_event_pointer_axis(struct wl_listener* listener, void* data) {
-    // Terminology is a bit confusing, since Wayland uses the word "pointer" to
-    // describe pointing device, such as mouse, touch pad, etc.
-
     // Obtain the device.
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_axis);
 
-    // Obtain current workspace.
+    // Obtain the current workspace.
     struct rose_workspace* workspace =
         pointer->parent->context->current_workspace;
 
-    // Obtain event data.
-    struct wlr_pointer_axis_event* wlr_event = data;
-    struct rose_pointer_event_axis event = {
-        .time_msec = wlr_event->time_msec,
-        .delta_discrete = wlr_event->delta_discrete,
-        .delta = wlr_event->delta,
-        .orientation =
-            (enum rose_pointer_axis_orientation)(wlr_event->orientation),
-        .source = (enum rose_pointer_axis_source)(wlr_event->source)};
+    // Obtain the event.
+    struct wlr_pointer_axis_event* event = data;
 
-    // Notify current workspace of this event.
-    rose_workspace_notify_pointer_axis(workspace, event);
+    // Notify the workspace of this event.
+    rose_workspace_notify_pointer_axis(workspace, *event);
 }
 
 static void
@@ -59,22 +52,15 @@ rose_handle_event_pointer_button(struct wl_listener* listener, void* data) {
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_button);
 
-    // Obtain current workspace.
+    // Obtain the current workspace.
     struct rose_workspace* workspace =
         pointer->parent->context->current_workspace;
 
-    // Obtain event data.
-    struct wlr_pointer_button_event* wlr_event = data;
-    struct rose_pointer_event_button event = {
-        .time_msec = wlr_event->time_msec,
-        .button = wlr_event->button,
-        .state =
-            ((wlr_event->state == WLR_BUTTON_RELEASED)
-                 ? rose_pointer_button_state_released
-                 : rose_pointer_button_state_pressed)};
+    // Obtain the event.
+    struct wlr_pointer_button_event* event = data;
 
-    // Notify current workspace of this event.
-    rose_workspace_notify_pointer_button(workspace, event);
+    // Notify the workspace of this event.
+    rose_workspace_notify_pointer_button(workspace, *event);
 }
 
 static void
@@ -83,21 +69,15 @@ rose_handle_event_pointer_motion(struct wl_listener* listener, void* data) {
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_motion);
 
-    // Obtain current workspace.
+    // Obtain the current workspace.
     struct rose_workspace* workspace =
         pointer->parent->context->current_workspace;
 
-    // Obtain event data.
-    struct wlr_pointer_motion_event* wlr_event = data;
-    struct rose_pointer_event_motion event = {
-        .time_msec = wlr_event->time_msec,
-        .dx = wlr_event->delta_x,
-        .dy = wlr_event->delta_y,
-        .dx_unaccel = wlr_event->unaccel_dx,
-        .dy_unaccel = wlr_event->unaccel_dy};
+    // Obtain the event.
+    struct wlr_pointer_motion_event* event = data;
 
-    // Notify current workspace of this event.
-    rose_workspace_notify_pointer_move(workspace, event);
+    // Notify the workspace of this event.
+    rose_workspace_notify_pointer_move(workspace, *event);
 }
 
 static void
@@ -107,19 +87,15 @@ rose_handle_event_pointer_motion_absolute(
     struct rose_pointer* pointer =
         wl_container_of(listener, pointer, listener_motion_absolute);
 
-    // Obtain current workspace.
+    // Obtain the current workspace.
     struct rose_workspace* workspace =
         pointer->parent->context->current_workspace;
 
-    // Obtain event data.
-    struct wlr_pointer_motion_absolute_event* wlr_event = data;
-    struct rose_pointer_event_motion_absolute event = {
-        .time_msec = wlr_event->time_msec,
-        .x = wlr_event->x,
-        .y = wlr_event->y};
+    // Obtain the event.
+    struct wlr_pointer_motion_absolute_event* event = data;
 
-    // Notify current workspace of this event.
-    rose_workspace_notify_pointer_warp(workspace, event);
+    // Notify the workspace of this event.
+    rose_workspace_notify_pointer_warp(workspace, *event);
 }
 
 static void
@@ -184,7 +160,7 @@ rose_pointer_destroy(struct rose_pointer* pointer) {
 bool
 rose_pointer_configure(
     struct rose_pointer* pointer,
-    struct rose_pointer_configure_parameters parameters) {
+    struct rose_pointer_configuration_parameters parameters) {
     // If requested configuration is a no-op, then return success.
     if(parameters.flags == 0) {
         return true;
@@ -212,7 +188,6 @@ rose_pointer_configure(
     // Check the validity of the specified parameters.
 
     if((parameters.flags & rose_pointer_configure_acceleration_type) != 0) {
-        // Note: There are only flat and adaptive acceleration types.
         if((parameters.acceleration_type !=
             rose_pointer_acceleration_type_flat) &&
            (parameters.acceleration_type !=
@@ -222,7 +197,6 @@ rose_pointer_configure(
     }
 
     if((parameters.flags & rose_pointer_configure_speed) != 0) {
-        // Note: The speed can not be NaN or infinity.
         if(!isfinite(parameters.speed)) {
             return false;
         }
@@ -242,7 +216,6 @@ rose_pointer_configure(
     }
 
     if((parameters.flags & rose_pointer_configure_speed) != 0) {
-        // Note: The speed is clamped to the [-1; 1] interval.
         libinput_device_config_accel_set_speed(
             device, clamp_(parameters.speed, -1.0, 1.0));
     }

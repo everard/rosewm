@@ -17,8 +17,8 @@ rose_workspace_notify_tablet_tool_warp(
     struct rose_workspace* workspace,
     struct rose_tablet_tool_event_motion event) {
     // Construct pointer event.
-    struct rose_pointer_event_motion_absolute pointer_event = {
-        .time_msec = event.time_msec, .x = event.x, .y = event.y};
+    struct wlr_pointer_motion_absolute_event pointer_event = {
+        .time_msec = event.time, .x = event.x, .y = event.y};
 
     // Notify the workspace of pointer event.
     rose_workspace_notify_pointer_warp(workspace, pointer_event);

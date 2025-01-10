@@ -6,9 +6,9 @@
 #ifndef H_BA71ADF1CED54B6AAB1D54FD2FDCD50F
 #define H_BA71ADF1CED54B6AAB1D54FD2FDCD50F
 
-#include "device_input_pointer.h"
 #include "unicode.h"
 
+#include <wlr/types/wlr_pointer.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -56,7 +56,7 @@ struct rose_ui_menu_text {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_ui_menu {
-    // Pointer to the parent output.
+    // Parent output.
     struct rose_output* output;
 
     // Pointer's state.
@@ -65,7 +65,7 @@ struct rose_ui_menu {
         double x, y;
 
         // Last movement time.
-        uint32_t movement_time_msec;
+        uint32_t movement_time;
     } pointer;
 
     // Menu's rectangular area.
@@ -92,7 +92,7 @@ struct rose_ui_menu {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Menu action definition.
+// Menu action type enumeration definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_ui_menu_action_type {
@@ -161,15 +161,15 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu);
 
 void
 rose_ui_menu_notify_pointer_axis(
-    struct rose_ui_menu* menu, struct rose_pointer_event_axis event);
+    struct rose_ui_menu* menu, struct wlr_pointer_axis_event event);
 
 void
 rose_ui_menu_notify_pointer_button(
-    struct rose_ui_menu* menu, struct rose_pointer_event_button event);
+    struct rose_ui_menu* menu, struct wlr_pointer_button_event event);
 
 void
 rose_ui_menu_notify_pointer_warp(
-    struct rose_ui_menu* menu, uint32_t time_msec, double x, double y);
+    struct rose_ui_menu* menu, uint32_t time, double x, double y);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event notification interface: line.

@@ -1,4 +1,4 @@
-// Copyright Nezametdinov E. Ildus 2024.
+// Copyright Nezametdinov E. Ildus 2025.
 // Distributed under the GNU General Public License, Version 3.
 // (See accompanying file LICENSE_GPL_3_0.txt or copy at
 // https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -8,10 +8,12 @@
 #include "server_context.h"
 
 #include <wlr/types/wlr_compositor.h>
-#include <wlr/types/wlr_cursor.h>
+#include <wlr/types/wlr_subcompositor.h>
 
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
+#include <wlr/render/swapchain.h>
 
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xcursor_manager.h>
@@ -120,7 +122,7 @@ rose_output_raster_initialize(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Raster manipulation-related utility functions and types.
+// Raster manipulation-related utility functions and type.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_output_rasters_update_type {
@@ -456,6 +458,132 @@ rose_output_add_workspaces(struct rose_output* output) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Damage handling utility functions.
+////////////////////////////////////////////////////////////////////////////////
+
+static struct rose_output_damage
+rose_output_damage_construct(pixman_region32_t const* region) {
+    return (struct rose_output_damage){
+        .x = region->extents.x1,
+        .y = region->extents.y1,
+        .width = (region->extents.x2 - region->extents.x1),
+        .height = (region->extents.y2 - region->extents.y1)};
+}
+
+static struct rose_output_damage
+rose_output_damage_compute_union(
+    struct rose_output_damage a, struct rose_output_damage b) {
+    if((a.width == 0) || (a.height == 0)) {
+        return b;
+    } else if((b.width == 0) || (b.height == 0)) {
+        return a;
+    }
+
+#define shift_(damage)            \
+    (damage).width += (damage).x; \
+    (damage).height += (damage).y;
+
+    shift_(a);
+    shift_(b);
+
+#undef shift_
+
+    a.x = min_(a.x, b.x);
+    a.y = min_(a.y, b.y);
+
+    a.width = max_(a.width, b.width) - a.x;
+    a.height = max_(a.height, b.height) - a.y;
+
+    return a;
+}
+
+static struct rose_output_damage
+rose_output_damage_transform(
+    struct rose_output_damage source, struct rose_output_state state) {
+#define scale_(x) (int)(0.5 + (x) * state.scale)
+
+    // Scale the source rectangle.
+    if(true) {
+        source.width += source.x;
+        source.height += source.y;
+
+        source.x = scale_(source.x);
+        source.y = scale_(source.y);
+        source.width = scale_(source.width) - source.x;
+        source.height = scale_(source.height) - source.y;
+    }
+
+#undef scale_
+
+    // Initialize resulting damage rectangle.
+    struct rose_output_damage result = source;
+
+    // Transform rectangle's size.
+    if(state.transform % 2 != 0) {
+        result.width = source.height;
+        result.height = source.width;
+    }
+
+    // Transform rectangle's position.
+    switch(state.transform) {
+        case WL_OUTPUT_TRANSFORM_NORMAL:
+            break;
+
+        case WL_OUTPUT_TRANSFORM_90:
+            result.x = source.y;
+            result.y = state.width - source.x - source.width;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_180:
+            result.x = state.width - source.x - source.width;
+            result.y = state.height - source.y - source.height;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_270:
+            result.x = state.height - source.y - source.height;
+            result.y = source.x;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED:
+            result.x = state.width - source.x - source.width;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+            result.x = state.height - source.y - source.height;
+            result.y = state.width - source.x - source.width;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+            result.y = state.height - source.y - source.height;
+            break;
+
+        case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+            result.x = source.y;
+            result.y = source.x;
+            break;
+
+        default:
+            break;
+    }
+
+    return result;
+}
+
+static struct rose_output_damage
+rose_output_damage_obtain(struct wlr_surface* surface) {
+    // Initialize an empty region.
+    pixman_region32_t region;
+    pixman_region32_init(&region);
+
+    // Construct resulting damage.
+    struct rose_output_damage result = rose_output_damage_construct(
+        (wlr_surface_get_effective_damage(surface, &region), &region));
+
+    // Return resulting damage.
+    return pixman_region32_fini(&region), result;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Surface notification-related utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -493,13 +621,14 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
     clock_gettime(CLOCK_MONOTONIC, &timestamp);
 
     // Determine if redraw is required.
-    bool is_redraw_required = (output->is_rasters_update_requested) ||
-                              (output->frame_without_damage_count < 2);
+    bool is_redraw_required =
+        (output->is_rasters_update_requested) ||
+        (output->damage_tracker.frame_without_damage_count < 2);
 
     // Update output's damage tracking data.
-    output->frame_without_damage_count++;
-    output->frame_without_damage_count =
-        min_(output->frame_without_damage_count, 2);
+    output->damage_tracker.frame_without_damage_count++;
+    output->damage_tracker.frame_without_damage_count =
+        min_(output->damage_tracker.frame_without_damage_count, 2);
 
     // Obtain output's focused workspace.
     struct rose_workspace* workspace = output->focused_workspace;
@@ -515,15 +644,6 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
                 rose_workspace_transaction_commit(workspace);
             }
         }
-
-        // Determine if redraw is required.
-        is_redraw_required =
-            is_redraw_required || (workspace->frame_without_commits_count < 2);
-
-        // Update workspace's damage tracking data.
-        workspace->frame_without_commits_count++;
-        workspace->frame_without_commits_count =
-            min_(workspace->frame_without_commits_count, 2);
     }
 
     // Update output's rasters, if needed.
@@ -553,8 +673,30 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
                 rose_render_content(output);
             } else {
                 // Otherwise, swap buffers.
-                if(wlr_output_attach_render(output->device, NULL)) {
-                    wlr_output_commit(output->device);
+                if(output->device->swapchain != NULL) {
+                    // Initialize an empty state.
+                    struct wlr_output_state state = {};
+                    wlr_output_state_init(&state);
+
+                    // Initialize buffer age.
+                    int buffer_age = -1;
+
+                    // Acquire the next buffer from output's swapchain.
+                    struct wlr_buffer* buffer = wlr_swapchain_acquire(
+                        output->device->swapchain, &buffer_age);
+
+                    // Consume damage.
+                    rose_output_consume_damage(output, buffer_age);
+
+                    // Set acquired buffer as current.
+                    wlr_output_state_set_buffer(&state, buffer);
+                    wlr_buffer_unlock(buffer);
+
+                    // Commit the state.
+                    wlr_output_commit_state(output->device, &state);
+
+                    // Clean-up the state data.
+                    wlr_output_state_finish(&state);
                 } else {
                     wlr_output_schedule_frame(output->device);
                 }
@@ -611,13 +753,13 @@ rose_handle_event_output_frame(struct wl_listener* listener, void* data) {
 
     // Send frame done events to all visible widgets.
     if(true) {
-        struct rose_output_widget* widget = NULL;
-        for(ptrdiff_t i = 0; i != rose_output_widget_type_count_; ++i) {
+        struct rose_surface* surface = NULL;
+        for(ptrdiff_t i = 0; i != rose_surface_widget_type_count_; ++i) {
             wl_list_for_each(
-                widget, &(output->ui.widgets_mapped[i]), link_mapped) {
-                if(rose_output_widget_is_visible(widget)) {
+                surface, &(output->ui.surfaces_mapped[i]), link_mapped) {
+                if(rose_output_ui_is_surface_visible(&(output->ui), surface)) {
                     wlr_xdg_surface_for_each_surface(
-                        widget->xdg_surface,
+                        surface->xdg_surface,
                         rose_output_surface_send_frame_done, &timestamp);
                 }
             }
@@ -676,14 +818,15 @@ rose_handle_event_output_commit(struct wl_listener* listener, void* data) {
 
 static void
 rose_handle_event_output_damage(struct wl_listener* listener, void* data) {
-    unused_(data);
-
     // Obtain the output.
     struct rose_output* output =
         wl_container_of(listener, output, listener_damage);
 
-    // Reset the number of frames without damage taken.
-    output->frame_without_damage_count = 0;
+    // Obtain the event.
+    struct wlr_output_event_damage* event = data;
+
+    // Damage the output.
+    rose_output_add_damage(output, rose_output_damage_construct(event->damage));
 }
 
 static void
@@ -743,11 +886,6 @@ rose_output_initialize(
         return;
     }
 
-    // Set device's mode, if needed.
-    if(!wl_list_empty(&(device->modes))) {
-        wlr_output_set_mode(device, wlr_output_preferred_mode(device));
-    }
-
     // Create and initialize a new cursor.
     struct wlr_cursor* cursor = wlr_cursor_create();
     if(cursor == NULL) {
@@ -755,7 +893,9 @@ rose_output_initialize(
     }
 
     // Create and initialize a new layout.
-    struct wlr_output_layout* layout = wlr_output_layout_create();
+    struct wlr_output_layout* layout =
+        wlr_output_layout_create(context->display);
+
     if(layout == NULL) {
         wlr_cursor_destroy(cursor);
         return;
@@ -782,16 +922,26 @@ rose_output_initialize(
     wlr_cursor_attach_output_layout(cursor, layout);
     wlr_cursor_map_to_output(cursor, device);
 
+    // Initialize an empty state.
+    struct wlr_output_state state = {};
+    wlr_output_state_init(&state);
+
+    // Set device's mode, if needed.
+    if(!wl_list_empty(&(device->modes))) {
+        wlr_output_state_set_mode(&state, wlr_output_preferred_mode(device));
+    }
+
     // Enable the device.
-    wlr_output_enable(device, true);
-    wlr_output_commit(device);
+    wlr_output_state_set_enabled(&state, true);
+    wlr_output_commit_state(device, &state);
+    wlr_output_state_finish(&state);
 
     // Initialize the list of output modes.
     if(true) {
         struct wlr_output_mode* mode = NULL;
         wl_list_for_each(mode, &(device->modes), link) {
             // Limit the number of modes.
-            if(output->modes.size == rose_output_mode_max_count) {
+            if(output->modes.size == rose_output_mode_list_size_max) {
                 break;
             }
 
@@ -1022,7 +1172,7 @@ rose_output_destroy(struct rose_output* output) {
 bool
 rose_output_configure(
     struct rose_output* output,
-    struct rose_output_configure_parameters parameters) {
+    struct rose_output_configuration_parameters parameters) {
     // If requested configuration is a no-op, then return success.
     if(parameters.flags == 0) {
         return true;
@@ -1057,19 +1207,23 @@ rose_output_configure(
     // Note: Requested mode is not checked, since if it does not belong to the
     // list of possible modes, then it will not be applied.
 
+    // Initialize an empty state.
+    struct wlr_output_state state = {};
+    wlr_output_state_init(&state);
+
     // Set specified parameters.
 
     if((parameters.flags & rose_output_configure_adaptive_sync) != 0) {
-        wlr_output_enable_adaptive_sync(
-            output->device, parameters.adaptive_sync_state);
+        wlr_output_state_set_adaptive_sync_enabled(
+            &state, parameters.adaptive_sync_state);
     }
 
     if((parameters.flags & rose_output_configure_transform) != 0) {
-        wlr_output_set_transform(output->device, parameters.transform);
+        wlr_output_state_set_transform(&state, parameters.transform);
     }
 
     if((parameters.flags & rose_output_configure_scale) != 0) {
-        wlr_output_set_scale(output->device, (float)(parameters.scale));
+        wlr_output_state_set_scale(&state, (float)(parameters.scale));
     }
 
     while((parameters.flags & rose_output_configure_mode) != 0) {
@@ -1079,8 +1233,8 @@ rose_output_configure(
             (parameters.mode.height == 0) && //
             (parameters.mode.rate == 0)) &&
            !wl_list_empty(&(output->device->modes))) {
-            wlr_output_set_mode(
-                output->device, wlr_output_preferred_mode(output->device));
+            wlr_output_state_set_mode(
+                &state, wlr_output_preferred_mode(output->device));
 
             break;
         }
@@ -1091,7 +1245,7 @@ rose_output_configure(
             if((mode->width == parameters.mode.width) &&
                (mode->height == parameters.mode.height) &&
                (mode->refresh == parameters.mode.rate)) {
-                wlr_output_set_mode(output->device, mode);
+                wlr_output_state_set_mode(&state, mode);
                 break;
             }
         }
@@ -1101,7 +1255,8 @@ rose_output_configure(
     }
 
     // Commit output's state.
-    bool result = wlr_output_commit(output->device);
+    bool result = wlr_output_commit_state(output->device, &state);
+    wlr_output_state_finish(&state);
 
     // Update device preference list, if needed.
     if(result && (output->context->preference_list != NULL)) {
@@ -1147,11 +1302,11 @@ rose_output_focus_workspace(
         // Move its pointer.
         if(workspace_prev != NULL) {
             rose_workspace_pointer_warp(
-                workspace, workspace->pointer.movement_time_msec,
+                workspace, workspace->pointer.movement_time,
                 workspace_prev->pointer.x, workspace_prev->pointer.y);
         } else {
             rose_workspace_pointer_warp(
-                workspace, workspace->pointer.movement_time_msec,
+                workspace, workspace->pointer.movement_time,
                 workspace->pointer.x, workspace->pointer.y);
         }
 
@@ -1162,7 +1317,7 @@ rose_output_focus_workspace(
         rose_workspace_request_redraw(workspace);
     } else {
         // Otherwise, mark the output as damaged.
-        output->frame_without_damage_count = 0;
+        output->damage_tracker.frame_without_damage_count = 0;
 
         // And hide the menu.
         rose_ui_menu_hide(&(output->ui.menu));
@@ -1316,16 +1471,173 @@ rose_output_remove_workspace(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Damage handling interface implementation.
+////////////////////////////////////////////////////////////////////////////////
+
+struct rose_output_damage
+rose_output_consume_damage(struct rose_output* output, int buffer_age) {
+#define array_size_(a) ((ptrdiff_t)(sizeof(a) / sizeof((a)[0])))
+
+    // Obtain damage array's size.
+    ptrdiff_t const damage_array_size =
+        array_size_(output->damage_tracker.damage);
+
+    // Initialize an empty result.
+    struct rose_output_damage result = {};
+
+    // Obtain damage for the given age.
+    if((buffer_age > 0) && (buffer_age < damage_array_size)) {
+        // If the given age is inside the range, then obtain and transform
+        // corresponding damage.
+        result = rose_output_damage_transform(
+            output->damage_tracker.damage[buffer_age],
+            rose_output_state_obtain(output));
+    } else {
+        // If the given age is outside the range, then set the entire output's
+        // area as the resulting damage.
+        result.width = output->device->width;
+        result.height = output->device->height;
+    }
+
+    // Shift damage in the tracker.
+    output->damage_tracker.damage[0] = (struct rose_output_damage){};
+    for(ptrdiff_t i = damage_array_size - 1; i != 0; --i) {
+        output->damage_tracker.damage[i] = output->damage_tracker.damage[i - 1];
+    }
+
+    // Return the resulting damage.
+    return result;
+}
+
+void
+rose_output_add_damage(
+    struct rose_output* output, struct rose_output_damage damage) {
+    // Mark the output as damaged.
+    output->damage_tracker.frame_without_damage_count = 0;
+
+    // Add the damage.
+    for(ptrdiff_t i = 0; i != array_size_(output->damage_tracker.damage); ++i) {
+        output->damage_tracker.damage[i] = rose_output_damage_compute_union(
+            output->damage_tracker.damage[i], damage);
+    }
+
+    // Schedule a frame.
+    rose_output_schedule_frame(output);
+}
+
+void
+rose_output_add_surface_damage(
+    struct rose_output* output, struct rose_surface* surface) {
+    // Initialize an empty damage.
+    struct rose_output_damage damage = {};
+
+    // Obtain surface's damage.
+    if((surface->state.previous.x != surface->state.current.x) ||
+       (surface->state.previous.y != surface->state.current.y) ||
+       (surface->state.previous.width != surface->state.current.width) ||
+       (surface->state.previous.height != surface->state.current.height)) {
+        int shift = ((surface->type == rose_surface_type_toplevel) ? -5 : 0);
+        int stretch = ((surface->type == rose_surface_type_toplevel) ? 10 : 0);
+
+        // Damage previous surface's area.
+        damage = (struct rose_output_damage){
+            .x = surface->state.previous.x + shift,
+            .y = surface->state.previous.y + shift,
+            .width = surface->state.previous.width + stretch,
+            .height = surface->state.previous.height + stretch};
+
+        // Damage current surface's area.
+        damage = rose_output_damage_compute_union(
+            (struct rose_output_damage){
+                .x = surface->state.current.x + shift,
+                .y = surface->state.current.y + shift,
+                .width = surface->state.current.width + stretch,
+                .height = surface->state.current.height + stretch},
+            damage);
+    } else {
+        if(surface->type != rose_surface_type_temporary) {
+            // Obtain surface's damage.
+            damage = rose_output_damage_obtain(
+                (surface->type == rose_surface_type_subsurface)
+                    ? surface->subsurface->surface
+                    : surface->xdg_surface->surface);
+
+            // Add surface's offset.
+            damage.x += surface->state.current.x;
+            damage.y += surface->state.current.y;
+        } else {
+            // Note: Testing showed wrong damage for temporary surfaces, so the
+            // entire area is damaged.
+            damage = (struct rose_output_damage){
+                .x = surface->state.current.x,
+                .y = surface->state.current.y,
+                .width = surface->state.current.width,
+                .height = surface->state.current.height};
+        }
+    }
+
+    // Offset the damage.
+    while(surface->type != rose_surface_type_toplevel) {
+        // Obtain the parent surface.
+        if(true) {
+            struct wlr_surface* parent = NULL;
+            if(surface->type == rose_surface_type_subsurface) {
+                parent = surface->subsurface->parent;
+            } else {
+                parent = surface->xdg_surface->popup->parent;
+            }
+
+            if(parent != NULL) {
+                struct wlr_xdg_surface* xdg_surface =
+                    wlr_xdg_surface_try_from_wlr_surface(parent);
+
+                if(xdg_surface != NULL) {
+                    surface = (struct rose_surface*)(xdg_surface->data);
+                } else {
+                    struct wlr_subsurface* subsurface =
+                        wlr_subsurface_try_from_wlr_surface(parent);
+
+                    if(subsurface != NULL) {
+                        surface = (struct rose_surface*)(subsurface->data);
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                surface = NULL;
+            }
+        }
+
+        // Add parent surface's offset.
+        if(surface != NULL) {
+            damage.x += surface->state.current.x;
+            damage.y += surface->state.current.y;
+        } else {
+            break;
+        }
+    }
+
+    // Add the damage.
+    rose_output_add_damage(output, damage);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // State manipulation interface implementation.
 ////////////////////////////////////////////////////////////////////////////////
 
 void
 rose_output_request_redraw(struct rose_output* output) {
-    // Reset the number of frames without damage taken.
-    output->frame_without_damage_count = 0;
+    // Obtain output's state.
+    struct rose_output_state state = rose_output_state_obtain(output);
 
-    // Schedule a frame.
-    rose_output_schedule_frame(output);
+    // Damage the entire output.
+    if(true) {
+        struct rose_output_damage damage = {
+            .width = (int)(0.5 + (state.width / state.scale)),
+            .height = (int)(0.5 + (state.height / state.scale))};
+
+        rose_output_add_damage(output, damage);
+    }
 }
 
 void
@@ -1401,8 +1713,9 @@ rose_output_cursor_set(
             output->cursor.underlying, output->cursor.surface,
             output->cursor.hotspot_x, output->cursor.hotspot_y);
     } else {
-        struct rose_cursor_image image = rose_server_context_get_cursor_image(
-            output->context, output->cursor.type, output->device->scale);
+        struct rose_cursor_image image =
+            rose_server_context_obtain_cursor_image(
+                output->context, output->cursor.type, output->device->scale);
 
         wlr_cursor_set_buffer(
             output->cursor.underlying, &(image.raster->base), image.hotspot_x,

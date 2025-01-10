@@ -32,10 +32,10 @@ struct rose_input {
     // Device's type.
     enum rose_input_device_type type;
 
-    // Pointer to the server context.
+    // Parent server context.
     struct rose_server_context* context;
 
-    // Pointer to the underlying input device.
+    // Underlying input device.
     struct wlr_input_device* device;
 
     // Device variant.

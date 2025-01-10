@@ -232,31 +232,21 @@ rose_workspace_ui_select(struct rose_workspace* workspace, double x, double y) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-rose_workspace_output_cursor_sync(struct rose_workspace* workspace) {
-    // Do nothing if the given workspace does not belong to any output, or if
-    // the workspace isn't focused.
-    if((workspace->output == NULL) ||
-       (workspace->output->focused_workspace != workspace)) {
-        return;
+rose_workspace_output_cursor_set(
+    struct rose_workspace* workspace, enum rose_output_cursor_type type) {
+    if((workspace->output != NULL) &&
+       (workspace->output->focused_workspace == workspace)) {
+        rose_output_cursor_set(workspace->output, type);
     }
-
-    // Warp output's cursor to the pointer's position.
-    rose_output_cursor_warp(
-        workspace->output, workspace->pointer.x, workspace->pointer.y);
 }
 
 static void
-rose_workspace_output_cursor_set(
-    struct rose_workspace* workspace, enum rose_output_cursor_type type) {
-    // Do nothing if the given workspace does not belong to any output, or if
-    // the workspace isn't focused.
-    if((workspace->output == NULL) ||
-       (workspace->output->focused_workspace != workspace)) {
-        return;
+rose_workspace_output_cursor_sync(struct rose_workspace* workspace) {
+    if((workspace->output != NULL) &&
+       (workspace->output->focused_workspace == workspace)) {
+        rose_output_cursor_warp(
+            workspace->output, workspace->pointer.x, workspace->pointer.y);
     }
-
-    // Set cursor's type.
-    rose_output_cursor_set(workspace->output, type);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -265,7 +255,7 @@ rose_workspace_output_cursor_set(
 
 static void
 rose_workspace_mode_set(
-    struct rose_workspace* workspace, uint32_t time_msec,
+    struct rose_workspace* workspace, uint32_t time,
     enum rose_workspace_mode mode) {
     // Set the specified mode.
     workspace->mode = mode;
@@ -300,7 +290,7 @@ rose_workspace_mode_set(
 
     // Warp the pointer to its current location.
     rose_workspace_pointer_warp(
-        workspace, time_msec, workspace->pointer.x, workspace->pointer.y);
+        workspace, time, workspace->pointer.x, workspace->pointer.y);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -392,7 +382,7 @@ rose_handle_event_workspace_pointer_timer_expiry(void* data) {
 
 void
 rose_workspace_pointer_warp(
-    struct rose_workspace* workspace, uint32_t time_msec, double x, double y) {
+    struct rose_workspace* workspace, uint32_t time, double x, double y) {
     // Save pointer's previous position.
     double x_prev = workspace->pointer.x;
     double y_prev = workspace->pointer.y;
@@ -409,7 +399,7 @@ rose_workspace_pointer_warp(
     y = clamp_(y, 0.0, (double)(workspace->height - 1));
 
     // Update pointer's last movement time.
-    workspace->pointer.movement_time_msec = time_msec;
+    workspace->pointer.movement_time = time;
 
     // Synchronize cursor's position with pointer's position.
     rose_workspace_output_cursor_sync(workspace);
@@ -437,30 +427,29 @@ rose_workspace_pointer_warp(
 
     // Perform additional actions depending on current mode.
     if(workspace->context->is_screen_locked) {
-        // If the screen is locked, then obtain parent output's screen lock
-        // widget.
-        struct rose_output_widget* screen_lock =
+        // If the screen is locked, then obtain parent output's screen lock.
+        struct rose_surface* screen_lock =
             ((workspace->output != NULL)
                  ? (!wl_list_empty(
-                        workspace->output->ui.widgets_mapped +
-                        rose_output_widget_type_screen_lock)
+                        workspace->output->ui.surfaces_mapped +
+                        rose_surface_widget_type_screen_lock)
                         ? (wl_container_of(
                               workspace->output->ui
-                                  .widgets_mapped
-                                      [rose_output_widget_type_screen_lock]
+                                  .surfaces_mapped
+                                      [rose_surface_widget_type_screen_lock]
                                   .next,
                               screen_lock, link_mapped))
                         : NULL)
                  : NULL);
 
         if(screen_lock != NULL) {
-            // If there is such widget, then set cursor's type accordingly.
+            // If there is a screen lock, then set cursor's type accordingly.
             rose_workspace_output_cursor_set(
                 workspace, rose_output_cursor_type_client);
 
             // Compute pointer's surface-local coordinates.
-            x -= screen_lock->state.x;
-            y -= screen_lock->state.y;
+            x -= screen_lock->state.current.x;
+            y -= screen_lock->state.current.y;
 
             // Find a surface under pointer's coordinates.
             double x_local = 0.0, y_local = 0.0;
@@ -473,10 +462,7 @@ rose_workspace_pointer_warp(
                 wlr_seat_pointer_notify_enter(seat, surface, x_local, y_local);
 
                 // And send motion event.
-                if(surface == seat->pointer_state.focused_surface) {
-                    wlr_seat_pointer_notify_motion(
-                        seat, time_msec, x_local, y_local);
-                }
+                wlr_seat_pointer_notify_motion(seat, time, x_local, y_local);
             } else {
                 // Otherwise, clear pointer's focus.
                 wlr_seat_pointer_clear_focus(seat);
@@ -632,8 +618,7 @@ rose_workspace_pointer_warp(
                 wlr_seat_pointer_notify_enter(seat, surface, x_local, y_local);
 
                 // Send motion event.
-                wlr_seat_pointer_notify_motion(
-                    seat, time_msec, x_local, y_local);
+                wlr_seat_pointer_notify_motion(seat, time, x_local, y_local);
             }
         } else if(
             relation_surface == rose_workspace_point_surface_relation_outside) {
@@ -655,47 +640,32 @@ rose_workspace_pointer_warp(
                         case rose_output_ui_selection_type_menu:
                             // Notify the menu of this event.
                             rose_ui_menu_notify_pointer_warp(
-                                ui_selection.output_ui_selection.menu,
-                                time_msec, x, y);
+                                ui_selection.output_ui_selection.menu, time, x,
+                                y);
 
                             break;
 
-                        case rose_output_ui_selection_type_widget:
-                            // Notify output's widget of this event.
-                            if(ui_selection.output_ui_selection.widget
-                                   .surface != NULL) {
-                                // Notify the seat that the surface has pointer
-                                // focus.
-                                wlr_seat_pointer_notify_enter(
-                                    seat,
-                                    ui_selection.output_ui_selection.widget
-                                        .surface,
-                                    ui_selection.output_ui_selection.widget
-                                        .x_local,
-                                    ui_selection.output_ui_selection.widget
-                                        .y_local);
+                        case rose_output_ui_selection_type_surface:
+                            // Notify the seat that the surface has pointer
+                            // focus.
+                            wlr_seat_pointer_notify_enter(
+                                seat, ui_selection.output_ui_selection.surface,
+                                ui_selection.output_ui_selection.x_local,
+                                ui_selection.output_ui_selection.y_local);
 
-                                // Send motion event.
-                                if(ui_selection.output_ui_selection.widget
-                                       .surface ==
-                                   seat->pointer_state.focused_surface) {
-                                    wlr_seat_pointer_notify_motion(
-                                        seat, time_msec,
-                                        ui_selection.output_ui_selection.widget
-                                            .x_local,
-                                        ui_selection.output_ui_selection.widget
-                                            .y_local);
-                                }
-                            }
+                            // Send motion event.
+                            wlr_seat_pointer_notify_motion(
+                                seat, time,
+                                ui_selection.output_ui_selection.x_local,
+                                ui_selection.output_ui_selection.y_local);
 
-                            // Pointer's focus must not be cleared, since widget
-                            // is just a surface.
+                            // Pointer's focus must not be cleared.
                             should_clear_focus = false;
-
                             break;
 
                         case rose_output_ui_selection_type_none:
                             // fall-through
+
                         default:
                             // Do nothing.
                             break;
@@ -754,7 +724,7 @@ rose_workspace_pointer_warp(
             // Configure the surface.
             rose_surface_configure(
                 workspace->focused_surface,
-                (struct rose_surface_configure_parameters){
+                (struct rose_surface_configuration_parameters){
                     .flags = rose_surface_configure_position, .x = x, .y = y});
         }
     }
@@ -766,7 +736,7 @@ rose_workspace_pointer_warp(
 
 void
 rose_workspace_notify_pointer_axis(
-    struct rose_workspace* workspace, struct rose_pointer_event_axis event) {
+    struct rose_workspace* workspace, struct wlr_pointer_axis_event event) {
     // If the screen is locked, then notify the seat of this event, and do
     // nothing else.
     if(workspace->context->is_screen_locked) {
@@ -796,12 +766,13 @@ rose_workspace_notify_pointer_axis(
 
                     break;
 
-                case rose_output_ui_selection_type_widget:
-                    // Notify the widget of this event.
+                case rose_output_ui_selection_type_surface:
+                    // Notify the surface of this event.
                     goto notify_seat;
 
                 case rose_output_ui_selection_type_none:
                     // fall-through
+
                 default:
                     break;
             }
@@ -812,17 +783,15 @@ rose_workspace_notify_pointer_axis(
     }
 
 notify_seat:
-    enum wlr_axis_orientation orientation = (int)(event.orientation);
-    enum wlr_axis_source source = (int)(event.source);
-
     wlr_seat_pointer_notify_axis(
-        workspace->context->seat, event.time_msec, orientation, event.delta,
-        event.delta_discrete, source);
+        workspace->context->seat, event.time_msec, event.orientation,
+        event.delta, event.delta_discrete, event.source,
+        event.relative_direction);
 }
 
 void
 rose_workspace_notify_pointer_button(
-    struct rose_workspace* workspace, struct rose_pointer_event_button event) {
+    struct rose_workspace* workspace, struct wlr_pointer_button_event event) {
     // Obtain current seat.
     struct wlr_seat* seat = workspace->context->seat;
 
@@ -834,10 +803,7 @@ rose_workspace_notify_pointer_button(
 
         // Notify the seat.
         wlr_seat_pointer_notify_button(
-            seat, event.time_msec, event.button,
-            ((event.state == rose_pointer_button_state_released)
-                 ? WLR_BUTTON_RELEASED
-                 : WLR_BUTTON_PRESSED));
+            seat, event.time_msec, event.button, event.state);
 
         // Do nothing else.
         return;
@@ -868,7 +834,7 @@ rose_workspace_notify_pointer_button(
     // mode, then commit such mode, warp the pointer to its current location,
     // and do nothing else.
     if((event.button == BTN_LEFT) &&
-       (event.state == rose_pointer_button_state_released) &&
+       (event.state == WL_POINTER_BUTTON_STATE_RELEASED) &&
        (workspace->mode != rose_workspace_mode_normal)) {
         // Commit interactive mode.
         rose_workspace_commit_interactive_mode(workspace);
@@ -891,7 +857,7 @@ rose_workspace_notify_pointer_button(
             case rose_workspace_ui_selection_type_panel:
                 // If left mouse button is pressed, then toggle the menu.
                 if((event.button == BTN_LEFT) &&
-                   (event.state == rose_pointer_button_state_pressed)) {
+                   (event.state == WL_POINTER_BUTTON_STATE_PRESSED)) {
                     if(workspace->output != NULL) {
                         rose_ui_menu_toggle(&(workspace->output->ui.menu));
                     }
@@ -908,13 +874,10 @@ rose_workspace_notify_pointer_button(
 
                         break;
 
-                    case rose_output_ui_selection_type_widget:
+                    case rose_output_ui_selection_type_surface:
                         // Notify the seat of this event.
                         wlr_seat_pointer_notify_button(
-                            seat, event.time_msec, event.button,
-                            ((event.state == rose_pointer_button_state_released)
-                                 ? WLR_BUTTON_RELEASED
-                                 : WLR_BUTTON_PRESSED));
+                            seat, event.time_msec, event.button, event.state);
 
                         break;
 
@@ -937,7 +900,7 @@ rose_workspace_notify_pointer_button(
     // If left mouse button is pressed, and the workspace is in normal mode,
     // then preform additional actions.
     if((event.button == BTN_LEFT) &&
-       (event.state == rose_pointer_button_state_pressed) &&
+       (event.state == WL_POINTER_BUTTON_STATE_PRESSED) &&
        (workspace->mode == rose_workspace_mode_normal)) {
         // If there is no focused surface, then find a surface under the
         // pointer's coordinates, and focus it.
@@ -972,7 +935,7 @@ rose_workspace_notify_pointer_button(
                        rose_workspace_point_surface_relation_inside) {
                         wlr_seat_pointer_notify_button(
                             seat, event.time_msec, event.button,
-                            WLR_BUTTON_PRESSED);
+                            WL_POINTER_BUTTON_STATE_PRESSED);
                     }
 
                     // Break out of the cycle.
@@ -994,7 +957,7 @@ rose_workspace_notify_pointer_button(
                         // Notify the seat.
                         wlr_seat_pointer_notify_button(
                             seat, event.time_msec, event.button,
-                            WLR_BUTTON_PRESSED);
+                            WL_POINTER_BUTTON_STATE_PRESSED);
                     }
                 } else if(
                     relation == rose_workspace_point_surface_relation_outside) {
@@ -1033,20 +996,17 @@ rose_workspace_notify_pointer_button(
     // If the workspace is in normal mode, then notify the seat of this event.
     if(workspace->mode == rose_workspace_mode_normal) {
         wlr_seat_pointer_notify_button(
-            seat, event.time_msec, event.button,
-            ((event.state == rose_pointer_button_state_released)
-                 ? WLR_BUTTON_RELEASED
-                 : WLR_BUTTON_PRESSED));
+            seat, event.time_msec, event.button, event.state);
     }
 }
 
 void
 rose_workspace_notify_pointer_move(
-    struct rose_workspace* workspace, struct rose_pointer_event_motion event) {
+    struct rose_workspace* workspace, struct wlr_pointer_motion_event event) {
     // Move the pointer by the given delta.
     rose_workspace_pointer_warp(
-        workspace, event.time_msec, workspace->pointer.x + event.dx,
-        workspace->pointer.y + event.dy);
+        workspace, event.time_msec, workspace->pointer.x + event.delta_x,
+        workspace->pointer.y + event.delta_y);
 
     // Compute event's time in nanoseconds.
     uint64_t time_nsec = event.time_msec * 1000;
@@ -1054,13 +1014,14 @@ rose_workspace_notify_pointer_move(
     // Send relative pointer motion event.
     wlr_relative_pointer_manager_v1_send_relative_motion(
         workspace->context->relative_pointer_manager, workspace->context->seat,
-        time_nsec, event.dx, event.dy, event.dx_unaccel, event.dy_unaccel);
+        time_nsec, event.delta_x, event.delta_y, event.unaccel_dx,
+        event.unaccel_dy);
 }
 
 void
 rose_workspace_notify_pointer_warp(
     struct rose_workspace* workspace,
-    struct rose_pointer_event_motion_absolute event) {
+    struct wlr_pointer_motion_absolute_event event) {
     // Compute workspace-local coordinates from normalized coordinates, and warp
     // the pointer.
     rose_workspace_pointer_warp(

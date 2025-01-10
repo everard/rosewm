@@ -13,14 +13,15 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_output;
+struct rose_output_ui;
 struct rose_workspace;
+
+struct wlr_subsurface;
+struct wlr_surface;
 
 struct wlr_xdg_surface;
 struct wlr_xdg_toplevel;
 struct wlr_xdg_toplevel_decoration_v1;
-
-struct wlr_surface;
-struct wlr_subsurface;
 
 struct wlr_seat;
 struct wlr_pointer_constraint_v1;
@@ -31,11 +32,11 @@ struct wlr_pointer_constraint_v1;
 
 struct rose_surface_state {
     int x, y, width, height;
-    bool is_activated, is_maximized, is_fullscreen;
+    bool is_activated, is_maximized, is_minimized, is_fullscreen;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface definition.
+// Surface type definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_surface_type {
@@ -44,36 +45,71 @@ enum rose_surface_type {
     rose_surface_type_toplevel
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// Surface widget type definition.
+////////////////////////////////////////////////////////////////////////////////
+
+enum rose_surface_widget_type {
+    // Special widget types.
+    rose_surface_widget_type_screen_lock,
+    rose_surface_widget_type_background,
+
+    // Number of special widget types.
+    rose_surface_special_widget_type_count_,
+
+    // Normal widget types.
+    rose_surface_widget_type_notification =
+        rose_surface_special_widget_type_count_,
+    rose_surface_widget_type_prompt,
+    rose_surface_widget_type_panel,
+    rose_surface_widget_type_none,
+
+    // Total number of widget types.
+    rose_surface_widget_type_count_ = rose_surface_widget_type_none
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Surface definition.
+////////////////////////////////////////////////////////////////////////////////
+
 struct rose_surface {
     // Type of the surface.
     enum rose_surface_type type;
 
     // Surface's state vector.
     struct {
+        struct rose_surface_state previous;
         struct rose_surface_state current;
         struct rose_surface_state pending;
         struct rose_surface_state saved;
     } state;
 
-    // Pointers to the underlying implementation.
-    struct wlr_subsurface* subsurface;
-    struct wlr_xdg_surface* xdg_surface;
+    // Underlying implementation.
+    union {
+        struct wlr_subsurface* subsurface;
+        struct wlr_xdg_surface* xdg_surface;
+    };
 
     // Surface's type-specific data.
     union {
         // Toplevel surface data.
         struct {
-            // Pointer to the parent workspace.
-            struct rose_workspace* workspace;
+            // Type of the widget.
+            enum rose_surface_widget_type widget_type;
 
-            // Pointers to surface's decoration and pointer constraint.
+            // Parent object.
+            union {
+                struct rose_output_ui* ui;
+                struct rose_workspace* workspace;
+            } parent;
+
+            // Surface's decoration and pointer constraint.
             struct wlr_xdg_toplevel_decoration_v1* xdg_decoration;
             struct wlr_pointer_constraint_v1* pointer_constraint;
         };
 
         // Temporary surface and subsurface data (these are the same).
         struct {
-            // Pointer to the master surface.
             struct rose_surface* master;
         };
     };
@@ -113,8 +149,7 @@ struct rose_surface {
     struct rose_surface_snapshot snapshots[rose_surface_snapshot_type_count_];
 
     // Flags.
-    bool is_mapped, is_visible, is_name_updated;
-    bool is_transaction_running;
+    bool is_mapped, is_visible, is_name_updated, is_transaction_running;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,8 +157,14 @@ struct rose_surface {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct rose_surface_parameters {
-    // Surface's parent workspace.
-    struct rose_workspace* workspace;
+    // Type of the widget.
+    enum rose_surface_widget_type widget_type;
+
+    // Surface's parent object.
+    union {
+        struct rose_output_ui* ui;
+        struct rose_workspace* workspace;
+    } parent;
 
     // Underlying top-level XDG surface.
     struct wlr_xdg_toplevel* toplevel;
@@ -133,31 +174,32 @@ struct rose_surface_parameters {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Surface configuration-related definitions.
+// Configuration-related definitions.
 ////////////////////////////////////////////////////////////////////////////////
 
-enum rose_surface_configure_type {
+enum rose_surface_configuration_type {
     rose_surface_configure_size = 0x01,
     rose_surface_configure_position = 0x02,
     rose_surface_configure_activated = 0x04,
     rose_surface_configure_maximized = 0x08,
-    rose_surface_configure_fullscreen = 0x10,
-    rose_surface_configure_no_transaction = 0x20
+    rose_surface_configure_minimized = 0x10,
+    rose_surface_configure_fullscreen = 0x20,
+    rose_surface_configure_no_transaction = 0x40
 };
 
 // Surface's configuration mask. Is a bitwise OR of zero or more values from the
-// rose_surface_configure_type enumeration.
-typedef unsigned rose_surface_configure_mask;
+// rose_surface_configuration_type enumeration.
+typedef unsigned rose_surface_configuration_mask;
 
-struct rose_surface_configure_parameters {
+struct rose_surface_configuration_parameters {
     // Surface's configuration flags.
-    rose_surface_configure_mask flags;
+    rose_surface_configuration_mask flags;
 
     // Surface's requested position and size.
     int x, y, width, height;
 
     // Surface's requested state.
-    bool is_activated, is_maximized, is_fullscreen;
+    bool is_activated, is_maximized, is_minimized, is_fullscreen;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -211,7 +253,7 @@ rose_surface_make_current(struct rose_surface* surface, struct wlr_seat* seat);
 void
 rose_surface_configure(
     struct rose_surface* surface,
-    struct rose_surface_configure_parameters parameters);
+    struct rose_surface_configuration_parameters parameters);
 
 ////////////////////////////////////////////////////////////////////////////////
 // State query interface.
@@ -226,9 +268,6 @@ rose_surface_state_obtain(struct rose_surface* surface);
 
 void
 rose_surface_transaction_initialize_snapshot(struct rose_surface* surface);
-
-void
-rose_surface_transaction_destroy_snapshot(struct rose_surface* surface);
 
 void
 rose_surface_transaction_commit(struct rose_surface* surface);

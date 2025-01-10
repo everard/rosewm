@@ -35,7 +35,7 @@ rose_ui_menu_line_type_upcast(struct rose_ui_menu_line line) {
         case rose_ui_menu_line_type_surface: {
             struct rose_surface* surface = line.data;
             if(surface != NULL) {
-                result.data = surface->workspace;
+                result.data = surface->parent.workspace;
             }
 
             break;
@@ -124,7 +124,7 @@ rose_ui_menu_line_is_skipped(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Line selection utility functions and types.
+// Line selection-related utility functions and type.
 ////////////////////////////////////////////////////////////////////////////////
 
 enum rose_ui_menu_line_selection_direction {
@@ -146,9 +146,9 @@ rose_ui_menu_line_select_next(
         case rose_ui_menu_line_type_surface: {
             struct rose_surface* surface = line.data;
 
-#define select_(d)                                         \
-    ((surface->link.d != &(surface->workspace->surfaces))  \
-         ? wl_container_of(surface->link.d, surface, link) \
+#define select_(d)                                               \
+    ((surface->link.d != &(surface->parent.workspace->surfaces)) \
+         ? wl_container_of(surface->link.d, surface, link)       \
          : NULL)
 
             if(direction == rose_ui_menu_line_selection_direction_backward) {
@@ -252,7 +252,7 @@ rose_ui_menu_line_select(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Line movement utility function.
+// Line moving utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
@@ -274,9 +274,10 @@ rose_ui_menu_line_move(
             // Move the surface depending on the type of its destination.
             switch(destination.type) {
                 case rose_ui_menu_line_type_surface:
-                    if(surface->workspace != NULL) {
+                    if(surface->parent.workspace != NULL) {
                         rose_workspace_reposition_surface(
-                            surface->workspace, surface, destination.data);
+                            surface->parent.workspace, surface,
+                            destination.data);
                     }
 
                     break;
@@ -336,7 +337,7 @@ rose_ui_menu_line_move(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Layout computation utility function.
+// Layout computing utility function.
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
@@ -396,7 +397,7 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
         struct rose_output_state output_state =
             rose_output_state_obtain(menu->output);
 
-        // Prepare text-rendering-related data.
+        // Prepare text rendering-related data.
         struct rose_text_rendering_context* text_rendering_context =
             menu->output->context->text_rendering_context;
 
@@ -434,8 +435,23 @@ rose_ui_menu_layout_compute(struct rose_ui_menu* menu) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// State manipulation utility functions.
+// State manipulating utility functions.
 ////////////////////////////////////////////////////////////////////////////////
+
+static void
+rose_ui_menu_request_redraw(struct rose_ui_menu* menu) {
+    // Precondition: The menu is active.
+
+    // Initialize damage.
+    struct rose_output_damage damage = {
+        .x = menu->area.x,
+        .y = menu->area.y,
+        .width = menu->area.width,
+        .height = menu->area.height};
+
+    // Damage the output.
+    rose_output_add_damage(menu->output, damage);
+}
 
 static void
 rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
@@ -450,8 +466,10 @@ rose_ui_menu_refresh(struct rose_ui_menu* menu, struct rose_ui_menu_line skip) {
 
     // Set menu's head, if needed.
     if(rose_ui_menu_line_is_empty(menu->head)) {
-        // Obtain the relevant objects.
+        // Obtain the focused workspace.
         struct rose_workspace* workspace = menu->output->focused_workspace;
+
+        // Obtain the topmost surface.
         struct rose_surface* surface =
             ((workspace->focused_surface != NULL)
                  ? workspace->focused_surface
@@ -581,8 +599,8 @@ rose_ui_menu_set_line_type(
     // Refresh the menu.
     rose_ui_menu_refresh(menu, menu->head);
 
-    // Request focused workspace's redraw.
-    rose_workspace_request_redraw(menu->output->focused_workspace);
+    // Request redraw operation.
+    rose_ui_menu_request_redraw(menu);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -659,8 +677,8 @@ rose_ui_menu_show(
     // Refresh the menu.
     rose_ui_menu_refresh(menu, menu->head);
 
-    // Request focused workspace's redraw.
-    rose_workspace_request_redraw(menu->output->focused_workspace);
+    // Request redraw operation.
+    rose_ui_menu_request_redraw(menu);
 }
 
 void
@@ -682,10 +700,8 @@ rose_ui_menu_hide(struct rose_ui_menu* menu) {
     menu->head = menu->selection = (struct rose_ui_menu_line){};
     menu->page = (struct rose_ui_menu_page){};
 
-    // If menu's output has focused workspace, then request its redraw.
-    if(menu->output->focused_workspace != NULL) {
-        rose_workspace_request_redraw(menu->output->focused_workspace);
-    }
+    // Request parent output's redraw.
+    rose_output_request_redraw(menu->output);
 }
 
 void
@@ -722,8 +738,8 @@ rose_ui_menu_update(struct rose_ui_menu* menu) {
         rose_ui_menu_refresh(menu, skip);
     }
 
-    // Request focused workspace's redraw.
-    rose_workspace_request_redraw(menu->output->focused_workspace);
+    // Request parent output's redraw.
+    rose_output_request_redraw(menu->output);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -767,7 +783,7 @@ rose_ui_menu_move_head(struct rose_ui_menu* menu, int direction) {
         return;
     }
 
-    // Sanitize direction vector.
+    // Clamp direction vector.
     direction = clamp_(
         direction, -menu->layout.line_max_count, menu->layout.line_max_count);
 
@@ -785,8 +801,8 @@ rose_ui_menu_move_head(struct rose_ui_menu* menu, int direction) {
         rose_ui_menu_refresh(menu, skip);
     }
 
-    // Request focused workspace's redraw.
-    rose_workspace_request_redraw(menu->output->focused_workspace);
+    // Request redraw operation.
+    rose_ui_menu_request_redraw(menu);
 }
 
 void
@@ -827,8 +843,8 @@ rose_ui_menu_move_mark(struct rose_ui_menu* menu, int direction) {
     // Move the head.
     rose_ui_menu_move_head(menu, direction);
 
-    // Request focused workspace's redraw.
-    rose_workspace_request_redraw(menu->output->focused_workspace);
+    // Request redraw operation.
+    rose_ui_menu_request_redraw(menu);
 }
 
 void
@@ -877,7 +893,8 @@ rose_ui_menu_perform_action(
                 switch(line.type) {
                     case rose_ui_menu_line_type_surface: {
                         struct rose_surface* surface = line.data;
-                        struct rose_workspace* workspace = surface->workspace;
+                        struct rose_workspace* workspace =
+                            surface->parent.workspace;
 
                         if(workspace != NULL) {
                             rose_workspace_focus_surface(workspace, surface);
@@ -964,8 +981,8 @@ rose_ui_menu_perform_action(
     // Mark the menu as updated.
     menu->is_updated = true;
 
-    // Request focused workspace's redraw.
-    rose_workspace_request_redraw(menu->output->focused_workspace);
+    // Request redraw operation.
+    rose_ui_menu_request_redraw(menu);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1137,7 +1154,7 @@ rose_ui_menu_text_obtain(struct rose_ui_menu* menu) {
 
 void
 rose_ui_menu_notify_pointer_axis(
-    struct rose_ui_menu* menu, struct rose_pointer_event_axis event) {
+    struct rose_ui_menu* menu, struct wlr_pointer_axis_event event) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1153,14 +1170,14 @@ rose_ui_menu_notify_pointer_axis(
 
 void
 rose_ui_menu_notify_pointer_button(
-    struct rose_ui_menu* menu, struct rose_pointer_event_button event) {
+    struct rose_ui_menu* menu, struct wlr_pointer_button_event event) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
     }
 
     // Do nothing if button isn't pressed.
-    if(event.state != rose_pointer_button_state_pressed) {
+    if(event.state != WL_POINTER_BUTTON_STATE_PRESSED) {
         return;
     }
 
@@ -1211,7 +1228,7 @@ rose_ui_menu_notify_pointer_button(
 
 void
 rose_ui_menu_notify_pointer_warp(
-    struct rose_ui_menu* menu, uint32_t time_msec, double x, double y) {
+    struct rose_ui_menu* menu, uint32_t time, double x, double y) {
     // Do nothing if the menu is not active.
     if(!rose_ui_menu_is_active(menu)) {
         return;
@@ -1226,7 +1243,7 @@ rose_ui_menu_notify_pointer_warp(
     // Save pointer's position and movement time.
     menu->pointer.x = x;
     menu->pointer.y = y;
-    menu->pointer.movement_time_msec = time_msec;
+    menu->pointer.movement_time = time;
 
     // Save mark's current index.
     int mark_index = menu->page.mark_index;
@@ -1243,8 +1260,8 @@ rose_ui_menu_notify_pointer_warp(
         // Mark the menu as updated.
         menu->is_updated = true;
 
-        // Request focused workspace's redraw.
-        rose_workspace_request_redraw(menu->output->focused_workspace);
+        // Request redraw operation.
+        rose_ui_menu_request_redraw(menu);
     }
 }
 
@@ -1272,8 +1289,8 @@ rose_ui_menu_notify_line_add(
             // If the added line is visible, then mark the menu as updated.
             menu->is_updated = true;
 
-            // Request focused workspace's redraw.
-            rose_workspace_request_redraw(menu->output->focused_workspace);
+            // Request redraw operation.
+            rose_ui_menu_request_redraw(menu);
 
             // And break out of the cycle.
             break;
@@ -1298,8 +1315,8 @@ rose_ui_menu_notify_line_remove(
             // Refresh the menu.
             rose_ui_menu_refresh(menu, line);
 
-            // Request focused workspace's redraw.
-            rose_workspace_request_redraw(menu->output->focused_workspace);
+            // Request redraw operation.
+            rose_ui_menu_request_redraw(menu);
 
             // And break out of the cycle.
             break;
@@ -1314,8 +1331,8 @@ rose_ui_menu_notify_line_remove(
         // Mark the menu as updated.
         menu->is_updated = true;
 
-        // Request focused workspace's redraw.
-        rose_workspace_request_redraw(menu->output->focused_workspace);
+        // Request redraw operation.
+        rose_ui_menu_request_redraw(menu);
     }
 }
 
@@ -1333,8 +1350,8 @@ rose_ui_menu_notify_line_update(
             // If updated line is visible, then mark the menu as updated.
             menu->is_updated = true;
 
-            // Request focused workspace's redraw.
-            rose_workspace_request_redraw(menu->output->focused_workspace);
+            // Request redraw operation.
+            rose_ui_menu_request_redraw(menu);
 
             // And break out of the cycle.
             break;
