@@ -424,7 +424,7 @@ Build system uses `pkg-config` to obtain compiler and linker flags for
 dependencies.
 
 Dependencies:
- * wlroots version 0.17
+ * wlroots version 0.18
  * wayland-protocols
  * wayland-scanner
  * wayland-server
