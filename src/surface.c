@@ -34,6 +34,7 @@ rose_surface_state_equal(
     return (
         (x->width == y->width) && (x->height == y->height) &&
         (x->is_activated == y->is_activated) &&
+        (x->is_maximized == y->is_maximized) &&
         (x->is_fullscreen == y->is_fullscreen));
 }
 
@@ -71,7 +72,7 @@ rose_surface_state_sync(struct rose_surface* surface) {
             .width = surface->xdg_surface->surface->current.width,
             .height = surface->xdg_surface->surface->current.height,
             .is_activated = surface->xdg_surface->toplevel->current.activated,
-            .is_maximized = surface->state.pending.is_maximized,
+            .is_maximized = surface->xdg_surface->toplevel->current.maximized,
             .is_minimized = surface->state.pending.is_minimized,
             .is_fullscreen =
                 surface->xdg_surface->toplevel->current.fullscreen};
@@ -434,9 +435,8 @@ rose_handle_event_surface_commit(struct wl_listener* listener, void* data) {
         // Configure surface's decoration.
         rose_surface_set_decoration_mode(surface);
     } else if(surface->type == rose_surface_type_toplevel) {
-        // Commit surface's transaction, if needed.
-        //
-        // Note: A widget shall never have a running transaction.
+        // Commit surface's transaction, if needed. A widget surface shall never
+        // have a running transaction.
         if(surface->is_transaction_running &&
            rose_surface_state_equal(
                &(surface->state.current), &(surface->state.pending)) &&
@@ -964,6 +964,8 @@ rose_surface_configure(
 
         if((parameters.flags & rose_surface_configure_maximized) != 0) {
             target.is_maximized = parameters.is_maximized;
+            wlr_xdg_toplevel_set_maximized(
+                surface->xdg_surface->toplevel, parameters.is_maximized);
         }
 
         if((parameters.flags & rose_surface_configure_minimized) != 0) {
@@ -975,9 +977,6 @@ rose_surface_configure(
             wlr_xdg_toplevel_set_fullscreen(
                 surface->xdg_surface->toplevel, parameters.is_fullscreen);
         }
-
-        // Note: Toplevel XDG surfaces are always maximized.
-        wlr_xdg_toplevel_set_maximized(surface->xdg_surface->toplevel, true);
     }
 
     // Update surface's transaction, if needed.
@@ -1005,13 +1004,9 @@ rose_surface_configure(
 
         // Update flags.
         if(true) {
-            surface->state.previous.is_maximized =
-                surface->state.current.is_maximized;
-
             surface->state.previous.is_minimized =
                 surface->state.current.is_minimized;
 
-            surface->state.current.is_maximized = target.is_maximized;
             surface->state.current.is_minimized = target.is_minimized;
         }
 
